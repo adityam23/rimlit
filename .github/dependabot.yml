@@ -10,5 +10,6 @@ updates:
         patterns: ["*"]
     ignore:
       # v6+ bundles a proprietary caching component under Gradle's separate Terms of Use.
-      - dependency-name: gradle/actions
+      # Dependabot names sub-path actions by their full path, e.g. gradle/actions/setup-gradle.
+      - dependency-name: "gradle/actions*"
         update-types: ["version-update:semver-major"]
