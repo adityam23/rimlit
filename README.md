@@ -41,7 +41,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Releases
 
-Every merge to `main` runs lint and tests, then CI builds a signed release APK and publishes it to [Releases](https://github.com/adityam23/rimlit/releases). Signing uses four repository secrets — `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` — and nothing secret is stored in the repository. Release builds made locally without those variables are unsigned.
+Grab signed APKs from [GitHub Releases](https://github.com/adityam23/rimlit/releases).
 
 ## License
 

@@ -41,7 +41,7 @@ gradle :app:assembleRelease               # minified release APK (unsigned unles
 gradle clean                              # clean
 ```
 
-No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is wired yet (see Testing & QA). CI (`.github/workflows/ci.yml`) runs the same checks on every PR and push, and publishes a signed release to GitHub Releases on merge to `main`; the README lists the required signing secrets.
+No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is wired yet (see Testing & QA). CI (`.github/workflows/ci.yml`) runs the same checks on every PR and push, and publishes a signed release to GitHub Releases on merge to `main`; the secret names are in the workflow, and the full signing setup is in the local `docs/RELEASING.md`.
 
 ## Code Conventions & Common Patterns
 
@@ -64,8 +64,8 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is
 - `settings.gradle.kts` — repos + `include(":app")`.
 - `gradle.properties` — caching, parallel, configuration-cache, androidx flags.
 - `app/proguard-rules.pro` — R8 rules; currently empty because AAPT2 already keeps manifest-declared components. Add rules only for code reached by reflection.
-- `.github/workflows/ci.yml` — CI: lint/test/debug build on every PR and push; on `main`, a signed release APK published as a GitHub Release (signing secrets listed in the README).
-- `README.md` — public overview, screenshots, build and release basics.
+- `.github/workflows/ci.yml` — CI: lint/test/debug build on every PR and push; on `main`, a signed release APK published as a GitHub Release (full signing setup in the local `docs/RELEASING.md`).
+- `README.md` — public overview, screenshots, install and build basics.
 - `docs/` — local-only (gitignored) maintainer docs, e.g. `docs/RELEASING.md` (full signing-key setup). May be absent in a fresh clone; never commit it.
 - `HANDOFF.md` — local-only (gitignored) maintainer notes: status, architecture, contracts, gotchas, roadmap. Read it first when present; never commit it or copy it into tracked files.
 
