@@ -1,0 +1,106 @@
+<resources>
+    <string name="app_name">Rimlit</string>
+    <string name="notification_listener_label">Rimlit notifications</string>
+
+    <string name="master_toggle_title">Edge lighting</string>
+    <string name="master_toggle_subtitle">Glow the screen edges when a notification arrives</string>
+
+    <string name="section_permissions">Permissions</string>
+
+    <string name="perm_notification_title">Notification access</string>
+    <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps.</string>
+    <string name="perm_overlay_title">Display over other apps</string>
+    <string name="perm_overlay_desc">Lets Rimlit glow while the screen is on.</string>
+    <string name="perm_fsi_title">Full-screen notifications</string>
+    <string name="perm_fsi_desc">Lets Rimlit glow on the lock screen. Android 14 and newer hide this behind a separate grant.</string>
+    <string name="perm_battery_title">Unrestricted battery</string>
+    <string name="perm_battery_desc">Recommended so the glow is not delayed by battery optimization.</string>
+
+    <string name="status_granted">Granted</string>
+    <string name="status_needed">Required</string>
+
+    <string name="info_text">Rimlit lights up the screen border whenever any app posts a notification. With the screen off or locked it shows the glow on a black, always-on-display style screen; while the screen is on it draws an overlay. Some OEMs (Xiaomi, Huawei, OnePlus) additionally require enabling autostart in their own battery settings.</string>
+    <!-- Notification channel & lock-screen glow notification -->
+    <string name="notification_channel_name">Edge lighting</string>
+    <string name="notification_channel_desc">Glow shown on the lock screen when a notification arrives</string>
+    <string name="notification_glow_title">Rimlit</string>
+
+    <!-- Home screen settings navigation -->
+    <string name="section_settings">Settings</string>
+    <string name="nav_apps_title">Apps</string>
+    <string name="nav_apps_subtitle">Choose which apps trigger edge lighting</string>
+    <string name="nav_style_title">Style</string>
+    <string name="nav_style_subtitle">Glow style, colors, and tuning</string>
+    <string name="nav_behavior_title">Behavior</string>
+    <string name="nav_behavior_subtitle">Lock screen and on-screen behavior</string>
+    <string name="back">Back</string>
+
+    <!-- Apps (blocklist) screen -->
+    <string name="apps_search_hint">Search apps</string>
+    <string name="apps_empty">No apps found</string>
+    <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own colors.</string>
+
+    <!-- Style screen -->
+    <string name="style_section">Glow style</string>
+    <string name="style_basic_title">Basic</string>
+    <string name="style_basic_desc">Crisp breathing edge</string>
+    <string name="style_glow_title">Glow</string>
+    <string name="style_glow_desc">Soft bloom with a bright core</string>
+    <string name="style_blade_title">Blade</string>
+    <string name="style_blade_desc">A light racing around the edge</string>
+    <string name="color_section">Color</string>
+    <string name="color_auto_title">Auto</string>
+    <string name="color_auto_desc">Colors from the notifying app</string>
+    <string name="color_custom_title">Custom</string>
+    <string name="color_custom_desc">One color, or a gradient of up to 5</string>
+    <string name="duration_section">Duration</string>
+    <string name="color_rainbow_title">Rainbow</string>
+    <string name="color_rainbow_desc">Every color, flowing around the edge</string>
+
+    <!-- Tuning -->
+    <string name="tuning_section">Tuning</string>
+    <string name="thickness_label">Thickness</string>
+    <string name="glow_width_label">Glow width</string>
+    <string name="speed_label">Speed</string>
+    <string name="brightness_label">Brightness</string>
+    <string name="value_dp">%1$d dp</string>
+    <string name="value_multiplier">%1$.2f×</string>
+    <string name="value_percent">%1$d%%</string>
+    <string name="value_seconds">%1$.1f s</string>
+
+    <!-- Palette editor -->
+    <string name="palette_add">Add color</string>
+    <string name="palette_remove">Remove selected color</string>
+    <string name="palette_hue">Hue</string>
+
+    <!-- Per-app palette -->
+    <string name="app_palette_edit">Edit app colors</string>
+    <string name="app_palette_title">Colors for %1$s</string>
+    <string name="app_palette_use_default">Use default</string>
+    <string name="save">Save</string>
+
+    <!-- Glow area -->
+    <string name="region_section">Glow area</string>
+    <string name="region_full_title">Around screen edge</string>
+    <string name="region_full_desc">Glow traces the whole screen border</string>
+    <string name="region_cutout_title">Around camera cutout</string>
+    <string name="region_cutout_desc">Glow rings the front camera</string>
+    <string name="region_cutout_unavailable">This device has no camera cutout</string>
+    <string name="preview_button">Send test notification</string>
+
+    <!-- Test notification channel (style preview) -->
+    <string name="test_notification_channel_name">Test notification</string>
+    <string name="test_notification_channel_desc">Notifications used to preview the glow</string>
+    <string name="test_notification_title">Rimlit test</string>
+    <string name="test_notification_desc">This is what your glow looks like</string>
+
+    <!-- Behavior screen -->
+    <string name="behavior_section">Behavior</string>
+    <string name="show_locked_title">Lock screen</string>
+    <string name="show_locked_desc">Glow when the screen is locked</string>
+    <string name="show_unlocked_title">Screen on</string>
+    <string name="show_unlocked_desc">Glow while the screen is on</string>
+    <string name="preview_section">Preview</string>
+    <string name="preview_locked">Preview lock screen</string>
+    <string name="preview_unlocked">Preview on-screen</string>
+</resources>

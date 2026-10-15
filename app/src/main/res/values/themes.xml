@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.App" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Opaque black, animation-free window for the AOD-style lock-screen glow (full-screen intent). -->
+    <style name="Theme.App.LockScreenGlow" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
+</resources>
