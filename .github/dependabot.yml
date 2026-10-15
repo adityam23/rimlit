@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Keeps the SHA-pinned actions in .github/workflows current; each bump arrives as a PR that CI checks.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    ignore:
+      # v6+ bundles a proprietary caching component under Gradle's separate Terms of Use.
+      - dependency-name: gradle/actions
+        update-types: ["version-update:semver-major"]
