@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Overlay-only service: no accessibilityEventTypes (receives no events), no window-content access, no
+  gestures or key filtering. isAccessibilityTool="false" because it doesn't assist users with disabilities,
+  so Android shows its full-control warning truthfully (API 31+; older versions ignore it).
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/accessibility_service_desc"
+    android:isAccessibilityTool="false"
+    android:notificationTimeout="0"
+    tools:targetApi="31" />

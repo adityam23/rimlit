@@ -23,12 +23,12 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 - `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `toGlowSpec`), `GlowSpec.kt` (parcelable render input, `GlowPalette`)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
 - `.../notify/` — `NotificationColorExtractor.kt` (1–3 color palette from notification imagery)
-- `.../overlay/` — `EdgeOverlayController.kt` (system overlay window)
+- `.../overlay/` — `EdgeOverlayController.kt` (overlay window, app or accessibility type), `GlowAccessibilityService.kt` (optional, inert: hosts the accessibility overlay that draws above the lock screen)
 - `.../ui/glow/` — `EdgeGlow` (renderer), `GlowHost` (fade/hold timeline), `GlowGeometry`, `GlowColors`, `WindowCutout`
 - `.../ui/components/` — `SettingsComponents.kt` (scaffold, list, `SettingCard`, `SettingSlider`), `PaletteEditor.kt`
 - `.../ui/` — `MainScreen`, `StyleScreen`, `AppsScreen`, `BehaviorScreen`, `AppNavHost` (nav); `.../ui/theme/`
 - `.../permissions/` — `Permissions.kt` (checks + settings links)
-- `app/src/main/res/` — `values/` (strings, themes, launcher background), `drawable/` + `mipmap-anydpi/` (adaptive icon), `xml/data_extraction_rules.xml`
+- `app/src/main/res/` — `values/` (strings, themes, launcher background), `drawable/` + `mipmap-anydpi/` (adaptive icon), `xml/data_extraction_rules.xml`, `xml/glow_accessibility_service.xml`
 - `gradle/` — `libs.versions.toml` (version catalog)
 
 ## Development Commands
@@ -56,7 +56,7 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is
 
 ## Important Files
 
-- `app/src/main/AndroidManifest.xml` — permissions (`POST_NOTIFICATIONS`, `USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) and components (`MainActivity`, `LockScreenGlowActivity`, `GlowListenerService`).
+- `app/src/main/AndroidManifest.xml` — permissions (`POST_NOTIFICATIONS`, `USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) and components (`MainActivity`, `LockScreenGlowActivity`, `GlowListenerService`, `GlowAccessibilityService` + `res/xml/glow_accessibility_service.xml`).
 - `app/src/main/java/app/rimlit/MainActivity.kt` — entry point; requests `POST_NOTIFICATIONS`; refreshes permission state in `onResume`.
 - `app/build.gradle.kts` — module config (SDK levels, deps, Java 11 / Kotlin jvmTarget 11, lint config). Release signing and `versionCode` come only from `RELEASE_*` environment variables.
 - `build.gradle.kts` — root; bumps KGP to the catalog `kotlin` version (2.4.21) via `buildscript classpath` (JDK 25 support).

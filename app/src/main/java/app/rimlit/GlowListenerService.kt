@@ -13,6 +13,7 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.NotificationColorExtractor
 import app.rimlit.overlay.EdgeOverlayController
+import app.rimlit.overlay.GlowAccessibilityService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,8 +38,8 @@ class GlowListenerService : NotificationListenerService() {
         repository.settings.stateIn(scope, SharingStarted.Eagerly, null)
     }
 
-    /** The notification currently driving the overlay, so only its own dismissal/answer hides the glow. */
-    private data class OverlaySource(val key: String, val ringing: Boolean)
+    /** The notification driving an overlay, and which overlay, so only its own dismissal/answer hides the glow. */
+    private data class OverlaySource(val key: String, val ringing: Boolean, val overlay: EdgeOverlayController)
 
     private var overlaySource: OverlaySource? = null
 
@@ -85,9 +86,10 @@ class GlowListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         sbn ?: return
         activeKeys.remove(sbn.key)
-        if (sbn.key == overlaySource?.key) {
+        val source = overlaySource
+        if (source != null && sbn.key == source.key) {
             overlaySource = null
-            overlayController.dismiss()
+            source.overlay.dismiss()
         }
     }
 
@@ -102,7 +104,7 @@ class GlowListenerService : NotificationListenerService() {
         val source = overlaySource
         if (source != null && source.ringing && sbn.key == source.key && !isRinging) {
             overlaySource = null
-            overlayController.dismiss()
+            source.overlay.dismiss()
         }
 
         if (!current.enabled && !isTest) return
@@ -119,17 +121,20 @@ class GlowListenerService : NotificationListenerService() {
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive == true
         val spec = current.toGlowSpec(sbn.packageName) { NotificationColorExtractor.extract(this, sbn) }
 
-        // Only "screen on and unlocked" can host the overlay. Everything else — locked, or screen off
-        // without a keyguard (no lock screen / lock grace period) — needs the activity to wake the screen.
-        // Ringing events never take the lock-screen path: their own full-screen UI (call/alarm screen)
-        // is already launching, and our opaque AOD activity would cover Answer/Dismiss.
-        val inUse = interactive && !locked
-        when {
-            !inUse && current.showWhenLocked && !isRinging -> showLockScreenGlow(spec)
-            inUse && current.showWhenUnlocked -> {
-                overlayController.show(spec)
-                overlaySource = OverlaySource(sbn.key, isRinging)
-            }
+        if (!interactive || LockScreenGlowActivity.isVisible) {
+            // Screen off (with or without a keyguard): only the full-screen activity can wake it, and while
+            // its AOD glow is up it takes re-deliveries too. Ringing events never take this path: their own
+            // full-screen UI (call/alarm screen) is already launching, and our opaque activity would cover it.
+            if (current.showWhenLocked && !isRinging) showLockScreenGlow(spec)
+            return
+        }
+        // Screen on. The accessibility overlay draws above the lock screen too; the app overlay is hidden
+        // by it, so without the accessibility service a visible lock screen gets no glow.
+        val wanted = if (locked) current.showWhenLocked else current.showWhenUnlocked
+        val overlay = GlowAccessibilityService.overlay ?: overlayController.takeIf { !locked }
+        if (wanted && overlay != null) {
+            overlay.show(spec)
+            overlaySource = OverlaySource(sbn.key, isRinging, overlay)
         }
     }
 
