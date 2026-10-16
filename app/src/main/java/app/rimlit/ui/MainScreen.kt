@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Tune
@@ -119,9 +120,13 @@ private fun PermissionState(status: PermissionStatus) {
     } else {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = stringResource(R.string.status_needed),
+                text = stringResource(if (status.kind.optional) R.string.status_optional else R.string.status_needed),
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.error,
+                color = if (status.kind.optional) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
             )
             Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -132,6 +137,7 @@ private fun PermissionKind.icon(): ImageVector = when (this) {
     PermissionKind.NOTIFICATION_ACCESS -> Icons.Filled.Notifications
     PermissionKind.OVERLAY -> Icons.Filled.Layers
     PermissionKind.FULL_SCREEN_INTENT -> Icons.Filled.Fullscreen
+    PermissionKind.ACCESSIBILITY -> Icons.Filled.Lock
     PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
 }
 
@@ -141,6 +147,7 @@ private fun PermissionKind.title(): String = stringResource(
         PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_title
         PermissionKind.OVERLAY -> R.string.perm_overlay_title
         PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_title
+        PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_title
         PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_title
     },
 )
@@ -151,6 +158,7 @@ private fun PermissionKind.description(): String = stringResource(
         PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_desc
         PermissionKind.OVERLAY -> R.string.perm_overlay_desc
         PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_desc
+        PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_desc
         PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_desc
     },
 )

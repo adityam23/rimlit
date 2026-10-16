@@ -26,11 +26,17 @@ import app.rimlit.ui.glow.GlowRequest
 import app.rimlit.ui.glow.drawIntoCutout
 
 /**
- * Draws the glow in a system overlay window while the screen is on. One window at most: a new [show]
+ * Draws the glow in an overlay window while the screen is on. One window at most: a new [show]
  * while visible re-targets the existing window instead of re-creating it (no flicker).
  * Main thread only.
+ *
+ * [windowType] is `TYPE_APPLICATION_OVERLAY` ("Display over other apps"; hidden by the lock screen) by
+ * default, or `TYPE_ACCESSIBILITY_OVERLAY` when [context] is a connected [GlowAccessibilityService].
  */
-class EdgeOverlayController(private val context: Context) {
+class EdgeOverlayController(
+    private val context: Context,
+    private val windowType: Int = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+) {
 
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private var overlay: Overlay? = null
@@ -68,7 +74,7 @@ class EdgeOverlayController(private val context: Context) {
     private fun layoutParams() = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
         WindowManager.LayoutParams.MATCH_PARENT,
-        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        windowType,
         // Never steal input: the glow is purely decorative.
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
