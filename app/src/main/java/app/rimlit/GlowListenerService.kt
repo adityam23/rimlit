@@ -151,6 +151,8 @@ class GlowListenerService : NotificationListenerService() {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.notification_glow_title))
             .setFullScreenIntent(pendingIntent, true)
+            // Only a trampoline to wake the screen: never bridge it to a watch, where it would mask the real one.
+            .setLocalOnly(true)
             .setAutoCancel(true)
             .setTimeoutAfter(spec.durationMs)
             .build()
