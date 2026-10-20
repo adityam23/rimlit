@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">Rimlit</string>
     <string name="notification_listener_label">Rimlit notifications</string>
+    <string name="accessibility_service_label">Rimlit lock screen glow</string>
+    <string name="accessibility_service_desc">Draws the edge glow above the lock screen. Rimlit only uses this to show its glow window: it receives no accessibility events and cannot read or control anything on your screen.</string>
 
     <string name="master_toggle_title">Edge lighting</string>
     <string name="master_toggle_subtitle">Glow the screen edges when a notification arrives</string>
@@ -12,14 +14,17 @@
     <string name="perm_overlay_title">Display over other apps</string>
     <string name="perm_overlay_desc">Lets Rimlit glow while the screen is on.</string>
     <string name="perm_fsi_title">Full-screen notifications</string>
-    <string name="perm_fsi_desc">Lets Rimlit glow on the lock screen. Android 14 and newer hide this behind a separate grant.</string>
+    <string name="perm_fsi_desc">Lets Rimlit wake the screen to glow while it is off. Android 14 and newer hide this behind a separate grant.</string>
+    <string name="perm_accessibility_title">Lock screen glow</string>
+    <string name="perm_accessibility_desc">Lets Rimlit glow above the lock screen while it is showing. Turn on \"Rimlit lock screen glow\" in Accessibility settings; on Android 13 and newer, sideloaded apps may first need \"Allow restricted settings\" from Rimlit\'s App info menu.</string>
     <string name="perm_battery_title">Unrestricted battery</string>
     <string name="perm_battery_desc">Recommended so the glow is not delayed by battery optimization.</string>
 
     <string name="status_granted">Granted</string>
     <string name="status_needed">Required</string>
+    <string name="status_optional">Optional</string>
 
-    <string name="info_text">Rimlit lights up the screen border whenever any app posts a notification. With the screen off or locked it shows the glow on a black, always-on-display style screen; while the screen is on it draws an overlay. Some OEMs (Xiaomi, Huawei, OnePlus) additionally require enabling autostart in their own battery settings.</string>
+    <string name="info_text">Rimlit lights up the screen border whenever any app posts a notification. With the screen off it wakes into a black, always-on-display style glow; while the screen is on it draws an overlay, including above the lock screen when the optional lock screen glow is enabled. Some OEMs (Xiaomi, Huawei, OnePlus) additionally require enabling autostart in their own battery settings.</string>
     <!-- Notification channel & lock-screen glow notification -->
     <string name="notification_channel_name">Edge lighting</string>
     <string name="notification_channel_desc">Glow shown on the lock screen when a notification arrives</string>

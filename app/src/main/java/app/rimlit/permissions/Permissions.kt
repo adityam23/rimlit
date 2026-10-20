@@ -1,19 +1,22 @@
 package app.rimlit.permissions
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 
-/** Special-access grants the feature depends on. */
-enum class PermissionKind {
+/** Special-access grants the feature depends on; [optional] ones only unlock extra behaviour. */
+enum class PermissionKind(val optional: Boolean = false) {
     NOTIFICATION_ACCESS,
     OVERLAY,
     FULL_SCREEN_INTENT,
+    ACCESSIBILITY(optional = true),
     BATTERY_OPTIMIZATION,
 }
 
@@ -31,6 +34,7 @@ object PermissionChecks {
                 PermissionKind.NOTIFICATION_ACCESS -> hasNotificationAccess(context)
                 PermissionKind.OVERLAY -> hasOverlayPermission(context)
                 PermissionKind.FULL_SCREEN_INTENT -> canUseFullScreenIntent(context)
+                PermissionKind.ACCESSIBILITY -> hasAccessibilityService(context)
                 PermissionKind.BATTERY_OPTIMIZATION -> ignoresBatteryOptimizations(context)
             },
         )
@@ -45,6 +49,12 @@ object PermissionChecks {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
         val manager = context.getSystemService(NotificationManager::class.java)
         return manager != null && manager.canUseFullScreenIntent()
+    }
+
+    fun hasAccessibilityService(context: Context): Boolean {
+        val manager = context.getSystemService(AccessibilityManager::class.java) ?: return false
+        return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { it.resolveInfo.serviceInfo.packageName == context.packageName }
     }
 
     fun ignoresBatteryOptimizations(context: Context): Boolean {
@@ -79,6 +89,13 @@ object PermissionLinks {
         } else {
             notificationAppSettings(context)
         }
+    }
+
+    fun accessibility(context: Context) {
+        context.startActivity(
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 
     fun batteryOptimization(context: Context) {

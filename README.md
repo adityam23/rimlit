@@ -8,7 +8,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 
 ## Features
 
-- **Works everywhere:** while you use the phone the glow is drawn over whatever is on screen; when the screen is off or locked it wakes into a black, always-on-display style glow.
+- **Works everywhere:** while you use the phone the glow is drawn over whatever is on screen; when the screen is off it wakes into a black, always-on-display style glow. With the optional lock screen glow it also frames the lock screen itself.
 - **Three styles:** a crisp breathing edge, a soft bloom with a bright core, or a blade of light racing around the screen.
 - **Your colors:** colors picked automatically from the notifying app, a single custom color, a gradient of up to five colors, or a flowing rainbow. Any app can get its own palette.
 - **Tune it:** thickness, glow width, speed, brightness and duration, with a live preview that updates as you drag.
@@ -23,7 +23,8 @@ Open Rimlit, turn on **Edge lighting**, and grant the permissions listed on the 
 
 - **Notification access** — to notice when notifications arrive. Rimlit only looks at which app posted it and its colors; nothing is stored or sent anywhere.
 - **Display over other apps** — to draw the glow while you use the phone.
-- **Full-screen notifications** — to show the glow when the screen is off or locked.
+- **Full-screen notifications** — to wake the screen and show the glow when it is off.
+- **Lock screen glow** (optional) — an accessibility service that lets Rimlit draw the glow above the lock screen while it is showing. It only owns the glow window: it receives no accessibility events and cannot read or control anything on screen. On Android 13 and newer you may first need to tap **Allow restricted settings** in Rimlit's App info menu.
 - **Unrestricted battery** (recommended) — so the system doesn't delay the glow. Some phones (Xiaomi, Huawei, OnePlus) also need autostart enabled in their own battery settings.
 
 ## Privacy

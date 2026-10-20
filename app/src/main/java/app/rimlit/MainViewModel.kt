@@ -17,6 +17,7 @@ import app.rimlit.model.DEFAULT_GLOW_ARGB
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.overlay.EdgeOverlayController
+import app.rimlit.overlay.GlowAccessibilityService
 import app.rimlit.permissions.PermissionChecks
 import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.PermissionLinks
@@ -66,6 +67,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             PermissionKind.NOTIFICATION_ACCESS -> PermissionLinks.notificationAccess(app)
             PermissionKind.OVERLAY -> PermissionLinks.overlay(app)
             PermissionKind.FULL_SCREEN_INTENT -> PermissionLinks.fullScreenIntent(app)
+            PermissionKind.ACCESSIBILITY -> PermissionLinks.accessibility(app)
             PermissionKind.BATTERY_OPTIMIZATION -> PermissionLinks.batteryOptimization(app)
         }
     }
@@ -78,7 +80,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Shows the on-screen overlay glow for [spec] immediately (preview), bypassing the notification pipeline. */
     fun previewOverlay(spec: GlowSpec) {
-        overlayController.show(spec)
+        (GlowAccessibilityService.overlay ?: overlayController).show(spec)
     }
 
     /**
