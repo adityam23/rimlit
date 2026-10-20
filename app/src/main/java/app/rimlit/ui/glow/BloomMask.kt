@@ -22,8 +22,9 @@ internal class BloomMask(geometry: GlowGeometry, width: Float, height: Float, st
     private val bitmap: Bitmap?
 
     /**
-     * The (bitmap source, window destination) rects to draw each frame. A screen-edge halo is four strips
-     * around its empty middle, so the GPU never shades that middle (a clip-out would still shade it).
+     * The (bitmap source, window destination) rects to draw each frame. A screen-edge halo is a band around
+     * an empty middle, drawn as four corner squares and four thin edge strips, so the GPU shades only the
+     * band (a clip-out would still shade the middle).
      */
     private val pieces: List<Pair<Rect, Rect>>
 
@@ -34,21 +35,32 @@ internal class BloomMask(geometry: GlowGeometry, width: Float, height: Float, st
         val area = Rect()
         if (halo.intersect(0f, 0f, width, height)) halo.roundOut(area)
         bitmap = area.takeIf { !it.isEmpty }?.let { render(geometry, it, strokePx, blurPx) }
-        // Corners curve inward by at most their radius, so past reach + radius from the bounds there is no halo.
-        val inset = reach + geometry.cornerRadius
-        val hollow = RectF(geometry.bounds).apply { inset(inset, inset) }
-        val destinations = if (hollow.width() > 0f && hollow.height() > 0f) {
-            val left = ceil(hollow.left).toInt()
-            val top = ceil(hollow.top).toInt()
-            val right = floor(hollow.right).toInt()
-            val bottom = floor(hollow.bottom).toInt()
+        // Along the straight edges the halo ends `reach` in from the bounds. Corners curve inward by at most
+        // their radius, so near them it ends within reach + radius; each corner square is that size.
+        val corner = reach + geometry.cornerRadius
+        val bounds = geometry.bounds
+        val destinations = if (bounds.width() > 2f * corner && bounds.height() > 2f * corner) {
+            // Edge strip inner sides and corner square inner sides, rounded outward so no halo pixel is lost.
+            val stripLeft = ceil(bounds.left + reach).toInt()
+            val stripTop = ceil(bounds.top + reach).toInt()
+            val stripRight = floor(bounds.right - reach).toInt()
+            val stripBottom = floor(bounds.bottom - reach).toInt()
+            val cornerLeft = ceil(bounds.left + corner).toInt()
+            val cornerTop = ceil(bounds.top + corner).toInt()
+            val cornerRight = floor(bounds.right - corner).toInt()
+            val cornerBottom = floor(bounds.bottom - corner).toInt()
             listOf(
-                Rect(area.left, area.top, area.right, top),
-                Rect(area.left, bottom, area.right, area.bottom),
-                Rect(area.left, top, left, bottom),
-                Rect(right, top, area.right, bottom),
-            ).filter { it.intersect(area) }
+                Rect(area.left, area.top, cornerLeft, cornerTop),
+                Rect(cornerRight, area.top, area.right, cornerTop),
+                Rect(area.left, cornerBottom, cornerLeft, area.bottom),
+                Rect(cornerRight, cornerBottom, area.right, area.bottom),
+                Rect(cornerLeft, area.top, cornerRight, stripTop),
+                Rect(cornerLeft, stripBottom, cornerRight, area.bottom),
+                Rect(area.left, cornerTop, stripLeft, cornerBottom),
+                Rect(stripRight, cornerTop, area.right, cornerBottom),
+            ).filter { it.intersect(area) } // Clips each piece to the bitmap in place; drops the empty ones.
         } else {
+            // A cutout ring (or tiny outline) is all corner: no empty middle to skip.
             listOf(area)
         }
         pieces = destinations.map { Rect(it).apply { offset(-area.left, -area.top) } to it }

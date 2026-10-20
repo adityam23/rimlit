@@ -92,8 +92,8 @@ class LockScreenGlowActivity : ComponentActivity() {
     }
 
     /**
-     * Clears [isVisible] at once, on every exit, so a notification racing the finish takes the normal routing.
-     * Only if it is still ours: that notification may already have started a newer instance.
+     * Clears [visibleInstance] at once, on every exit, so a notification racing the finish takes the normal
+     * routing. Only if it is still ours: that notification may already have started a newer instance.
      */
     override fun finish() {
         if (visibleInstance == instanceId) visibleInstance = null
