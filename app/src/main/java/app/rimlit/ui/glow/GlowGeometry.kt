@@ -2,6 +2,7 @@ package app.rimlit.ui.glow
 
 import android.graphics.Path
 import android.graphics.PathMeasure
+import android.graphics.PointF
 import android.graphics.RectF
 import android.os.Build
 import android.view.RoundedCorner
@@ -19,21 +20,20 @@ internal class GlowGeometry(val path: Path) {
     val measure = PathMeasure(path, true)
     val length: Float = measure.length
 
+    /** Centre that angles (and sweep gradients) are measured around. */
+    val center: PointF = RectF().also { path.computeBounds(it, true) }.let { PointF(it.centerX(), it.centerY()) }
+
+    private val pos = FloatArray(2)
+
     /** For each of [SAMPLES] evenly spaced points along the outline: its angle around the centre, in [0, 1). */
-    val sampleAngles = FloatArray(SAMPLES)
+    val sampleAngles = FloatArray(SAMPLES) { angleAt(length * it / SAMPLES) }
 
-    init {
-        val bounds = RectF().also { path.computeBounds(it, true) }
-        val pos = FloatArray(2)
-        for (i in 0 until SAMPLES) {
-            measure.getPosTan(length * i / SAMPLES, pos, null)
-            val angle = atan2(pos[1] - bounds.centerY(), pos[0] - bounds.centerX()) / (2 * PI).toFloat()
-            sampleAngles[i] = (angle + 1f) % 1f
-        }
+    /** Angle around [center], in [0, 1), of the outline point at arc [distance] (any real; wraps). */
+    fun angleAt(distance: Float): Float {
+        measure.getPosTan((distance % length + length) % length, pos, null)
+        val angle = atan2(pos[1] - center.y, pos[0] - center.x) / (2 * PI).toFloat()
+        return (angle + 1f) % 1f
     }
-
-    /** Sample indices ordered by angle, as a sweep gradient needs monotonic positions. */
-    val angleOrder: IntArray = (0 until SAMPLES).sortedBy { sampleAngles[it] }.toIntArray()
 
     companion object {
         /** Resolution of the arc-length → angle mapping used for gradients. */

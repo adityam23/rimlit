@@ -3,7 +3,6 @@ package app.rimlit
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,8 +29,9 @@ import app.rimlit.ui.glow.drawIntoCutout
 /**
  * AOD-style glow for when the screen is off or locked, launched via a full-screen-intent notification.
  *
- * Black background + glow. Once the glow fades, the screen stays black at minimum brightness (looks off on
- * OLED) until the system screen timeout; any touch or the screen turning off dismisses it.
+ * Black background + glow. The activity closes as soon as the glow fades (or on any touch, or when the screen
+ * turns off), handing back to the keyguard and its short timeout: holding the woken screen until the system
+ * timeout made screen-on time the app's main battery cost.
  */
 class LockScreenGlowActivity : ComponentActivity() {
 
@@ -57,14 +57,14 @@ class LockScreenGlowActivity : ComponentActivity() {
                     .pointerInput(Unit) {
                         awaitEachGesture {
                             awaitFirstDown()
-                            finish()
+                            close()
                         }
                     },
             ) {
                 GlowHost(
                     request = current,
                     dismissed = false,
-                    onFinished = { setScreenBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF) },
+                    onFinished = ::close,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -92,15 +92,16 @@ class LockScreenGlowActivity : ComponentActivity() {
     private fun show(intent: Intent) {
         val spec = IntentCompat.getParcelableExtra(intent, EXTRA_SPEC, GlowSpec::class.java)
         if (spec == null) {
-            finish()
+            close()
             return
         }
-        setScreenBrightness(WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE)
         request = GlowRequest(spec)
     }
 
-    private fun setScreenBrightness(brightness: Float) {
-        window.attributes = window.attributes.apply { screenBrightness = brightness }
+    /** Clears [isVisible] at once, so a notification racing the finish takes the normal routing, not this instance. */
+    private fun close() {
+        isVisible = false
+        finish()
     }
 
     companion object {
