@@ -37,6 +37,9 @@ class LockScreenGlowActivity : ComponentActivity() {
 
     private var request by mutableStateOf<GlowRequest?>(null)
 
+    /** Identifies this instance in [visibleInstance] (a static Activity reference would leak it). */
+    private val instanceId = nextInstanceId++
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -79,7 +82,7 @@ class LockScreenGlowActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        isVisible = true
+        visibleInstance = instanceId
     }
 
     /** Screen turned off (or user left): the AOD moment is over. */
@@ -88,9 +91,12 @@ class LockScreenGlowActivity : ComponentActivity() {
         finish()
     }
 
-    /** Clears [isVisible] at once, on every exit, so a notification racing the finish takes the normal routing. */
+    /**
+     * Clears [isVisible] at once, on every exit, so a notification racing the finish takes the normal routing.
+     * Only if it is still ours: that notification may already have started a newer instance.
+     */
     override fun finish() {
-        isVisible = false
+        if (visibleInstance == instanceId) visibleInstance = null
         super.finish()
     }
 
@@ -106,9 +112,14 @@ class LockScreenGlowActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_SPEC = "extra_spec"
 
+        private var nextInstanceId = 0
+
+        /** The instance currently started and not finishing, if any. Main thread only. */
+        private var visibleInstance: Int? = null
+
         /** Read by the listener (same process, main thread) to re-deliver instead of re-posting the FSI. */
-        var isVisible = false
-            private set
+        val isVisible: Boolean
+            get() = visibleInstance != null
 
         fun newIntent(context: Context, spec: GlowSpec): Intent =
             Intent(context, LockScreenGlowActivity::class.java)

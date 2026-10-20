@@ -68,7 +68,7 @@ fun EdgeGlow(spec: GlowSpec, modifier: Modifier = Modifier, preview: Boolean = f
                     width = size.width,
                     height = size.height,
                     shape = shape,
-                    ringCutout = spec.region == EdgeRegion.CUTOUT && shape.cutout != null,
+                    ringCutout = spec.region == EdgeRegion.CUTOUT,
                     thicknessPx = thicknessPx,
                     cutoutGapPx = 4.dp.toPx(),
                     bloomPx = if (spec.style == GlowStyle.BASIC) 0f else glowPx,
@@ -119,7 +119,7 @@ private class GlowPainter(
 
     private val bloom = Paint(Paint.FILTER_BITMAP_FLAG).apply { solidColor?.let { color = it } }
 
-    private val blade = BladeFade(geometry, solidColor ?: Color.WHITE)
+    private val blade = BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
 
     fun draw(canvas: Canvas, t: Float) {
         val palette = paletteShader(t)
@@ -132,7 +132,7 @@ private class GlowPainter(
             GlowStyle.BLADE -> {
                 drawOutline(canvas, palette, 0.18f)
                 val lap = t * BLADE_LAPS_PER_SECOND * spec.speed
-                blade.moveTo(head = (lap - floor(lap)) * geometry.length, tail = BLADE_TAIL * geometry.length)
+                blade.moveTo(head = (lap - floor(lap)) * geometry.length)
                 drawBloom(canvas, comet(blade.shader(edge = glowPx), palette), 0.8f)
                 drawOutline(canvas, comet(blade.shader(edge = CRISP_EDGE_PX), palette), 1f)
             }

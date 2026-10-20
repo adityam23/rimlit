@@ -37,12 +37,12 @@ internal fun arcLengthShader(geometry: GlowGeometry, palette: GlowPalette, phase
 }
 
 /**
- * The blade comet as shaders: [color] fading in quadratically along the tail up to the head, then fading
- * out over an edge length, transparent elsewhere; stroking the whole outline with one draws the comet in a
- * single pass. The stop colors never change: [moveTo] places the tail once per frame, and each [shader]
- * call only adds its own head edge.
+ * The blade comet as shaders: [color] fading in quadratically along a [tail] (arc length) up to the head,
+ * then fading out over an edge length, transparent elsewhere; stroking the whole outline with one draws the
+ * comet in a single pass. The stop colors never change: [moveTo] places the tail once per frame, and each
+ * [shader] call only adds its own head edge.
  */
-internal class BladeFade(private val geometry: GlowGeometry, color: Int) {
+internal class BladeFade(private val geometry: GlowGeometry, private val tail: Float, color: Int) {
 
     private val angles = FloatArray(STEPS + 2)
     private val colors = IntArray(STEPS + 2).also {
@@ -55,15 +55,18 @@ internal class BladeFade(private val geometry: GlowGeometry, color: Int) {
     }
     private var head = 0f
 
-    /** Places the head at arc distance [head], with the tail trailing it by [tail]. */
-    fun moveTo(head: Float, tail: Float) {
+    /** Longest head edge that still ends before the tail starts, keeping the stops in outline order. */
+    private val maxEdge = (geometry.length - tail - 1f).coerceAtLeast(0f)
+
+    /** Places the head at arc distance [head], with the tail trailing behind it. */
+    fun moveTo(head: Float) {
         this.head = head
         for (step in 0..STEPS) angles[step] = geometry.angleAt(head - tail * (1f - step.toFloat() / STEPS))
     }
 
     /** The comet with its head fading out over [edge] (a hairline for a crisp core; wider for a soft halo). */
     fun shader(edge: Float): Shader {
-        angles[STEPS + 1] = geometry.angleAt(head + edge)
+        angles[STEPS + 1] = geometry.angleAt(head + edge.coerceAtMost(maxEdge))
         return outlineGradient(geometry, angles, colors)
     }
 

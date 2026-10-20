@@ -8,7 +8,7 @@ internal data class GlowLayoutKey(
     val width: Float,
     val height: Float,
     val shape: DisplayShape,
-    /** Ring the camera cutout instead of the screen edge; only set when [shape] has a cutout. */
+    /** Ring the camera cutout instead of the screen edge (which is the fallback when [shape] has none). */
     val ringCutout: Boolean,
     val thicknessPx: Float,
     val cutoutGapPx: Float,
@@ -18,11 +18,9 @@ internal data class GlowLayoutKey(
 
 /** The outline and its pre-blurred halo for one [GlowLayoutKey]. */
 internal class GlowLayout(key: GlowLayoutKey) {
-    val geometry: GlowGeometry = if (key.ringCutout && key.shape.cutout != null) {
-        cutoutGeometry(key.shape.cutout, gapPx = key.cutoutGapPx, strokePx = key.thicknessPx)
-    } else {
-        screenEdgeGeometry(key.width, key.height, key.shape, key.thicknessPx)
-    }
+    val geometry: GlowGeometry = key.shape.cutout?.takeIf { key.ringCutout }
+        ?.let { cutoutGeometry(it, gapPx = key.cutoutGapPx, strokePx = key.thicknessPx) }
+        ?: screenEdgeGeometry(key.width, key.height, key.shape, key.thicknessPx)
 
     /** `null` when there is no halo (a zero-radius blur is invalid). */
     val bloom: BloomMask? = if (key.bloomPx > 0f) {

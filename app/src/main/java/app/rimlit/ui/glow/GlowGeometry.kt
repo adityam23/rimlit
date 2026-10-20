@@ -24,8 +24,11 @@ internal class GlowGeometry(
     private val measure = PathMeasure(path, true)
     val length: Float = measure.length
 
+    /** Bounds of [path]. Shared: copy it before modifying. */
+    val bounds: RectF = RectF().also { path.computeBounds(it, true) }
+
     /** Centre that angles (and sweep gradients) are measured around. */
-    val center: PointF = RectF().also { path.computeBounds(it, true) }.let { PointF(it.centerX(), it.centerY()) }
+    val center = PointF(bounds.centerX(), bounds.centerY())
 
     private val pos = FloatArray(2)
 
