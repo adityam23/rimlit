@@ -1,4 +1,5 @@
 <resources>
+    <!-- Light window under the light Compose theme; values-night/ has the dark twin. -->
     <style name="Theme.App" parent="android:Theme.Material.Light.NoActionBar" />
 
     <!-- Opaque black, animation-free window for the AOD-style lock-screen glow (full-screen intent). -->

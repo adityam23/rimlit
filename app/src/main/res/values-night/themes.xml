@@ -1,0 +1,4 @@
+<resources>
+    <!-- Dark window under the dark Compose theme, so screen transitions and app start never flash white. -->
+    <style name="Theme.App" parent="android:Theme.Material.NoActionBar" />
+</resources>
