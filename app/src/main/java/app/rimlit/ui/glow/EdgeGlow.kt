@@ -1,6 +1,5 @@
 package app.rimlit.ui.glow
 
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ComposeShader
@@ -37,9 +36,8 @@ private const val BLADE_LAPS_PER_SECOND = 0.45f
 /** Gradient/rainbow flow around the outline at speed 1, in loops per second. */
 private const val FLOW_LOOPS_PER_SECOND = 0.12f
 
-/** Blade tail as a fraction of the outline length, and how many gradient stops shape its fade. */
+/** Blade tail as a fraction of the outline length. */
 private const val BLADE_TAIL = 0.25f
-private const val BLADE_STEPS = 32
 
 /** Arc length over which the blade's core cuts off at its head: a crisp front edge. */
 private const val CRISP_EDGE_PX = 0.5f
@@ -55,6 +53,7 @@ private const val CRISP_EDGE_PX = 0.5f
 fun EdgeGlow(spec: GlowSpec, modifier: Modifier = Modifier, preview: Boolean = false) {
     val view = LocalView.current
     val seconds = rememberFrameSeconds()
+    val layouts = remember { GlowLayoutCache() }
     Spacer(
         modifier.drawWithCache {
             val thicknessPx = spec.thicknessDp.dp.toPx()
@@ -64,19 +63,18 @@ fun EdgeGlow(spec: GlowSpec, modifier: Modifier = Modifier, preview: Boolean = f
             } else {
                 DisplayShape.of(view, fallbackCornerPx = 24.dp.toPx())
             }
-            val cutout = shape.cutout
-            val geometry = if (spec.region == EdgeRegion.CUTOUT && cutout != null) {
-                cutoutGeometry(cutout, gapPx = 4.dp.toPx(), strokePx = thicknessPx)
-            } else {
-                screenEdgeGeometry(size.width, size.height, shape, thicknessPx)
-            }
-            // Blurred once per size/spec here, never per frame (a zero-radius blur is invalid).
-            val bloomMask = if (glowPx > 0f && size.width >= 1f && size.height >= 1f) {
-                bloomMask(geometry, size.width.toInt(), size.height.toInt(), strokePx = thicknessPx * 2f, blurPx = glowPx)
-            } else {
-                null
-            }
-            val painter = GlowPainter(spec, geometry, thicknessPx, glowPx, bloomMask)
+            val layout = layouts.get(
+                GlowLayoutKey(
+                    width = size.width,
+                    height = size.height,
+                    shape = shape,
+                    ringCutout = spec.region == EdgeRegion.CUTOUT,
+                    thicknessPx = thicknessPx,
+                    cutoutGapPx = 4.dp.toPx(),
+                    bloomPx = if (spec.style == GlowStyle.BASIC) 0f else glowPx,
+                ),
+            )
+            val painter = GlowPainter(spec, layout, thicknessPx, glowPx)
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value
@@ -98,27 +96,30 @@ private fun rememberFrameSeconds(): State<Float> {
 }
 
 /**
- * Holds the paints for one spec + geometry. A frame allocates only shaders: no blurs (the halo is the
- * pre-blurred [bloomMask], tinted) and one stroke per layer (the blade is a shader, not segments).
+ * Holds the paints for one spec + layout. A frame allocates only shaders: no blurs (the halo is the
+ * layout's pre-blurred mask, tinted) and one stroke per layer (the blade is a shader, not segments).
  */
 private class GlowPainter(
     private val spec: GlowSpec,
-    private val geometry: GlowGeometry,
+    private val layout: GlowLayout,
     thicknessPx: Float,
     private val glowPx: Float,
-    /** Soft halo under the core; `null` when glow width is 0. */
-    private val bloomMask: Bitmap?,
 ) {
+    private val geometry = layout.geometry
+
+    /** The single color of a solid palette; `null` for multicolor palettes, which use a shader. */
+    private val solidColor = (spec.palette as? GlowPalette.Colors)?.argb?.singleOrNull()
+
     private val core = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = thicknessPx
         strokeJoin = Paint.Join.ROUND
+        solidColor?.let { color = it }
     }
 
-    private val bloom = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val bloom = Paint(Paint.FILTER_BITMAP_FLAG).apply { solidColor?.let { color = it } }
 
-    /** The single color of a solid palette; `null` for multicolor palettes, which use a shader. */
-    private val solidColor = (spec.palette as? GlowPalette.Colors)?.argb?.singleOrNull()
+    private val blade = BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
 
     fun draw(canvas: Canvas, t: Float) {
         val palette = paletteShader(t)
@@ -130,8 +131,10 @@ private class GlowPainter(
             }
             GlowStyle.BLADE -> {
                 drawOutline(canvas, palette, 0.18f)
-                drawBloom(canvas, comet(t, palette, edge = glowPx), 0.8f)
-                drawOutline(canvas, comet(t, palette, edge = CRISP_EDGE_PX), 1f)
+                val lap = t * BLADE_LAPS_PER_SECOND * spec.speed
+                blade.moveTo(head = (lap - floor(lap)) * geometry.length)
+                drawBloom(canvas, comet(blade.shader(edge = glowPx), palette), 0.8f)
+                drawOutline(canvas, comet(blade.shader(edge = CRISP_EDGE_PX), palette), 1f)
             }
         }
     }
@@ -144,28 +147,22 @@ private class GlowPainter(
     private fun pulse(t: Float): Float =
         0.6f + 0.4f * (0.5f - 0.5f * cos(2f * PI.toFloat() * PULSE_HZ * spec.speed * t))
 
-    /** A comet travelling at constant speed along the outline, colored by [palette] (or the solid color). */
-    private fun comet(t: Float, palette: Shader?, edge: Float): Shader {
-        val lap = t * BLADE_LAPS_PER_SECOND * spec.speed
-        val head = (lap - floor(lap)) * geometry.length
-        val tail = BLADE_TAIL * geometry.length
-        val fade = bladeShader(geometry, head, tail, edge, solidColor ?: Color.WHITE, BLADE_STEPS)
+    /** The blade's [fade] colored by [palette]; a solid color is already baked into the fade. */
+    private fun comet(fade: Shader, palette: Shader?): Shader =
         // DST_IN keeps the palette's colors where the fade is opaque.
-        return if (palette == null) fade else ComposeShader(palette, fade, PorterDuff.Mode.DST_IN)
-    }
+        if (palette == null) fade else ComposeShader(palette, fade, PorterDuff.Mode.DST_IN)
 
     private fun drawOutline(canvas: Canvas, shader: Shader?, alpha: Float) {
         canvas.drawPath(geometry.path, core.tint(shader, alpha))
     }
 
     private fun drawBloom(canvas: Canvas, shader: Shader?, alpha: Float) {
-        bloomMask?.let { canvas.drawBitmap(it, 0f, 0f, bloom.tint(shader, alpha)) }
+        layout.bloom?.draw(canvas, bloom.tint(shader, alpha))
     }
 
-    /** Colors this paint with [shader], or the solid color when `null`, at [alpha] × brightness. */
+    /** Colors this paint with [shader] (`null` keeps the solid color set at construction), at [alpha] × brightness. */
     private fun Paint.tint(shader: Shader?, alpha: Float): Paint = apply {
         this.shader = shader
-        if (shader == null && solidColor != null) color = solidColor
         this.alpha = (255 * alpha * spec.brightness).toInt().coerceIn(0, 255)
     }
 }

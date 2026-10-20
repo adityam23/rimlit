@@ -15,13 +15,20 @@ import kotlin.math.min
  * The closed outline a glow is drawn along, plus precomputed samples for painting colors by
  * arc length. Built once per size/shape (never per frame).
  */
-internal class GlowGeometry(val path: Path) {
+internal class GlowGeometry(
+    val path: Path,
+    /** Largest corner radius of [path]: how far its corners curve in from its bounds. */
+    val cornerRadius: Float,
+) {
 
-    val measure = PathMeasure(path, true)
+    private val measure = PathMeasure(path, true)
     val length: Float = measure.length
 
+    /** Bounds of [path]. Shared: copy it before modifying. */
+    val bounds: RectF = RectF().also { path.computeBounds(it, true) }
+
     /** Centre that angles (and sweep gradients) are measured around. */
-    val center: PointF = RectF().also { path.computeBounds(it, true) }.let { PointF(it.centerX(), it.centerY()) }
+    val center = PointF(bounds.centerX(), bounds.centerY())
 
     private val pos = FloatArray(2)
 
@@ -93,7 +100,7 @@ internal fun screenEdgeGeometry(width: Float, height: Float, shape: DisplayShape
     val path = Path().apply {
         addRoundRect(RectF(inset, inset, width - inset, height - inset), radii, Path.Direction.CW)
     }
-    return GlowGeometry(path)
+    return GlowGeometry(path, cornerRadius = radii.max())
 }
 
 /** Pill/ring hugging the camera cutout (a circle for punch-holes, a pill for notches). */
@@ -102,5 +109,5 @@ internal fun cutoutGeometry(cutout: RectF, gapPx: Float, strokePx: Float): GlowG
     val rect = RectF(cutout.left - pad, cutout.top - pad, cutout.right + pad, cutout.bottom + pad)
     val radius = min(rect.width(), rect.height()) / 2f
     val path = Path().apply { addRoundRect(rect, radius, radius, Path.Direction.CW) }
-    return GlowGeometry(path)
+    return GlowGeometry(path, cornerRadius = radius)
 }

@@ -8,6 +8,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import app.rimlit.ui.AppNavHost
 import app.rimlit.ui.theme.AppTheme
 
@@ -28,7 +30,10 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             AppTheme {
-                AppNavHost(viewModel = viewModel)
+                // Screen transitions cross-fade; this keeps the theme background behind them, not the window's.
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    AppNavHost(viewModel = viewModel)
+                }
             }
         }
     }
