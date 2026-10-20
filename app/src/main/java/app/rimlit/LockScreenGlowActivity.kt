@@ -57,14 +57,14 @@ class LockScreenGlowActivity : ComponentActivity() {
                     .pointerInput(Unit) {
                         awaitEachGesture {
                             awaitFirstDown()
-                            close()
+                            finish()
                         }
                     },
             ) {
                 GlowHost(
                     request = current,
                     dismissed = false,
-                    onFinished = ::close,
+                    onFinished = ::finish,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -84,24 +84,23 @@ class LockScreenGlowActivity : ComponentActivity() {
 
     /** Screen turned off (or user left): the AOD moment is over. */
     override fun onStop() {
-        isVisible = false
         super.onStop()
         finish()
+    }
+
+    /** Clears [isVisible] at once, on every exit, so a notification racing the finish takes the normal routing. */
+    override fun finish() {
+        isVisible = false
+        super.finish()
     }
 
     private fun show(intent: Intent) {
         val spec = IntentCompat.getParcelableExtra(intent, EXTRA_SPEC, GlowSpec::class.java)
         if (spec == null) {
-            close()
+            finish()
             return
         }
         request = GlowRequest(spec)
-    }
-
-    /** Clears [isVisible] at once, so a notification racing the finish takes the normal routing, not this instance. */
-    private fun close() {
-        isVisible = false
-        finish()
     }
 
     companion object {

@@ -37,21 +37,40 @@ internal fun arcLengthShader(geometry: GlowGeometry, palette: GlowPalette, phase
 }
 
 /**
- * The blade comet as a shader: [color] fading in quadratically over [tail] arc length up to [head], then
- * fading out over [edge] (a hairline for a crisp core; wider for the soft halo), transparent elsewhere.
- * Stroking the whole outline with it draws the comet in one pass.
+ * The blade comet as shaders: [color] fading in quadratically along the tail up to the head, then fading
+ * out over an edge length, transparent elsewhere; stroking the whole outline with one draws the comet in a
+ * single pass. The stop colors never change: [moveTo] places the tail once per frame, and each [shader]
+ * call only adds its own head edge.
  */
-internal fun bladeShader(geometry: GlowGeometry, head: Float, tail: Float, edge: Float, color: Int, steps: Int): Shader {
-    val angles = FloatArray(steps + 2)
-    val colors = IntArray(steps + 2)
-    for (step in 0..steps) {
-        val f = step.toFloat() / steps
-        angles[step] = geometry.angleAt(head - tail * (1f - f))
-        colors[step] = ColorUtils.setAlphaComponent(color, (Color.alpha(color) * f * f).toInt())
+internal class BladeFade(private val geometry: GlowGeometry, color: Int) {
+
+    private val angles = FloatArray(STEPS + 2)
+    private val colors = IntArray(STEPS + 2).also {
+        for (step in 0..STEPS) {
+            val f = step.toFloat() / STEPS
+            it[step] = ColorUtils.setAlphaComponent(color, (Color.alpha(color) * f * f).toInt())
+        }
+        // Transparent [color], not transparent black: gradients blend unpremultiplied, so black would grey the fade.
+        it[STEPS + 1] = ColorUtils.setAlphaComponent(color, 0)
     }
-    angles[steps + 1] = geometry.angleAt(head + edge)
-    colors[steps + 1] = Color.TRANSPARENT
-    return outlineGradient(geometry, angles, colors)
+    private var head = 0f
+
+    /** Places the head at arc distance [head], with the tail trailing it by [tail]. */
+    fun moveTo(head: Float, tail: Float) {
+        this.head = head
+        for (step in 0..STEPS) angles[step] = geometry.angleAt(head - tail * (1f - step.toFloat() / STEPS))
+    }
+
+    /** The comet with its head fading out over [edge] (a hairline for a crisp core; wider for a soft halo). */
+    fun shader(edge: Float): Shader {
+        angles[STEPS + 1] = geometry.angleAt(head + edge)
+        return outlineGradient(geometry, angles, colors)
+    }
+
+    private companion object {
+        /** Gradient stops shaping the tail's fade. */
+        const val STEPS = 32
+    }
 }
 
 /**
