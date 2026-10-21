@@ -19,11 +19,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,11 +30,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import app.rimlit.R
 import app.rimlit.model.MAX_PALETTE_COLORS
+import app.rimlit.model.hueOf
+import app.rimlit.model.vividColor
 
 private val PresetColors = listOf(
     0xFF00BCD4, 0xFF536DFE, 0xFFE040FB, 0xFFFF4081, 0xFFD50000, 0xFFFF6D00,
@@ -58,7 +59,6 @@ fun PaletteEditor(
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableIntStateOf(0) }
-    var draggingHue by remember { mutableFloatStateOf(Float.NaN) }
     val slot = selected.coerceIn(colors.indices)
 
     fun edited(argb: Int) = colors.toMutableList().also { it[slot] = argb }
@@ -102,19 +102,11 @@ fun PaletteEditor(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Slider(
-            value = if (draggingHue.isNaN()) hueOf(colors[slot]) else draggingHue,
-            onValueChange = {
-                draggingHue = it
-                onPreview(edited(hueColor(it)))
-            },
-            // Commit from the locally tracked hue, not `colors`: press and release can both land
-            // before recomposition delivers the previewed palette, which would commit the old one.
-            onValueChangeFinished = {
-                if (!draggingHue.isNaN()) onCommit(edited(hueColor(draggingHue)))
-                draggingHue = Float.NaN
-            },
+        CommitSlider(
+            value = hueOf(colors[slot]),
             valueRange = 0f..359f,
+            onPreview = { onPreview(edited(vividColor(it))) },
+            onCommit = { onCommit(edited(vividColor(it))) },
         )
     }
 }
@@ -122,17 +114,12 @@ fun PaletteEditor(
 /** Compact read-only rendering of a palette (solid fill or gradient). */
 @Composable
 fun GradientBar(colors: List<Int>, modifier: Modifier = Modifier) {
-    val brush = if (colors.size == 1) {
-        Brush.linearGradient(listOf(Color(colors[0]), Color(colors[0])))
-    } else {
-        Brush.horizontalGradient(colors.map(::Color))
-    }
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(20.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(brush),
+            .background(paletteBrush(colors)),
     )
 }
 
@@ -152,17 +139,23 @@ private fun Swatch(argb: Int, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
-private fun hueOf(argb: Int): Float = FloatArray(3).also { ColorUtils.colorToHSL(argb, it) }[0]
-
-private fun hueColor(hue: Float): Int = ColorUtils.HSLToColor(floatArrayOf(hue, 1f, 0.55f))
+/**
+ * [colors] as a brush: a left-to-right gradient, or with [sweep] a sweep that closes back to the first
+ * color so the seam is invisible. A single color is a solid fill.
+ */
+fun paletteBrush(colors: List<Int>, sweep: Boolean = false): Brush {
+    val stops = colors.map(::Color)
+    return when {
+        stops.size == 1 -> SolidColor(stops[0])
+        sweep -> Brush.sweepGradient(stops + stops.first())
+        else -> Brush.horizontalGradient(stops)
+    }
+}
 
 private fun shiftHue(argb: Int, degrees: Float): Int {
     val hsl = FloatArray(3).also { ColorUtils.colorToHSL(argb, it) }
-    hsl[0] = (hsl[0] + degrees) % 360f
     // Greys have no hue to shift; give them a vivid one so the new slot is visibly distinct.
-    if (hsl[1] < 0.2f) {
-        hsl[1] = 1f
-        hsl[2] = 0.55f
-    }
+    if (hsl[1] < 0.2f) return vividColor(hsl[0] + degrees)
+    hsl[0] = (hsl[0] + degrees) % 360f
     return ColorUtils.HSLToColor(hsl)
 }

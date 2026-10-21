@@ -1,0 +1,30 @@
+# Project overrides on top of the detekt defaults (`buildUponDefaultConfig`). Only deviations live here, each
+# with its reason. `gradle :app:detektGenerateConfig` writes the full reference config (move this file aside first).
+
+naming:
+  FunctionNaming:
+    # Composables are PascalCase by convention (detekt's Compose guidance).
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    # Top-level Compose values (colors, palettes) are PascalCase; constants stay SCREAMING_CASE.
+    constantPattern: '[A-Z][_A-Za-z0-9]*'
+
+complexity:
+  LongParameterList:
+    # Composables take state, callbacks and slots; defaulted ones (modifier) don't count (detekt's Compose guidance).
+    allowedFunctionParameters: 6
+    ignoreDefaultParameters: true
+
+style:
+  MagicNumber:
+    # Off: the renderer and layouts are full of self-describing geometry (360°, 0.5f, 255, dp sizes), and naming
+    # each one hurts readability more than it helps. Meaningful tuning values are named constants by convention.
+    active: false
+  ReturnCount:
+    # Early-return guard clauses are the project's idiom for filters and fallbacks.
+    excludeGuardClauses: true
+
+Compose:
+  ViewModelForwarding:
+    # The nav host hands the shared MainViewModel to each screen; screens are the state-holder boundary.
+    allowedForwarding: '.*Screen'

@@ -24,20 +24,15 @@ private const val FADE_OUT_MS = 450
 class GlowRequest(val spec: GlowSpec)
 
 /**
- * The single owner of a glow's timeline: fade in, hold for `spec.durationMs`, fade out, then [onFinished].
+ * The single owner of a glow's timeline: fade in, hold for `spec.durationMs`, fade out, then [onFinish].
  *
  * A new [request] while showing re-targets without flicker (already-visible glows stay visible and the
  * hold restarts). [dismissed] cuts the hold short with a fade-out (e.g. the notification was removed).
  */
 @Composable
-fun GlowHost(
-    request: GlowRequest,
-    dismissed: Boolean,
-    onFinished: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun GlowHost(request: GlowRequest, dismissed: Boolean, onFinish: () -> Unit, modifier: Modifier = Modifier) {
     val alpha = remember { Animatable(0f) }
-    val finish by rememberUpdatedState(onFinished)
+    val finish by rememberUpdatedState(onFinish)
     LaunchedEffect(request, dismissed) {
         if (!dismissed) {
             alpha.animateTo(1f, tween(FADE_IN_MS, easing = LinearOutSlowInEasing))

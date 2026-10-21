@@ -35,9 +35,8 @@ internal class GlowLayoutCache {
     private var key: GlowLayoutKey? = null
     private var layout: GlowLayout? = null
 
-    fun get(key: GlowLayoutKey): GlowLayout =
-        layout?.takeIf { this.key == key } ?: GlowLayout(key).also {
-            this.key = key
-            layout = it
-        }
+    fun get(key: GlowLayoutKey): GlowLayout = layout?.takeIf { this.key == key } ?: GlowLayout(key).also {
+        this.key = key
+        layout = it
+    }
 }

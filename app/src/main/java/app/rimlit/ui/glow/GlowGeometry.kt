@@ -69,12 +69,7 @@ internal data class DisplayShape(
             } else {
                 FloatArray(4) { fallbackCornerPx }
             }
-            val cutout = insets?.displayCutout?.let { c ->
-                listOf(c.boundingRectTop, c.boundingRectLeft, c.boundingRectRight, c.boundingRectBottom)
-                    .firstOrNull { !it.isEmpty }
-                    ?.let(::RectF)
-            }
-            return DisplayShape(radii, cutout)
+            return DisplayShape(radii, view.cutoutBounds())
         }
 
         /** Scaled stand-in for in-app previews: proportional corners and a simulated punch-hole camera. */
@@ -91,6 +86,13 @@ internal data class DisplayShape(
         other is DisplayShape && cornerRadii.contentEquals(other.cornerRadii) && cutout == other.cutout
 
     override fun hashCode() = 31 * cornerRadii.contentHashCode() + (cutout?.hashCode() ?: 0)
+}
+
+/** Bounds of the camera cutout of the window [this] is attached to, or `null` when the display has none. */
+internal fun View.cutoutBounds(): RectF? = rootWindowInsets?.displayCutout?.let { c ->
+    listOf(c.boundingRectTop, c.boundingRectLeft, c.boundingRectRight, c.boundingRectBottom)
+        .firstOrNull { !it.isEmpty }
+        ?.let(::RectF)
 }
 
 /** Border following the screen's rounded corners, inset so the full stroke stays on-screen. */

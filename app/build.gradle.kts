@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.detekt)
 }
 
 android {
@@ -62,6 +63,16 @@ android {
     }
 }
 
+// Static analysis on top of Android Lint: code smells, Compose misuse and official-style formatting.
+// Runs with `gradle check` and in CI; the project's overrides live in config/detekt/detekt.yml.
+detekt {
+    buildUponDefaultConfig.set(true)
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    parallel.set(true)
+    // `gradle :app:detektMain -PdetektAutoCorrect` rewrites fixable formatting findings in place.
+    autoCorrect.set(providers.gradleProperty("detektAutoCorrect").isPresent)
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
@@ -85,4 +96,7 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    detektPlugins(libs.detekt.rules.ktlint.wrapper)
+    detektPlugins(libs.compose.rules.detekt)
 }

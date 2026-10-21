@@ -4,10 +4,7 @@ import android.content.Context
 import android.content.Intent
 
 /** A launchable app shown in the blocklist. Icons are rendered as letter avatars, not stored. */
-data class AppInfo(
-    val packageName: String,
-    val label: String,
-)
+data class AppInfo(val packageName: String, val label: String)
 
 class AppListRepository(private val context: Context) {
 

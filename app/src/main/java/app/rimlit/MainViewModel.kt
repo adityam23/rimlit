@@ -1,9 +1,6 @@
 package app.rimlit
 
 import android.app.Application
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -16,12 +13,13 @@ import app.rimlit.data.SettingsRepository
 import app.rimlit.model.DEFAULT_GLOW_ARGB
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
+import app.rimlit.notify.GlowNotifications
 import app.rimlit.overlay.EdgeOverlayController
 import app.rimlit.overlay.GlowAccessibilityService
-import app.rimlit.permissions.PermissionChecks
 import app.rimlit.permissions.PermissionKind
-import app.rimlit.permissions.PermissionLinks
 import app.rimlit.permissions.PermissionStatus
+import app.rimlit.permissions.Permissions
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,7 +30,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher = Dispatchers.IO) :
+    AndroidViewModel(application) {
 
     private val repository = SettingsRepository(application)
     private val appListRepository = AppListRepository(application)
@@ -44,16 +43,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         initialValue = GlowSettings(),
     )
 
-    private val _permissions = MutableStateFlow(PermissionChecks.statuses(application))
+    private val _permissions = MutableStateFlow(Permissions.statuses(application))
     val permissions: StateFlow<List<PermissionStatus>> = _permissions.asStateFlow()
 
     val apps: StateFlow<List<AppInfo>> = flow { emit(appListRepository.launchableApps()) }
-        .flowOn(Dispatchers.IO)
+        .flowOn(ioDispatcher)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     /** Re-evaluate permission grants; called from [MainActivity.onResume]. */
     fun refreshPermissions() {
-        _permissions.value = PermissionChecks.statuses(getApplication())
+        _permissions.value = Permissions.statuses(getApplication())
     }
 
     /** Persists a settings change (atomic read-modify-write). */
@@ -62,14 +61,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openPermission(kind: PermissionKind) {
-        val app = getApplication<Application>()
-        when (kind) {
-            PermissionKind.NOTIFICATION_ACCESS -> PermissionLinks.notificationAccess(app)
-            PermissionKind.OVERLAY -> PermissionLinks.overlay(app)
-            PermissionKind.FULL_SCREEN_INTENT -> PermissionLinks.fullScreenIntent(app)
-            PermissionKind.ACCESSIBILITY -> PermissionLinks.accessibility(app)
-            PermissionKind.BATTERY_OPTIMIZATION -> PermissionLinks.batteryOptimization(app)
-        }
+        Permissions.open(getApplication(), kind)
     }
 
     /** Shows the AOD-style lock-screen glow for [spec] immediately (preview). */
@@ -88,34 +80,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * check the exact end-to-end effect (screen on → overlay; screen off → lock screen).
      */
     fun sendTestNotification() {
-        val app = getApplication<Application>()
-        val manager = app.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(
-            NotificationChannel(
-                GlowListenerService.TEST_CHANNEL_ID,
-                app.getString(R.string.test_notification_channel_name),
-                // DEFAULT, not HIGH: a heads-up banner would cover the glow being tested.
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                description = app.getString(R.string.test_notification_channel_desc)
-                setSound(null, null)
-                enableVibration(false)
-                setShowBadge(false)
-            },
-        )
-        val notification = Notification.Builder(app, GlowListenerService.TEST_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(app.getString(R.string.test_notification_title))
-            .setContentText(app.getString(R.string.test_notification_desc))
-            .setAutoCancel(true)
-            .setTimeoutAfter(settings.value.durationMs)
-            .build()
-        manager.notify(TEST_NOTIFICATION_ID, notification)
+        GlowNotifications.postTest(getApplication(), settings.value.durationMs)
     }
 
     companion object {
-        private const val TEST_NOTIFICATION_ID = 100
-
         /** Stand-in for the auto palette in previews, where there is no notifying app to sample. */
         val PREVIEW_AUTO_PALETTE = listOf(DEFAULT_GLOW_ARGB, 0xFFE040FB.toInt())
 

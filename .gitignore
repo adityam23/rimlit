@@ -8,7 +8,7 @@ captures/
 .externalNativeBuild/
 .cxx/
 
-# Local-only: personal agent tooling and the private handoff notes
-.omp/
+# Private maintainer notes
 HANDOFF.md
+TIMELINE.md
 docs/

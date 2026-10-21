@@ -15,6 +15,7 @@ import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.MAX_PALETTE_COLORS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.Locale
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -93,7 +94,7 @@ private inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E =
     this?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
 /** Palettes are stored as comma-separated 8-digit ARGB hex, e.g. `ff00bcd4,ffe040fb`. */
-private fun encodePalette(colors: List<Int>): String = colors.joinToString(",") { "%08x".format(it) }
+private fun encodePalette(colors: List<Int>): String = colors.joinToString(",") { "%08x".format(Locale.ROOT, it) }
 
 private fun decodePalette(encoded: String): List<Int>? = encoded.split(',')
     .mapNotNull { it.toLongOrNull(16)?.toInt() }

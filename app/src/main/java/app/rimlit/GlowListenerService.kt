@@ -2,18 +2,20 @@ package app.rimlit
 
 import android.app.KeyguardManager
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.os.PowerManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import app.rimlit.data.SettingsRepository
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
+import app.rimlit.notify.GlowNotifications
 import app.rimlit.notify.NotificationColorExtractor
 import app.rimlit.overlay.EdgeOverlayController
 import app.rimlit.overlay.GlowAccessibilityService
+import app.rimlit.permissions.PermissionKind
+import app.rimlit.permissions.isGranted
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,6 +48,9 @@ class GlowListenerService : NotificationListenerService() {
     /** Keys currently posted, so a re-post can be recognised as an update to an existing notification. */
     private val activeKeys = mutableSetOf<String>()
 
+    /** Whether the missing full-screen-intent grant was logged since the listener connected. */
+    private var warnedNoFullScreenIntent = false
+
     /** What the system decided about a post, captured synchronously before the ranking map goes stale. */
     private data class PostFacts(
         /** Posting app's channel importance; `null` if the ranking was unavailable. */
@@ -58,7 +63,8 @@ class GlowListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        createChannel()
+        GlowNotifications.createChannels(this)
+        warnedNoFullScreenIntent = false
         activeKeys.clear()
         activeNotifications?.mapTo(activeKeys) { it.key }
         settings // start loading before the first notification arrives
@@ -86,41 +92,18 @@ class GlowListenerService : NotificationListenerService() {
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         sbn ?: return
         activeKeys.remove(sbn.key)
-        val source = overlaySource
-        if (source != null && sbn.key == source.key) {
-            overlaySource = null
-            source.overlay.dismiss()
-        }
+        overlaySource?.takeIf { it.key == sbn.key }?.let { dismissOverlay(it) }
     }
 
     private fun handlePosted(sbn: StatusBarNotification, facts: PostFacts, current: GlowSettings) {
-        val notification = sbn.notification
-        // Only our own test channel may bypass the master toggle — another app could reuse the channel id.
-        val isTest = sbn.packageName == packageName && notification.channelId == TEST_CHANNEL_ID
-        val isRinging = notification.fullScreenIntent != null
-
+        val isRinging = sbn.notification.fullScreenIntent != null
         // A ringing event (incoming call/alarm) that ends is re-delivered with the
         // same key but no full-screen intent (e.g. call answered) — stop the glow.
-        val source = overlaySource
-        if (source != null && source.ringing && sbn.key == source.key && !isRinging) {
-            overlaySource = null
-            source.overlay.dismiss()
-        }
+        if (!isRinging) overlaySource?.takeIf { it.ringing && it.key == sbn.key }?.let { dismissOverlay(it) }
 
-        if (!current.enabled && !isTest) return
-        if (sbn.packageName == packageName && !isTest) return
-        if (sbn.isOngoing && !isRinging) return
-        if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
-        // Mirror the system's own alerting: silent updates (alert-once) don't alert, so they don't glow.
-        if (facts.isUpdate && notification.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0) return
-        if (facts.importance != null && facts.importance < NotificationManager.IMPORTANCE_DEFAULT) return
-        if (!facts.passesDnd) return
-        if (sbn.packageName in current.blockedPackages) return
-
-        val locked = getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
-        val interactive = getSystemService(PowerManager::class.java)?.isInteractive == true
+        if (!isGlowWanted(sbn, current) || !alerts(sbn, facts, isRinging)) return
         val spec = current.toGlowSpec(sbn.packageName) { NotificationColorExtractor.extract(this, sbn) }
-
+        val interactive = getSystemService(PowerManager::class.java)?.isInteractive == true
         if (!interactive || LockScreenGlowActivity.isVisible) {
             // Screen off (with or without a keyguard): only the full-screen activity can wake it, and while
             // its AOD glow is up it takes re-deliveries too. Ringing events never take this path: their own
@@ -130,12 +113,41 @@ class GlowListenerService : NotificationListenerService() {
         }
         // Screen on. The accessibility overlay draws above the lock screen too; the app overlay is hidden
         // by it, so without the accessibility service a visible lock screen gets no glow.
+        val locked = getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
         val wanted = if (locked) current.showWhenLocked else current.showWhenUnlocked
         val overlay = GlowAccessibilityService.overlay ?: overlayController.takeIf { !locked }
         if (wanted && overlay != null) {
             overlay.show(spec)
             overlaySource = OverlaySource(sbn.key, isRinging, overlay)
         }
+    }
+
+    /** The user's settings allow a glow for this app. Our own test notification bypasses the master toggle. */
+    private fun isGlowWanted(sbn: StatusBarNotification, current: GlowSettings): Boolean {
+        val allowed = GlowNotifications.isTest(this, sbn) || (current.enabled && sbn.packageName != packageName)
+        return allowed && sbn.packageName !in current.blockedPackages
+    }
+
+    /** Mirrors the system's own alerting: only a post that alerts the user glows. */
+    private fun alerts(sbn: StatusBarNotification, facts: PostFacts, isRinging: Boolean): Boolean {
+        val flags = sbn.notification.flags
+        return when {
+            sbn.isOngoing && !isRinging -> false
+
+            flags and Notification.FLAG_GROUP_SUMMARY != 0 -> false
+
+            // Silent updates (alert-once) don't alert, so they don't glow.
+            facts.isUpdate && flags and Notification.FLAG_ONLY_ALERT_ONCE != 0 -> false
+
+            facts.importance != null && facts.importance < NotificationManager.IMPORTANCE_DEFAULT -> false
+
+            else -> facts.passesDnd
+        }
+    }
+
+    private fun dismissOverlay(source: OverlaySource) {
+        overlaySource = null
+        source.overlay.dismiss()
     }
 
     private fun showLockScreenGlow(spec: GlowSpec) {
@@ -146,45 +158,18 @@ class GlowListenerService : NotificationListenerService() {
             startActivity(intent)
             return
         }
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notification = Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(getString(R.string.notification_glow_title))
-            .setFullScreenIntent(pendingIntent, true)
-            // Only a trampoline to wake the screen: never bridge it to a watch, where it would mask the real one.
-            .setLocalOnly(true)
-            .setAutoCancel(true)
-            .setTimeoutAfter(spec.durationMs)
-            .build()
-        // Updating a live notification doesn't re-alert, so its full-screen intent wouldn't fire again.
-        val notificationManager = getSystemService(NotificationManager::class.java)
-        notificationManager.cancel(GLOW_NOTIFICATION_ID)
-        notificationManager.notify(GLOW_NOTIFICATION_ID, notification)
-    }
-
-    private fun createChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.notification_channel_name),
-            NotificationManager.IMPORTANCE_HIGH,
-        ).apply {
-            description = getString(R.string.notification_channel_desc)
-            setSound(null, null)
-            enableVibration(false)
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            setShowBadge(false)
+        // Without the grant (Android 14+) the trampoline can't wake the screen; it would only show as a notification.
+        if (!PermissionKind.FULL_SCREEN_INTENT.isGranted(this)) {
+            if (!warnedNoFullScreenIntent) {
+                Log.w(TAG, "Full-screen intent access denied: skipping lock-screen glows until it is granted")
+                warnedNoFullScreenIntent = true
+            }
+            return
         }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        GlowNotifications.postLockScreenWake(this, intent, spec.durationMs)
     }
 
-    companion object {
-        private const val CHANNEL_ID = "glow"
-        private const val GLOW_NOTIFICATION_ID = 1
-        const val TEST_CHANNEL_ID = "glow_test"
+    private companion object {
+        const val TAG = "GlowListenerService"
     }
 }

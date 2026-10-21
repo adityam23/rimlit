@@ -67,7 +67,7 @@ class LockScreenGlowActivity : ComponentActivity() {
                 GlowHost(
                     request = current,
                     dismissed = false,
-                    onFinished = ::finish,
+                    onFinish = ::finish,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -121,9 +121,8 @@ class LockScreenGlowActivity : ComponentActivity() {
         val isVisible: Boolean
             get() = visibleInstance != null
 
-        fun newIntent(context: Context, spec: GlowSpec): Intent =
-            Intent(context, LockScreenGlowActivity::class.java)
-                .putExtra(EXTRA_SPEC, spec)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        fun newIntent(context: Context, spec: GlowSpec): Intent = Intent(context, LockScreenGlowActivity::class.java)
+            .putExtra(EXTRA_SPEC, spec)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
