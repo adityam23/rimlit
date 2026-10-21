@@ -5,16 +5,16 @@
 ## Working Agreement
 
 - **Ask before assuming major decisions.** If any part of a task is ambiguous, ask the user to clarify before proceeding. Never assume a major decision — always confirm first.
-- **Record decisions before implementing.** Read the local `TIMELINE.md` (when present) before designing a change, and record any new non-obvious decision there, with its reason, before starting the implementation. Update or prune entries when a decision changes or the maintainer asks.
+- **Record decisions before implementing.** Read `TIMELINE.md` before designing a change, and record any new non-obvious decision there, with its reason, before starting the implementation. Update or prune entries when a decision changes or the maintainer asks.
 - **Web search fallback.** If the web search tool fails, ask the user to launch a local Camoufox instance to query instead.
 
 ## Project Overview
 
-Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a local, gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (next: a formally specified notification/glow state machine). It may be absent in a fresh clone; never commit it.
+Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (next: a formally specified notification/glow state machine). It may be absent in a fresh clone; never commit it.
 
 ## Architecture & Data Flow
 
-Single Gradle module `:app`. Packages under `app.rimlit`: `model` → `data` → `notify` → `overlay` → `ui/glow` → `ui/components` → `ui` (+ `ui/theme`), plus `permissions`. No DI framework; `navigation-compose` for the four screens. The full data-flow diagram lives in the local `HANDOFF.md` when present.
+Single Gradle module `:app`. Packages under `app.rimlit`: `model` → `data` → `notify` → `overlay` → `ui/glow` → `ui/components` → `ui` (+ `ui/theme`), plus `permissions`. No DI framework; `navigation-compose` for the four screens. The full data-flow diagram lives in `HANDOFF.md`.
 
 State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateIn(...)` → UI `collectAsStateWithLifecycle()`. Every glow — notification, overlay, lock screen, preview — renders from one `GlowSpec` built by `GlowSettings.toGlowSpec(...)`.
 
@@ -44,7 +44,7 @@ gradle :app:assembleRelease               # minified release APK (unsigned unles
 gradle clean                              # clean
 ```
 
-No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is wired yet (see Testing & QA). CI (`.github/workflows/ci.yml`) runs the same checks on every PR and push, and publishes a signed release to GitHub Releases on merge to `main`; the secret names are in the workflow, and the full signing setup is in the local `docs/RELEASING.md`.
+No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is wired yet (see Testing & QA). CI (`.github/workflows/ci.yml`) runs the same checks on every PR and push, and publishes a signed release to GitHub Releases on merge to `main`; the secret names are in the workflow, and the full signing setup is in `docs/RELEASING.md`.
 
 ## Code Conventions & Common Patterns
 
@@ -70,11 +70,11 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is
 - `settings.gradle.kts` — repos + `include(":app")`.
 - `gradle.properties` — caching, parallel, configuration-cache, androidx flags.
 - `app/proguard-rules.pro` — R8 rules; currently empty because AAPT2 already keeps manifest-declared components. Add rules only for code reached by reflection.
-- `.github/workflows/ci.yml` — CI: lint/detekt/test/debug build on every PR and push; on `main`, a signed release APK published as a GitHub Release (full signing setup in the local `docs/RELEASING.md`).
+- `.github/workflows/ci.yml` — CI: lint/detekt/test/debug build on every PR and push; on `main`, a signed release APK published as a GitHub Release (full signing setup in `docs/RELEASING.md`).
 - `README.md` — public overview, screenshots, install and build basics.
-- `docs/` — local-only (gitignored) maintainer docs, e.g. `docs/RELEASING.md` (full signing-key setup). May be absent in a fresh clone; never commit it.
-- `HANDOFF.md` — local-only (gitignored) maintainer notes: status, architecture, contracts, gotchas, roadmap. Read it first when present; never commit it or copy it into tracked files.
-- `TIMELINE.md` — local-only (gitignored) decision log: each non-obvious decision, dated, with its reason. Read it before designing a change and update it before implementing one; never commit it.
+- `docs/` — gitignored maintainer docs, e.g. `docs/RELEASING.md` (full signing-key setup). May be absent in a fresh clone; never commit it.
+- `HANDOFF.md` — gitignored maintainer notes: status, architecture, contracts, gotchas, roadmap. Read it first; never commit it or copy it into tracked files.
+- `TIMELINE.md` — gitignored decision log: each non-obvious decision, dated, with its reason. Read it before designing a change and update it before implementing one; never commit it.
 
 ## Runtime & Tooling Preferences
 
@@ -133,4 +133,4 @@ Use when the `web_search` tool fails. `camofox-browser` is a Node/Express HTTP A
 
 - No test frameworks, dependencies, or sources exist yet (`app/src/test` and `app/src/androidTest` are absent; no `testImplementation`/`androidTestImplementation`, no `testInstrumentationRunner`).
 - When tests are added: local unit tests `gradle :app:testDebugUnitTest`; instrumented `gradle :app:connectedDebugAndroidTest` (requires device/emulator via adb). Neither runs anything today.
-- Current verification: `gradle :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on an emulator (the maintainer uses a headless `test` AVD; adb grant commands are in the local `HANDOFF.md`).
+- Current verification: `gradle :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on the maintainer's `test` AVD (reuse it via `adb devices`; if it isn't running, ask the maintainer to launch it, never start one headless; adb grant commands are in `HANDOFF.md`).
