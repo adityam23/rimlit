@@ -8,8 +8,7 @@ captures/
 .externalNativeBuild/
 .cxx/
 
-# Personal agent tooling and private maintainer notes
-.omp/
+# Private maintainer notes
 HANDOFF.md
 TIMELINE.md
 docs/

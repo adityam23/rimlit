@@ -6,7 +6,6 @@
 
 - **Ask before assuming major decisions.** If any part of a task is ambiguous, ask the user to clarify before proceeding. Never assume a major decision — always confirm first.
 - **Record decisions before implementing.** Read `TIMELINE.md` before designing a change, and record any new non-obvious decision there, with its reason, before starting the implementation. Update or prune entries when a decision changes or the maintainer asks.
-- **Web search fallback.** If the web search tool fails, ask the user to launch a local Camoufox instance to query instead.
 
 ## Project Overview
 
@@ -78,59 +77,15 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is
 
 ## Runtime & Tooling Preferences
 
-- **JDK 25 only** (installed). Do not add another JDK — other projects on this machine depend on the present toolchain.
+- **JDK 25.** The build targets it (see the KGP bump below); don't add toolchain auto-provisioning.
 - **Gradle 9.8.1**, system install; **no wrapper** — use `gradle`, not `./gradlew`.
 - **AGP 9.4.1 with built-in Kotlin** — do NOT re-add `org.jetbrains.kotlin.android`. Kotlin support is built in; KGP is bumped to 2.4.21 (catalog `kotlin`) in the root `buildscript` block for JDK 25.
 - **Compose compiler** and **Parcelize**: `org.jetbrains.kotlin.plugin.compose` / `org.jetbrains.kotlin.plugin.parcelize`, both on the catalog `kotlin` version (2.4.21).
-- **Android SDK**: `~/Android/Sdk` (`sdk.dir` in `local.properties`, gitignored). compileSdk/targetSdk 36, minSdk 29.
+- **Android SDK**: platform 36 (`sdk.dir` in `local.properties`, gitignored). compileSdk/targetSdk 36, minSdk 29.
 - Dependency resolution: `google()` + `mavenCentral()`, `FAIL_ON_PROJECT_REPOS`. Versions via the catalog, not inline.
-- **Python**: never run `python3`/`python` directly — not even for one-liners. Always use `uv run` (e.g. `uv run --with pyyaml python -c ...`).
-- **Emulator**: the user often has the `test` AVD running already; check `adb devices` and reuse it instead of launching another.
-
-## Camoufox web-search fallback (`camofox-browser`)
-
-Use when the `web_search` tool fails. `camofox-browser` is a Node/Express HTTP API (`~/BuiltLocally/camofox-browser`, launched via `run.sh` or `node server.js`) that wraps the Camoufox stealth Firefox. Ask the user to launch it, then query it over HTTP. Full OpenAPI spec: `GET /openapi.json`.
-
-- **Base URL**: `http://127.0.0.1:9377` (default port from `CAMOFOX_PORT`/`PORT`; `run.sh -p <port>` overrides). Discover a running instance: `ss -tlnp` → find `node server.js`.
-- **Health**: `GET /health` → `{ ok, browserConnected, browserRunning, activeTabs }`.
-- **Auth**: none locally (no `CAMOFOX_ACCESS_KEY`/`CAMOFOX_API_KEY`/`CAMOFOX_ADMIN_KEY` set). If set → `Authorization: Bearer <key>` on every request. `API_KEY` gates `/evaluate` + cookie import; `ADMIN_KEY` gates `/stop`.
-
-### Param convention (the #1 gotcha)
-
-- POST/DELETE endpoints → `userId` (+ `sessionKey`) go in the **JSON body**.
-- GET endpoints → `userId` (+ `sessionKey`) go in the **query string**.
-- Wrong placement → `{ "error": "userId required" }`.
-
-### Core flow (verified 2026-08-17)
-
-1. `POST /tabs` body `{ "userId":"agent", "sessionKey":"s", "url":"https://…" }` → `{ tabId, url }`.
-2. `GET /tabs/:tabId/snapshot?userId=agent&sessionKey=s` → `{ url, snapshot, refsCount, truncated, totalChars }`. `snapshot` is an **aria accessibility tree** (indented `- heading` / `- paragraph` / `- link "…" [eN]` with `/url:` attrs), NOT HTML.
-3. `GET /tabs/:tabId/links?userId=agent&sessionKey=s` → `{ links: [{ url, text }] }`.
-4. `GET /tabs/:tabId/screenshot?userId=agent&sessionKey=s` → **raw PNG** (`image/png`, 1280×720); not JSON — don't `.json()` it.
-5. `POST /tabs/:tabId/extract` body `{ "userId":"agent", "schema": { "type":"object", "properties": { "title": { "type":"string", "x-ref":"e1" } }, "required":["title"] } }` → `{ ok, data }`. Must call snapshot first (builds the ref table).
-6. `POST /tabs/:tabId/navigate` body `{ "userId":"agent", "url":"https://…" }` or `{ "userId":"agent", "macro":"@google_search", "query":"…" }` → `{ ok, tabId, url, refsAvailable }`.
-7. `DELETE /tabs/:tabId?userId=agent&sessionKey=s` → `{ ok: true }`.
-8. `GET /tabs?userId=agent&sessionKey=s` → `{ running, tabs: [{ tabId, url, title, listItemId }] }`.
-
-### Search
-
-- Macros (`macro` field on navigate, full list in `lib/macros.js`): `@google_search`, `@youtube_search`, `@amazon_search`, `@reddit_search`, `@reddit_subreddit`, `@wikipedia_search`, `@twitter_search`, `@yelp_search`, `@spotify_search`, `@netflix_search`, `@linkedin_search`, `@instagram_search`, `@tiktok_search`, `@twitch_search`.
-- Google SERP gets special extraction (`"googleSerp": true` in the navigate response).
-- DuckDuckGo HTML is a reliable server-rendered fallback: `https://html.duckduckgo.com/html/?q=<encoded>`. Its result links are DDG-wrapped (`https://duckduckgo.com/l/?uddg=<encoded>`); decode the `uddg` param to get the real URL.
-
-### Finding content on a page
-
-- Keyword search: flatten the snapshot `snapshot.replace(/\n\s*/g,' ')` then `indexOf(phrase)`.
-- Structured values: snapshot → note the `[eN]` ref → `extract` with `x-ref`.
-- Links: `/links`. Raw JS: `POST /tabs/:tabId/evaluate`.
-
-### Lifecycle
-
-- Tabs auto-reap after 5 min idle; the browser self-shuts after 5 min idle (`TAB_INACTIVITY_MS` / `BROWSER_IDLE_TIMEOUT_MS` in `lib/config.js`). No manual teardown needed.
-
 
 ## Testing & QA
 
 - No test frameworks, dependencies, or sources exist yet (`app/src/test` and `app/src/androidTest` are absent; no `testImplementation`/`androidTestImplementation`, no `testInstrumentationRunner`).
 - When tests are added: local unit tests `gradle :app:testDebugUnitTest`; instrumented `gradle :app:connectedDebugAndroidTest` (requires device/emulator via adb). Neither runs anything today.
-- Current verification: `gradle :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on the maintainer's `test` AVD (reuse it via `adb devices`; if it isn't running, ask the maintainer to launch it, never start one headless; adb grant commands are in `HANDOFF.md`).
+- Current verification: `gradle :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on an emulator or device (adb grant commands are in `HANDOFF.md`).
