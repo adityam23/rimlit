@@ -96,8 +96,9 @@ private fun rememberFrameSeconds(): State<Float> {
 }
 
 /**
- * Holds the paints for one spec + layout. A frame allocates only shaders: no blurs (the halo is the
- * layout's pre-blurred mask, tinted) and one stroke per layer (the blade is a shader, not segments).
+ * Holds the paints and gradient buffers for one spec + layout. A frame allocates only shaders: no blurs
+ * (the halo is the layout's pre-blurred mask, tinted) and one stroke per layer (the blade is a shader, not
+ * segments).
  */
 private class GlowPainter(
     private val spec: GlowSpec,
@@ -119,16 +120,21 @@ private class GlowPainter(
 
     private val bloom = Paint(Paint.FILTER_BITMAP_FLAG).apply { solidColor?.let { color = it } }
 
+    /** Multicolor palettes flow around the outline over time; `null` for a solid color. */
+    private val flow = if (solidColor == null) PaletteFlow(geometry, spec.palette) else null
+
     private val blade = BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
 
     fun draw(canvas: Canvas, t: Float) {
         val palette = paletteShader(t)
         when (spec.style) {
             GlowStyle.BASIC -> drawOutline(canvas, palette, pulse(t))
+
             GlowStyle.GLOW -> {
                 drawBloom(canvas, palette, 0.8f * pulse(t))
                 drawOutline(canvas, palette, pulse(t))
             }
+
             GlowStyle.BLADE -> {
                 drawOutline(canvas, palette, 0.18f)
                 val lap = t * BLADE_LAPS_PER_SECOND * spec.speed
@@ -139,9 +145,7 @@ private class GlowPainter(
         }
     }
 
-    /** Multicolor palettes flow around the outline over time; `null` for a solid color. */
-    private fun paletteShader(t: Float): Shader? =
-        if (solidColor != null) null else arcLengthShader(geometry, spec.palette, phase = t * FLOW_LOOPS_PER_SECOND * spec.speed)
+    private fun paletteShader(t: Float): Shader? = flow?.shader(phase = t * FLOW_LOOPS_PER_SECOND * spec.speed)
 
     /** Smooth breathing in [0.6, 1]. */
     private fun pulse(t: Float): Float =

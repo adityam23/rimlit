@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +37,7 @@ import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.PermissionStatus
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingCard
+import app.rimlit.ui.components.SettingIcon
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 
@@ -45,11 +47,12 @@ fun MainScreen(
     onOpenApps: () -> Unit,
     onOpenStyle: () -> Unit,
     onOpenBehavior: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
 
-    SubScreenScaffold(title = stringResource(R.string.app_name), onBack = null) { innerPadding ->
+    SubScreenScaffold(title = stringResource(R.string.app_name), onBack = null, modifier = modifier) { innerPadding ->
         SettingsList(innerPadding) {
             item {
                 SettingCard(
@@ -70,14 +73,21 @@ fun MainScreen(
                     title = status.kind.title(),
                     subtitle = status.kind.description(),
                     onClick = { viewModel.openPermission(status.kind) },
-                    leading = { LeadingIcon(status.kind.icon()) },
+                    leading = { SettingIcon(status.kind.icon()) },
                     trailing = { PermissionState(status) },
                 )
             }
             item { SectionTitle(stringResource(R.string.section_settings)) }
             item { NavCard(Icons.Filled.Apps, R.string.nav_apps_title, R.string.nav_apps_subtitle, onOpenApps) }
             item { NavCard(Icons.Filled.Palette, R.string.nav_style_title, R.string.nav_style_subtitle, onOpenStyle) }
-            item { NavCard(Icons.Filled.Tune, R.string.nav_behavior_title, R.string.nav_behavior_subtitle, onOpenBehavior) }
+            item {
+                NavCard(
+                    Icons.Filled.Tune,
+                    R.string.nav_behavior_title,
+                    R.string.nav_behavior_subtitle,
+                    onOpenBehavior,
+                )
+            }
             item {
                 ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -98,14 +108,9 @@ private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, @StringRes subt
         title = stringResource(titleRes),
         subtitle = stringResource(subtitleRes),
         onClick = onClick,
-        leading = { LeadingIcon(icon) },
+        leading = { SettingIcon(icon) },
         trailing = { Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
     )
-}
-
-@Composable
-private fun LeadingIcon(icon: ImageVector) {
-    Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
 }
 
 @Composable
@@ -142,6 +147,7 @@ private fun PermissionKind.icon(): ImageVector = when (this) {
 }
 
 @Composable
+@ReadOnlyComposable
 private fun PermissionKind.title(): String = stringResource(
     when (this) {
         PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_title
@@ -153,6 +159,7 @@ private fun PermissionKind.title(): String = stringResource(
 )
 
 @Composable
+@ReadOnlyComposable
 private fun PermissionKind.description(): String = stringResource(
     when (this) {
         PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_desc

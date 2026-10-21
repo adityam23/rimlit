@@ -20,98 +20,55 @@ enum class PermissionKind(val optional: Boolean = false) {
     BATTERY_OPTIMIZATION,
 }
 
-data class PermissionStatus(
-    val kind: PermissionKind,
-    val granted: Boolean,
-)
+data class PermissionStatus(val kind: PermissionKind, val granted: Boolean)
 
-object PermissionChecks {
-
-    fun statuses(context: Context): List<PermissionStatus> = PermissionKind.entries.map { kind ->
-        PermissionStatus(
-            kind = kind,
-            granted = when (kind) {
-                PermissionKind.NOTIFICATION_ACCESS -> hasNotificationAccess(context)
-                PermissionKind.OVERLAY -> hasOverlayPermission(context)
-                PermissionKind.FULL_SCREEN_INTENT -> canUseFullScreenIntent(context)
-                PermissionKind.ACCESSIBILITY -> hasAccessibilityService(context)
-                PermissionKind.BATTERY_OPTIMIZATION -> ignoresBatteryOptimizations(context)
-            },
-        )
-    }
-
-    fun hasNotificationAccess(context: Context): Boolean =
+/** Whether the user has granted this. */
+fun PermissionKind.isGranted(context: Context): Boolean = when (this) {
+    PermissionKind.NOTIFICATION_ACCESS ->
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
-    fun hasOverlayPermission(context: Context): Boolean = Settings.canDrawOverlays(context)
+    PermissionKind.OVERLAY -> Settings.canDrawOverlays(context)
 
-    fun canUseFullScreenIntent(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
-        val manager = context.getSystemService(NotificationManager::class.java)
-        return manager != null && manager.canUseFullScreenIntent()
-    }
+    PermissionKind.FULL_SCREEN_INTENT ->
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+            context.getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() == true
 
-    fun hasAccessibilityService(context: Context): Boolean {
-        val manager = context.getSystemService(AccessibilityManager::class.java) ?: return false
-        return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-            .any { it.resolveInfo.serviceInfo.packageName == context.packageName }
-    }
+    PermissionKind.ACCESSIBILITY ->
+        context.getSystemService(AccessibilityManager::class.java)
+            ?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            ?.any { it.resolveInfo.serviceInfo.packageName == context.packageName } == true
 
-    fun ignoresBatteryOptimizations(context: Context): Boolean {
-        val powerManager = context.getSystemService(PowerManager::class.java)
-        return powerManager != null && powerManager.isIgnoringBatteryOptimizations(context.packageName)
-    }
+    PermissionKind.BATTERY_OPTIMIZATION ->
+        context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
 }
 
-/** Deep links to the exact system settings page for each grant. */
-object PermissionLinks {
+/** The exact system settings page where the user grants this. */
+private fun PermissionKind.settingsIntent(context: Context): Intent {
+    val packageUri = "package:${context.packageName}".toUri()
+    return when (this) {
+        PermissionKind.NOTIFICATION_ACCESS -> Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
 
-    fun notificationAccess(context: Context) {
-        context.startActivity(
-            Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    }
+        PermissionKind.OVERLAY -> Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri)
 
-    fun overlay(context: Context) {
-        context.startActivity(
-            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri(context))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    }
-
-    fun fullScreenIntent(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            context.startActivity(
-                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, packageUri(context))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
+        PermissionKind.FULL_SCREEN_INTENT -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, packageUri)
         } else {
-            notificationAppSettings(context)
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         }
-    }
 
-    fun accessibility(context: Context) {
-        context.startActivity(
-            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    }
+        PermissionKind.ACCESSIBILITY -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
 
-    fun batteryOptimization(context: Context) {
-        context.startActivity(
-            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri(context))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    }
+        PermissionKind.BATTERY_OPTIMIZATION -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri)
+    }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+}
 
-    fun notificationAppSettings(context: Context) {
-        context.startActivity(
-            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
-    }
+object Permissions {
 
-    private fun packageUri(context: Context) = "package:${context.packageName}".toUri()
+    fun statuses(context: Context): List<PermissionStatus> =
+        PermissionKind.entries.map { PermissionStatus(it, it.isGranted(context)) }
+
+    /** Opens the system settings page for [kind]. */
+    fun open(context: Context, kind: PermissionKind) {
+        context.startActivity(kind.settingsIntent(context))
+    }
 }

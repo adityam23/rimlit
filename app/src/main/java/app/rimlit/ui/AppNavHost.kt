@@ -6,7 +6,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import app.rimlit.MainViewModel
 
-object Routes {
+private object Routes {
     const val HOME = "home"
     const val APPS = "apps"
     const val STYLE = "style"

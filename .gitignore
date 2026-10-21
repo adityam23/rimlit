@@ -11,4 +11,5 @@ captures/
 # Local-only: personal agent tooling and the private handoff notes
 .omp/
 HANDOFF.md
+TIMELINE.md
 docs/

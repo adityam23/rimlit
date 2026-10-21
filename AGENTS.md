@@ -5,6 +5,7 @@
 ## Working Agreement
 
 - **Ask before assuming major decisions.** If any part of a task is ambiguous, ask the user to clarify before proceeding. Never assume a major decision — always confirm first.
+- **Record decisions before implementing.** Read the local `TIMELINE.md` (when present) before designing a change, and record any new non-obvious decision there, with its reason, before starting the implementation. Update or prune entries when a decision changes or the maintainer asks.
 - **Web search fallback.** If the web search tool fails, ask the user to launch a local Camoufox instance to query instead.
 
 ## Project Overview
@@ -22,12 +23,12 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 - `app/src/main/java/app/rimlit/` — `MainActivity`, `MainViewModel` (+ `previewSpec()`), `GlowListenerService`, `LockScreenGlowActivity` (AOD lock-screen glow)
 - `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `toGlowSpec`), `GlowSpec.kt` (parcelable render input, `GlowPalette`)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
-- `.../notify/` — `NotificationColorExtractor.kt` (1–3 color palette from notification imagery)
+- `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery)
 - `.../overlay/` — `EdgeOverlayController.kt` (overlay window, app or accessibility type), `GlowAccessibilityService.kt` (optional, inert: hosts the accessibility overlay that draws above the lock screen)
-- `.../ui/glow/` — `EdgeGlow` (renderer), `GlowHost` (fade/hold timeline), `GlowGeometry`, `GlowColors`, `WindowCutout`
-- `.../ui/components/` — `SettingsComponents.kt` (scaffold, list, `SettingCard`, `SettingSlider`), `PaletteEditor.kt`
+- `.../ui/glow/` — `EdgeGlow` (renderer), `GlowHost` (fade/hold timeline), `GlowGeometry`, `GlowLayout`, `BloomMask`, `GlowColors`, `WindowCutout`
+- `.../ui/components/` — `SettingsComponents.kt` (scaffold, list, `SettingCard`, `SettingIcon`, `CommitSlider`, `SettingSlider`, `PreviewButtons`), `PaletteEditor.kt` (+ `paletteBrush`)
 - `.../ui/` — `MainScreen`, `StyleScreen`, `AppsScreen`, `BehaviorScreen`, `AppNavHost` (nav); `.../ui/theme/`
-- `.../permissions/` — `Permissions.kt` (checks + settings links)
+- `.../permissions/` — `Permissions.kt` (`PermissionKind` with its grant check and settings intent; `Permissions.statuses`/`open`)
 - `app/src/main/res/` — `values/` (strings, themes, launcher background), `drawable/` + `mipmap-anydpi/` (adaptive icon), `xml/data_extraction_rules.xml`, `xml/glow_accessibility_service.xml`
 - `gradle/` — `libs.versions.toml` (version catalog)
 
@@ -36,7 +37,9 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 ```bash
 gradle :app:assembleDebug                 # build debug APK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-gradle :app:lintDebug                     # lint
+gradle :app:lintDebug                     # Android Lint
+gradle :app:detektMain                    # detekt: smells, Compose rules, official-style formatting
+gradle :app:detektMain -PdetektAutoCorrect  # fix formatting findings in place
 gradle :app:assembleRelease               # minified release APK (unsigned unless RELEASE_* env vars are set)
 gradle clean                              # clean
 ```
@@ -50,9 +53,11 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is
 - **Persistence**: Preferences DataStore (`preferencesDataStore(name = "settings")` delegate). Repository exposes `Flow<GlowSettings>` and one `suspend fun update(transform)` (atomic `edit {}`); never add per-field setters. Keys live in a private `object Keys`; defaults come from `GlowSettings()`, never restated literals.
 - **Enum persistence**: serialize as `name`, parse with the private `toEnumOr(default)` helper — tolerate unknown values. Numbers are clamped to `GlowSettings.Ranges`.
 - **Dependency injection**: none. `MainViewModel` is constructed via a companion `Factory = viewModelFactory { initializer { this[APPLICATION_KEY]... } }`.
-- **UI**: Material 3. Build screens from `ui/components` (`SubScreenScaffold`, `SettingsList`, `SectionTitle`, `SettingCard`, `SettingSlider`, `PaletteEditor`) — do not hand-roll card rows. All user-facing text via `stringResource(R.string.*)`. Enum→text mapping as private extensions. Editable screens render from an in-memory draft for instant previews and persist once per finished edit (tap or slider release).
+- **UI**: Material 3. Build screens from `ui/components` (`SubScreenScaffold`, `SettingsList`, `SectionTitle`, `SettingCard`, `SettingIcon`, `SettingSlider`/`CommitSlider`, `PreviewButtons`, `PaletteEditor`, `paletteBrush`) — do not hand-roll card rows, sliders or palette brushes. Public composables take a `modifier: Modifier = Modifier`. All user-facing text via `stringResource(R.string.*)`. Enum→text mapping as private extensions. Editable screens render from an in-memory draft for instant previews and persist once per finished edit (tap or slider release).
 - **Version gating**: runtime API checks use `Build.VERSION.SDK_INT >= Build.VERSION_CODES.X` guards — never assume the latest SDK at runtime.
 - **Error handling**: safe fallbacks (see enum persistence); no silently-swallowing catch blocks elsewhere.
+- **Colors**: vivid hues come from `model/Hues.kt` (`vividColor`, `hueOf`); never restate the HSL saturation/lightness.
+- **Static analysis**: detekt must pass. Fix findings rather than suppressing them; a project-wide rule change goes in `config/detekt/detekt.yml` with its reason.
 
 ## Important Files
 
@@ -61,13 +66,15 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is
 - `app/build.gradle.kts` — module config (SDK levels, deps, Java 11 / Kotlin jvmTarget 11, lint config). Release signing and `versionCode` come only from `RELEASE_*` environment variables.
 - `build.gradle.kts` — root; bumps KGP to the catalog `kotlin` version (2.4.21) via `buildscript classpath` (JDK 25 support).
 - `gradle/libs.versions.toml` — single source of versions and aliases.
+- `config/detekt/detekt.yml` — detekt overrides on top of the defaults, each with its reason.
 - `settings.gradle.kts` — repos + `include(":app")`.
 - `gradle.properties` — caching, parallel, configuration-cache, androidx flags.
 - `app/proguard-rules.pro` — R8 rules; currently empty because AAPT2 already keeps manifest-declared components. Add rules only for code reached by reflection.
-- `.github/workflows/ci.yml` — CI: lint/test/debug build on every PR and push; on `main`, a signed release APK published as a GitHub Release (full signing setup in the local `docs/RELEASING.md`).
+- `.github/workflows/ci.yml` — CI: lint/detekt/test/debug build on every PR and push; on `main`, a signed release APK published as a GitHub Release (full signing setup in the local `docs/RELEASING.md`).
 - `README.md` — public overview, screenshots, install and build basics.
 - `docs/` — local-only (gitignored) maintainer docs, e.g. `docs/RELEASING.md` (full signing-key setup). May be absent in a fresh clone; never commit it.
 - `HANDOFF.md` — local-only (gitignored) maintainer notes: status, architecture, contracts, gotchas, roadmap. Read it first when present; never commit it or copy it into tracked files.
+- `TIMELINE.md` — local-only (gitignored) decision log: each non-obvious decision, dated, with its reason. Read it before designing a change and update it before implementing one; never commit it.
 
 ## Runtime & Tooling Preferences
 
@@ -126,4 +133,4 @@ Use when the `web_search` tool fails. `camofox-browser` is a Node/Express HTTP A
 
 - No test frameworks, dependencies, or sources exist yet (`app/src/test` and `app/src/androidTest` are absent; no `testImplementation`/`androidTestImplementation`, no `testInstrumentationRunner`).
 - When tests are added: local unit tests `gradle :app:testDebugUnitTest`; instrumented `gradle :app:connectedDebugAndroidTest` (requires device/emulator via adb). Neither runs anything today.
-- Current verification: `gradle :app:assembleDebug :app:lintDebug` green with "No issues found", plus manual testing on an emulator (the maintainer uses a headless `test` AVD; adb grant commands are in the local `HANDOFF.md`).
+- Current verification: `gradle :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on an emulator (the maintainer uses a headless `test` AVD; adb grant commands are in the local `HANDOFF.md`).

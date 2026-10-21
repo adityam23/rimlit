@@ -27,7 +27,7 @@ env:
 
 jobs:
   checks:
-    name: Lint, test, build
+    name: Lint, detekt, test, build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,15 +45,17 @@ jobs:
         with:
           gradle-version: ${{ env.GRADLE_VERSION }}
 
-      - name: Lint, unit tests, debug build
-        run: gradle :app:lintDebug :app:testDebugUnitTest :app:assembleDebug
+      - name: Lint, detekt, unit tests, debug build
+        run: gradle :app:lintDebug :app:detektMain :app:testDebugUnitTest :app:assembleDebug
 
-      - name: Upload lint report
+      - name: Upload lint and detekt reports
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lint-report
-          path: app/build/reports/lint-results-debug.*
+          path: |
+            app/build/reports/lint-results-debug.*
+            app/build/reports/detekt/
 
   release:
     name: Signed release

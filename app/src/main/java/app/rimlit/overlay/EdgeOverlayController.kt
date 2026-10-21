@@ -101,7 +101,7 @@ class EdgeOverlayController(
                 GlowHost(
                     request = request,
                     dismissed = dismissed,
-                    onFinished = ::remove,
+                    onFinish = ::remove,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

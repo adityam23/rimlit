@@ -5,13 +5,15 @@ import android.graphics.Shader
 import android.graphics.SweepGradient
 import androidx.core.graphics.ColorUtils
 import app.rimlit.model.GlowPalette
+import app.rimlit.model.vividColor
 import kotlin.math.floor
 
 /** Color of [palette] at outline position [t] (any real; wraps every 1.0), so gradients loop seamlessly. */
 internal fun GlowPalette.colorAt(t: Float): Int {
     val u = t - floor(t)
     return when (this) {
-        GlowPalette.Rainbow -> ColorUtils.HSLToColor(floatArrayOf(u * 360f, 1f, 0.55f))
+        GlowPalette.Rainbow -> vividColor(u * 360f)
+
         is GlowPalette.Colors -> {
             if (argb.size == 1) return argb[0]
             val x = u * argb.size
@@ -21,19 +23,21 @@ internal fun GlowPalette.colorAt(t: Float): Int {
     }
 }
 
-/** True when the palette changes along the outline (so it needs a shader and can flow). */
-internal val GlowPalette.isMulticolor: Boolean
-    get() = this is GlowPalette.Rainbow || (this is GlowPalette.Colors && argb.size > 1)
-
 /**
- * A sweep shader that spreads [palette] evenly by **arc length** (not by angle) around [geometry],
- * shifted by [phase]. A plain sweep gradient would bunch colors on the short edges of a tall screen;
- * mapping each arc-length sample to its angle fixes that.
+ * [palette] spread evenly by **arc length** (not by angle) around [geometry]. A plain sweep gradient would
+ * bunch colors on the short edges of a tall screen; mapping each arc-length sample to its angle fixes that.
+ * The sample buffers are reused, so a frame allocates only the shader.
  */
-internal fun arcLengthShader(geometry: GlowGeometry, palette: GlowPalette, phase: Float): Shader {
-    val n = GlowGeometry.SAMPLES
-    val colors = IntArray(n) { palette.colorAt(it.toFloat() / n + phase) }
-    return outlineGradient(geometry, geometry.sampleAngles, colors)
+internal class PaletteFlow(private val geometry: GlowGeometry, private val palette: GlowPalette) {
+
+    private val colors = IntArray(GlowGeometry.SAMPLES)
+    private val gradient = OutlineGradient(GlowGeometry.SAMPLES)
+
+    /** The palette shifted [phase] loops along the outline. */
+    fun shader(phase: Float): Shader {
+        for (i in colors.indices) colors[i] = palette.colorAt(i.toFloat() / colors.size + phase)
+        return gradient.shader(geometry, geometry.sampleAngles, colors)
+    }
 }
 
 /**
@@ -53,6 +57,7 @@ internal class BladeFade(private val geometry: GlowGeometry, private val tail: F
         // Transparent [color], not transparent black: gradients blend unpremultiplied, so black would grey the fade.
         it[STEPS + 1] = ColorUtils.setAlphaComponent(color, 0)
     }
+    private val gradient = OutlineGradient(STEPS + 2)
     private var head = 0f
 
     /** Longest head edge that still ends before the tail starts, keeping the stops in outline order. */
@@ -67,7 +72,7 @@ internal class BladeFade(private val geometry: GlowGeometry, private val tail: F
     /** The comet with its head fading out over [edge] (a hairline for a crisp core; wider for a soft halo). */
     fun shader(edge: Float): Shader {
         angles[STEPS + 1] = geometry.angleAt(head + edge.coerceAtMost(maxEdge))
-        return outlineGradient(geometry, angles, colors)
+        return gradient.shader(geometry, angles, colors)
     }
 
     private companion object {
@@ -77,26 +82,33 @@ internal class BladeFade(private val geometry: GlowGeometry, private val tail: F
 }
 
 /**
- * Sweep gradient around [geometry]'s centre through [colors] at [angles] (turn fractions). The stops come
+ * Sweep gradient around a geometry's centre through colors at angles (turn fractions). The stops come
  * in outline order, so angles increase with at most one wrap past 0; they are rotated to start at the
- * wrap, and the seam at angle 0/1 gets the color interpolated across it.
+ * wrap, and the seam at angle 0/1 gets the color interpolated across it. Reuses its stop buffers, sized
+ * for [size] stops plus the two seam stops.
  */
-private fun outlineGradient(geometry: GlowGeometry, angles: FloatArray, colors: IntArray): Shader {
-    val n = angles.size
-    val wrap = angles.indices.minBy { angles[it] }
-    val positions = FloatArray(n + 2)
-    val stops = IntArray(n + 2)
-    for (k in 0 until n) {
-        positions[k + 1] = angles[(wrap + k) % n]
-        stops[k + 1] = colors[(wrap + k) % n]
+private class OutlineGradient(private val size: Int) {
+
+    private val positions = FloatArray(size + 2)
+    private val stops = IntArray(size + 2)
+
+    fun shader(geometry: GlowGeometry, angles: FloatArray, colors: IntArray): Shader {
+        val n = size
+        var wrap = 0
+        for (k in 1 until n) if (angles[k] < angles[wrap]) wrap = k
+        for (k in 0 until n) {
+            positions[k + 1] = angles[(wrap + k) % n]
+            stops[k + 1] = colors[(wrap + k) % n]
+        }
+        val first = positions[1]
+        val last = positions[n]
+        val seamFraction = (1f - last) / ((1f - last) + first).coerceAtLeast(1e-4f)
+        val seam = ColorUtils.blendARGB(stops[n], stops[1], seamFraction)
+        positions[0] = 0f
+        stops[0] = seam
+        positions[n + 1] = 1f
+        stops[n + 1] = seam
+        // The shader copies the stops, so the buffers can be refilled for the next frame.
+        return SweepGradient(geometry.center.x, geometry.center.y, stops, positions)
     }
-    val first = positions[1]
-    val last = positions[n]
-    val seamFraction = (1f - last) / ((1f - last) + first).coerceAtLeast(1e-4f)
-    val seam = ColorUtils.blendARGB(stops[n], stops[1], seamFraction)
-    positions[0] = 0f
-    stops[0] = seam
-    positions[n + 1] = 1f
-    stops[n + 1] = seam
-    return SweepGradient(geometry.center.x, geometry.center.y, stops, positions)
 }

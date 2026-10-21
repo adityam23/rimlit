@@ -3,15 +3,14 @@ package app.rimlit.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -33,46 +32,42 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.model.ColorMode
+import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
-import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
 import app.rimlit.previewSpec
 import app.rimlit.ui.components.PaletteEditor
+import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingCard
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.glow.EdgeGlow
+import app.rimlit.ui.glow.cutoutBounds
 import kotlin.math.roundToInt
 
 private val PreviewBackground = Color(0xFF000000)
 
 @Composable
-fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val saved by viewModel.settings.collectAsStateWithLifecycle()
 
     // Everything on this screen renders from the in-memory draft so previews react instantly;
     // DataStore is written once per finished edit (tap, or slider release).
     var draft by remember { mutableStateOf(saved) }
     LaunchedEffect(saved) { draft = saved }
-    fun preview(transform: (GlowSettings) -> GlowSettings) {
-        draft = transform(draft)
-    }
-    fun commit(transform: (GlowSettings) -> GlowSettings) {
-        preview(transform)
-        viewModel.update(transform)
-    }
+    val editor = DraftEditor(preview = { draft = it(draft) }, persist = viewModel::update)
 
     val view = LocalView.current
-    val hasCutout = remember(view) { view.rootWindowInsets?.displayCutout != null }
+    val hasCutout = remember(view) { view.cutoutBounds() != null }
     // Preview what this device will really show: the renderer falls back to the full edge without a cutout.
     val spec = draft.previewSpec().let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
 
-    SubScreenScaffold(title = stringResource(R.string.nav_style_title), onBack = onBack) { innerPadding ->
-        SettingsList(innerPadding) {
+    SubScreenScaffold(title = stringResource(R.string.nav_style_title), onBack = onBack, modifier = modifier) {
+        SettingsList(it) {
             item {
                 LivePreview(
                     spec = spec,
@@ -80,132 +75,147 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     onPreviewLockScreen = { viewModel.previewLockScreen(spec) },
                 )
             }
-
-            item { SectionTitle(stringResource(R.string.style_section)) }
-            items(GlowStyle.entries, key = { it.name }) { style ->
-                SettingCard(
-                    title = stringResource(style.titleRes),
-                    subtitle = stringResource(style.descRes),
-                    onClick = { commit { it.copy(glowStyle = style) } },
-                    leading = {
-                        Box(
-                            modifier = Modifier
-                                .size(width = 40.dp, height = 64.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(PreviewBackground),
-                        ) {
-                            EdgeGlow(
-                                spec = spec.copy(style = style, region = EdgeRegion.FULL_SCREEN, thicknessDp = 2f),
-                                preview = true,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                    },
-                    trailing = {
-                        RadioButton(selected = draft.glowStyle == style, onClick = { commit { it.copy(glowStyle = style) } })
-                    },
-                )
-            }
-
-            item { SectionTitle(stringResource(R.string.region_section)) }
-            items(EdgeRegion.entries, key = { it.name }) { region ->
-                val available = region != EdgeRegion.CUTOUT || hasCutout
-                SettingCard(
-                    title = stringResource(region.titleRes),
-                    subtitle = stringResource(if (available) region.descRes else R.string.region_cutout_unavailable),
-                    enabled = available,
-                    onClick = { commit { it.copy(region = region) } },
-                    trailing = {
-                        RadioButton(
-                            selected = draft.region == region,
-                            enabled = available,
-                            onClick = { commit { it.copy(region = region) } },
-                        )
-                    },
-                )
-            }
-
-            item { SectionTitle(stringResource(R.string.color_section)) }
-            items(ColorMode.entries, key = { it.name }) { mode ->
-                SettingCard(
-                    title = stringResource(mode.titleRes),
-                    subtitle = stringResource(mode.descRes),
-                    onClick = { commit { it.copy(colorMode = mode) } },
-                    trailing = {
-                        RadioButton(selected = draft.colorMode == mode, onClick = { commit { it.copy(colorMode = mode) } })
-                    },
-                )
-            }
-            if (draft.colorMode == ColorMode.CUSTOM) {
-                item {
-                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                        PaletteEditor(
-                            colors = draft.customColors,
-                            onPreview = { colors -> preview { it.copy(customColors = colors) } },
-                            onCommit = { colors -> viewModel.update { it.copy(customColors = colors) } },
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
-                }
-            }
-
-            item { SectionTitle(stringResource(R.string.tuning_section)) }
-            item {
-                SettingSlider(
-                    label = stringResource(R.string.thickness_label),
-                    value = draft.thicknessDp,
-                    range = Ranges.thicknessDp,
-                    valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
-                    onPreview = { v -> preview { it.copy(thicknessDp = v) } },
-                    onCommit = { v -> viewModel.update { it.copy(thicknessDp = v) } },
-                )
-            }
-            item {
-                SettingSlider(
-                    label = stringResource(R.string.glow_width_label),
-                    value = draft.glowWidthDp,
-                    range = Ranges.glowWidthDp,
-                    valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
-                    onPreview = { v -> preview { it.copy(glowWidthDp = v) } },
-                    onCommit = { v -> viewModel.update { it.copy(glowWidthDp = v) } },
-                )
-            }
-            item {
-                SettingSlider(
-                    label = stringResource(R.string.speed_label),
-                    value = draft.speed,
-                    range = Ranges.speed,
-                    valueText = { stringResource(R.string.value_multiplier, it) },
-                    onPreview = { v -> preview { it.copy(speed = v) } },
-                    onCommit = { v -> viewModel.update { it.copy(speed = v) } },
-                )
-            }
-            item {
-                SettingSlider(
-                    label = stringResource(R.string.brightness_label),
-                    value = draft.brightness,
-                    range = Ranges.brightness,
-                    valueText = { stringResource(R.string.value_percent, (it * 100).roundToInt()) },
-                    onPreview = { v -> preview { it.copy(brightness = v) } },
-                    onCommit = { v -> viewModel.update { it.copy(brightness = v) } },
-                )
-            }
-            item {
-                SettingSlider(
-                    label = stringResource(R.string.duration_section),
-                    value = draft.durationMs.toFloat(),
-                    range = Ranges.durationMs.first.toFloat()..Ranges.durationMs.last.toFloat(),
-                    valueText = { stringResource(R.string.value_seconds, it / 1000f) },
-                    onPreview = { v -> preview { it.copy(durationMs = v.toLong()) } },
-                    onCommit = { v -> viewModel.update { it.copy(durationMs = v.toLong()) } },
-                )
-            }
+            styleSection(draft, spec, editor)
+            regionSection(draft, hasCutout, editor)
+            colorSection(draft, editor)
+            tuningSection(draft, editor)
             item {
                 OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.preview_button))
                 }
             }
         }
+    }
+}
+
+private typealias SettingsEdit = (GlowSettings) -> GlowSettings
+
+/** Changes to the screen's draft: [preview] only re-renders, [persist] only writes, [commit] does both. */
+private class DraftEditor(val preview: (SettingsEdit) -> Unit, val persist: (SettingsEdit) -> Unit) {
+    fun commit(edit: SettingsEdit) {
+        preview(edit)
+        persist(edit)
+    }
+}
+
+private fun LazyListScope.styleSection(draft: GlowSettings, spec: GlowSpec, editor: DraftEditor) {
+    item { SectionTitle(stringResource(R.string.style_section)) }
+    items(GlowStyle.entries, key = { it.name }) { style ->
+        val select = { editor.commit { it.copy(glowStyle = style) } }
+        SettingCard(
+            title = stringResource(style.titleRes),
+            subtitle = stringResource(style.descRes),
+            onClick = select,
+            leading = {
+                Box(
+                    modifier = Modifier
+                        .size(width = 40.dp, height = 64.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(PreviewBackground),
+                ) {
+                    EdgeGlow(
+                        spec = spec.copy(style = style, region = EdgeRegion.FULL_SCREEN, thicknessDp = 2f),
+                        preview = true,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            },
+            trailing = { RadioButton(selected = draft.glowStyle == style, onClick = select) },
+        )
+    }
+}
+
+private fun LazyListScope.regionSection(draft: GlowSettings, hasCutout: Boolean, editor: DraftEditor) {
+    item { SectionTitle(stringResource(R.string.region_section)) }
+    items(EdgeRegion.entries, key = { it.name }) { region ->
+        val available = region != EdgeRegion.CUTOUT || hasCutout
+        val select = { editor.commit { it.copy(region = region) } }
+        SettingCard(
+            title = stringResource(region.titleRes),
+            subtitle = stringResource(if (available) region.descRes else R.string.region_cutout_unavailable),
+            enabled = available,
+            onClick = select,
+            trailing = { RadioButton(selected = draft.region == region, enabled = available, onClick = select) },
+        )
+    }
+}
+
+private fun LazyListScope.colorSection(draft: GlowSettings, editor: DraftEditor) {
+    item { SectionTitle(stringResource(R.string.color_section)) }
+    items(ColorMode.entries, key = { it.name }) { mode ->
+        val select = { editor.commit { it.copy(colorMode = mode) } }
+        SettingCard(
+            title = stringResource(mode.titleRes),
+            subtitle = stringResource(mode.descRes),
+            onClick = select,
+            trailing = { RadioButton(selected = draft.colorMode == mode, onClick = select) },
+        )
+    }
+    if (draft.colorMode == ColorMode.CUSTOM) {
+        item {
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                PaletteEditor(
+                    colors = draft.customColors,
+                    onPreview = { colors -> editor.preview { it.copy(customColors = colors) } },
+                    onCommit = { colors -> editor.persist { it.copy(customColors = colors) } },
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        }
+    }
+}
+
+private fun LazyListScope.tuningSection(draft: GlowSettings, editor: DraftEditor) {
+    item { SectionTitle(stringResource(R.string.tuning_section)) }
+    item {
+        SettingSlider(
+            label = stringResource(R.string.thickness_label),
+            value = draft.thicknessDp,
+            range = Ranges.thicknessDp,
+            valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
+            onPreview = { v -> editor.preview { it.copy(thicknessDp = v) } },
+            onCommit = { v -> editor.persist { it.copy(thicknessDp = v) } },
+        )
+    }
+    item {
+        SettingSlider(
+            label = stringResource(R.string.glow_width_label),
+            value = draft.glowWidthDp,
+            range = Ranges.glowWidthDp,
+            valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
+            onPreview = { v -> editor.preview { it.copy(glowWidthDp = v) } },
+            onCommit = { v -> editor.persist { it.copy(glowWidthDp = v) } },
+        )
+    }
+    item {
+        SettingSlider(
+            label = stringResource(R.string.speed_label),
+            value = draft.speed,
+            range = Ranges.speed,
+            valueText = { stringResource(R.string.value_multiplier, it) },
+            onPreview = { v -> editor.preview { it.copy(speed = v) } },
+            onCommit = { v -> editor.persist { it.copy(speed = v) } },
+        )
+    }
+    item {
+        SettingSlider(
+            label = stringResource(R.string.brightness_label),
+            value = draft.brightness,
+            range = Ranges.brightness,
+            valueText = { stringResource(R.string.value_percent, (it * 100).roundToInt()) },
+            onPreview = { v -> editor.preview { it.copy(brightness = v) } },
+            onCommit = { v -> editor.persist { it.copy(brightness = v) } },
+        )
+    }
+    item {
+        SettingSlider(
+            label = stringResource(R.string.duration_section),
+            value = draft.durationMs.toFloat(),
+            range = Ranges.durationMs.first.toFloat()..Ranges.durationMs.last.toFloat(),
+            valueText = { stringResource(R.string.value_seconds, it / 1000f) },
+            onPreview = { v -> editor.preview { it.copy(durationMs = v.toLong()) } },
+            onCommit = { v -> editor.persist { it.copy(durationMs = v.toLong()) } },
+        )
     }
 }
 
@@ -226,14 +236,7 @@ private fun LivePreview(spec: GlowSpec, onPreviewOnScreen: () -> Unit, onPreview
             ) {
                 EdgeGlow(spec = spec, preview = true, modifier = Modifier.fillMaxSize())
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onPreviewOnScreen, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.preview_unlocked))
-                }
-                OutlinedButton(onClick = onPreviewLockScreen, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.preview_locked))
-                }
-            }
+            PreviewButtons(onPreviewOnScreen, onPreviewLockScreen, modifier = Modifier.weight(1f))
         }
     }
 }

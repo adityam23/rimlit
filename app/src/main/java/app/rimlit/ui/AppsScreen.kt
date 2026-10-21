@@ -35,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -45,11 +44,13 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.AppInfo
 import app.rimlit.model.DEFAULT_GLOW_ARGB
+import app.rimlit.model.GlowSettings
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.SubScreenScaffold
+import app.rimlit.ui.components.paletteBrush
 
 @Composable
-fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
+fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val apps by viewModel.apps.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
@@ -59,7 +60,11 @@ fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         if (query.isBlank()) apps else apps.filter { it.label.contains(query, ignoreCase = true) }
     }
 
-    SubScreenScaffold(title = stringResource(R.string.nav_apps_title), onBack = onBack) { innerPadding ->
+    SubScreenScaffold(
+        title = stringResource(R.string.nav_apps_title),
+        onBack = onBack,
+        modifier = modifier,
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -81,40 +86,12 @@ fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
-            if (filtered.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource(R.string.apps_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(filtered, key = { it.packageName }) { app ->
-                        AppRow(
-                            app = app,
-                            blocked = app.packageName in settings.blockedPackages,
-                            palette = settings.appPalettes[app.packageName],
-                            onEditPalette = { editing = app },
-                            onToggle = { blocked ->
-                                viewModel.update {
-                                    it.copy(
-                                        blockedPackages = if (blocked) {
-                                            it.blockedPackages + app.packageName
-                                        } else {
-                                            it.blockedPackages - app.packageName
-                                        },
-                                    )
-                                }
-                            },
-                        )
-                    }
-                }
-            }
+            AppList(
+                apps = filtered,
+                settings = settings,
+                onEditPalette = { editing = it },
+                onToggle = { app, blocked -> viewModel.update { it.withBlocked(app.packageName, blocked) } },
+            )
         }
     }
 
@@ -134,6 +111,42 @@ fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         )
     }
 }
+
+@Composable
+private fun AppList(
+    apps: List<AppInfo>,
+    settings: GlowSettings,
+    onEditPalette: (AppInfo) -> Unit,
+    onToggle: (AppInfo, Boolean) -> Unit,
+) {
+    if (apps.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = stringResource(R.string.apps_empty),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        items(apps, key = { it.packageName }) { app ->
+            AppRow(
+                app = app,
+                blocked = app.packageName in settings.blockedPackages,
+                palette = settings.appPalettes[app.packageName],
+                onEditPalette = { onEditPalette(app) },
+                onToggle = { blocked -> onToggle(app, blocked) },
+            )
+        }
+    }
+}
+
+private fun GlowSettings.withBlocked(packageName: String, blocked: Boolean) =
+    copy(blockedPackages = if (blocked) blockedPackages + packageName else blockedPackages - packageName)
 
 @Composable
 private fun AppRow(
@@ -174,14 +187,7 @@ private fun PaletteButton(palette: List<Int>?, onClick: () -> Unit) {
         modifier = Modifier
             .size(32.dp)
             .clip(CircleShape)
-            .then(
-                if (palette != null) {
-                    val colors = palette.map(::Color)
-                    Modifier.background(Brush.sweepGradient(if (colors.size == 1) colors + colors else colors + colors.first()))
-                } else {
-                    Modifier
-                },
-            )
+            .then(if (palette != null) Modifier.background(paletteBrush(palette, sweep = true)) else Modifier)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
             .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -232,9 +238,14 @@ private fun LetterAvatar(label: String, seed: String) {
 }
 
 private val AvatarPalette = listOf(
-    Color(0xFF00BCD4), Color(0xFFE040FB), Color(0xFF536DFE),
-    Color(0xFF00C853), Color(0xFFFF6D00), Color(0xFFD50000),
-    Color(0xFF8D6E63), Color(0xFF00897B),
+    Color(0xFF00BCD4),
+    Color(0xFFE040FB),
+    Color(0xFF536DFE),
+    Color(0xFF00C853),
+    Color(0xFFFF6D00),
+    Color(0xFFD50000),
+    Color(0xFF8D6E63),
+    Color(0xFF00897B),
 )
 
 private fun avatarColor(seed: String): Color = AvatarPalette[(seed.hashCode() and Int.MAX_VALUE) % AvatarPalette.size]
