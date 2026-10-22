@@ -38,7 +38,7 @@ class GlowMachineScenarioTest {
         Run(Fixtures.initial(settings, environment, accessibility))
 
     private fun posted(key: String, ringing: Boolean = false, ongoing: Boolean = ringing) =
-        GlowEvent.Posted(post(key, ringing = ringing, ongoing = ongoing))
+        GlowEvent.Posted(post(key, fullScreenIntent = ringing, ongoing = ongoing))
 
     private fun opened(surface: Surface) = GlowEvent.SurfaceOpened(surface)
 
@@ -238,6 +238,15 @@ class GlowMachineScenarioTest {
 
         run.send(posted("b"))
         assertEquals("b", run.glow.source.post?.key)
+    }
+
+    @Test
+    fun theTrampolineIsNotACall() {
+        val trampoline = GlowEvent.Posted(post("t", fullScreenIntent = true, ongoing = false, own = true))
+        val run = onLockScreen().send(trampoline)
+        assertEquals(Surface.LOCK_SCREEN, run.glow.surface, "waking the screen doesn't end the glow it woke it for")
+        assertTrue(run.effects.isEmpty())
+        assertTrue(run.state.ringingKeys.isEmpty())
     }
 
     @Test

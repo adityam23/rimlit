@@ -180,7 +180,12 @@ class GlowMachineModelCheckTest {
         val wasOpen = oldGlow != null && oldGlow.opened && oldGlow.surface == newGlow?.surface
         val endedRinging = event is GlowEvent.Posted && !event.post.isRinging && event.post.key in old.ringingKeys
         val ringingStarted = event is GlowEvent.Posted && event.post.isRinging
+        // Rimlit's own posts other than the test (the lock-screen trampoline) only update the posted keys.
+        val trampoline = event is GlowEvent.Posted && event.post.isOwn && !event.post.isTest &&
+            event.post.key !in old.ringingKeys
         return when {
+            trampoline && (newGlow != oldGlow || new.pending != old.pending) -> "Rimlit's own post changed the glow"
+
             newGlow != null && newGlow.opened && !wasOpen && !confirmed -> "shown without confirmation"
 
             event is GlowEvent.Removed && new.pending?.post?.key == event.key -> "a removed post is still pending"
