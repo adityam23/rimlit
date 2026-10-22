@@ -18,11 +18,24 @@ import app.rimlit.overlay.EdgeOverlayController
 import app.rimlit.overlay.GlowAccessibilityService
 import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.isGranted
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-/** The machine's platform side: system state, overlay windows, the lock-screen activity, main-thread timers. */
-class AndroidGlowDriver(private val context: Context, private val coordinator: GlowCoordinator) : GlowDriver {
+/**
+ * The machine's platform side: system state, overlay windows, the lock-screen activity, main-thread timers and
+ * background palette extraction.
+ */
+class AndroidGlowDriver(
+    private val context: Context,
+    private val coordinator: GlowCoordinator,
+    private val extractionDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : GlowDriver {
 
     private val handler = Handler(Looper.getMainLooper())
+    private val scope = MainScope()
     private val appOverlay by lazy { EdgeOverlayController(context) }
 
     override fun environment() = Environment(
@@ -64,10 +77,13 @@ class AndroidGlowDriver(private val context: Context, private val coordinator: G
         return Cancellable { handler.removeCallbacks(runnable) }
     }
 
-    /** Synchronous for now: the colours are delivered before this returns, so there is nothing to cancel. */
+    /**
+     * Off the main thread: loading a URI or resource icon blocks on I/O. The colours come back on the main thread;
+     * a result that lands after a cancel anyway is dropped by the coordinator.
+     */
     override fun extract(extract: () -> List<Int>, deliver: (List<Int>) -> Unit): Cancellable {
-        deliver(extract())
-        return Cancellable {}
+        val job = scope.launch { deliver(withContext(extractionDispatcher) { extract() }) }
+        return Cancellable { job.cancel() }
     }
 
     override fun fullScreenIntentDenied() {
