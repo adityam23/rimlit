@@ -76,9 +76,13 @@ object GlowNotifications {
             .setTimeoutAfter(durationMs)
             .build()
         // Updating a live notification doesn't re-alert, so its full-screen intent wouldn't fire again.
-        val manager = context.getSystemService(NotificationManager::class.java)
-        manager.cancel(GLOW_NOTIFICATION_ID)
-        manager.notify(GLOW_NOTIFICATION_ID, notification)
+        cancelLockScreenWake(context)
+        context.getSystemService(NotificationManager::class.java).notify(GLOW_NOTIFICATION_ID, notification)
+    }
+
+    /** Removes the trampoline once its lock-screen glow has ended. */
+    fun cancelLockScreenWake(context: Context) {
+        context.getSystemService(NotificationManager::class.java).cancel(GLOW_NOTIFICATION_ID)
     }
 
     /** A channel that never makes a sound, vibrates or badges: the glow is the only signal. */
