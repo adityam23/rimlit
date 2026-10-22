@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.ColorMode
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSettings
@@ -71,8 +72,8 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             item {
                 LivePreview(
                     spec = spec,
-                    onPreviewOnScreen = { viewModel.previewOverlay(spec) },
-                    onPreviewLockScreen = { viewModel.previewLockScreen(spec) },
+                    onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, spec) },
+                    onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, spec) },
                 )
             }
             styleSection(draft, spec, editor)

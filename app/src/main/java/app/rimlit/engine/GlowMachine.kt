@@ -124,22 +124,25 @@ data class GlowState(
 }
 
 sealed interface GlowEvent {
+    /** Inputs a component sends straight to the coordinator; the others are posts, samples or executor reports. */
+    sealed interface External : GlowEvent
+
     data class Posted(val post: Post) : GlowEvent
 
-    data class Removed(val key: String) : GlowEvent
+    data class Removed(val key: String) : External
 
     /** [activeKeys] and [ringingKeys] are read from the notifications already up when the listener connects. */
-    data class ListenerConnected(val activeKeys: Set<String>, val ringingKeys: Set<String>) : GlowEvent
+    data class ListenerConnected(val activeKeys: Set<String>, val ringingKeys: Set<String>) : External
 
-    data object ListenerDisconnected : GlowEvent
+    data object ListenerDisconnected : External
 
     data class SettingsChanged(val settings: GlowSettings) : GlowEvent
 
     data class EnvironmentChanged(val environment: Environment) : GlowEvent
 
-    data class AccessibilityChanged(val available: Boolean) : GlowEvent
+    data class AccessibilityChanged(val available: Boolean) : External
 
-    data class Preview(val target: PreviewTarget, val spec: GlowSpec) : GlowEvent
+    data class Preview(val target: PreviewTarget, val spec: GlowSpec) : External
 
     /** The result of the in-flight [GlowEffect.ExtractPalette]. */
     data class PaletteExtracted(val colors: List<Int>) : GlowEvent

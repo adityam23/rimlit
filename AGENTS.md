@@ -9,23 +9,24 @@
 
 ## Project Overview
 
-Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (in progress: a formally checked notification/glow state machine in `engine`; its pure core and model check are in, the app is wired to it next). It may be absent in a fresh clone; never commit it.
+Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (in progress: a formally checked notification/glow state machine in `engine`; the app runs on it, and palette extraction moves off the main thread next). It may be absent in a fresh clone; never commit it.
 
 ## Architecture & Data Flow
 
-Single Gradle module `:app`. Packages under `app.rimlit`: `model` → `data` → `engine` → `notify` → `overlay` → `ui/glow` → `ui/components` → `ui` (+ `ui/theme`), plus `permissions`. No DI framework; `navigation-compose` for the four screens. The full data-flow diagram lives in `HANDOFF.md`.
+Single Gradle module `:app`. Packages under `app.rimlit`: `model` → `data` → `engine` → `notify` → `overlay` → `runtime` → `ui/glow` → `ui/components` → `ui` (+ `ui/theme`), plus `permissions`. No DI framework; `navigation-compose` for the four screens. The full data-flow diagram lives in `HANDOFF.md`.
 
-State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateIn(...)` → UI `collectAsStateWithLifecycle()`. Every glow — notification, overlay, lock screen, preview — renders from one `GlowSpec` built by `GlowSettings.toGlowSpec(palette)`, with the palette resolved by `GlowSettings.paletteFor(packageName)`.
+State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateIn(...)` → UI `collectAsStateWithLifecycle()`. Every glow's lifecycle goes through one `GlowCoordinator`, owned by `RimlitApp`: the listener, the screen receiver, the accessibility service and the previews send it events, and the overlay windows and the lock-screen activity draw `coordinator.state.frameFor(surface)`. Every glow — notification, overlay, lock screen, preview — renders from one `GlowSpec` built by `GlowSettings.toGlowSpec(palette)`, with the palette resolved by `GlowSettings.paletteFor(packageName)`.
 
 ## Key Directories
 
-- `app/src/main/java/app/rimlit/` — `MainActivity`, `MainViewModel` (+ `previewSpec()`), `GlowListenerService`, `LockScreenGlowActivity` (AOD lock-screen glow)
+- `app/src/main/java/app/rimlit/` — `RimlitApp` (owns the coordinator; `Context.glowCoordinator`), `MainActivity`, `MainViewModel` (+ `previewSpec()`), `GlowListenerService` (builds `Post`s and forwards events), `LockScreenGlowActivity` (the AOD lock-screen surface)
 - `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `paletteFor`, `toGlowSpec`), `GlowSpec.kt` (parcelable render input, `GlowPalette`)
-- `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Post.kt` (notification facts and the filter, also used by the listener)
+- `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Post.kt` (notification facts and the filter), `GlowCoordinator.kt` (serial queue gated on settings, environment sampling), `GlowExecutor.kt` + `SurfaceSlot.kt` (run effects and hold the executor contracts), `GlowDriver.kt` (the platform port)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
 - `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery)
-- `.../overlay/` — `EdgeOverlayController.kt` (overlay window, app or accessibility type), `GlowAccessibilityService.kt` (optional, inert: hosts the accessibility overlay that draws above the lock screen)
-- `.../ui/glow/` — `EdgeGlow` (renderer), `GlowHost` (fade/hold timeline), `GlowGeometry`, `GlowLayout`, `BloomMask`, `GlowColors`, `WindowCutout`
+- `.../runtime/` — `AndroidGlowDriver.kt` (the `GlowDriver`: system state, surfaces, main-thread timers, extraction), `ScreenStateReceiver.kt` (screen on/off, unlock)
+- `.../overlay/` — `EdgeOverlayController.kt` (opens the overlay window a surface draws in, app or accessibility type), `GlowAccessibilityService.kt` (optional, inert: hosts the accessibility overlay that draws above the lock screen)
+- `.../ui/glow/` — `EdgeGlow` (renderer), `GlowHost` (draws a surface's frame, animating its fades), `GlowGeometry`, `GlowLayout`, `BloomMask`, `GlowColors`, `WindowCutout`
 - `.../ui/components/` — `SettingsComponents.kt` (scaffold, list, `SettingCard`, `SettingIcon`, `CommitSlider`, `SettingSlider`, `PreviewButtons`), `PaletteEditor.kt` (+ `paletteBrush`)
 - `.../ui/` — `MainScreen`, `StyleScreen`, `AppsScreen`, `BehaviorScreen`, `AppNavHost` (nav); `.../ui/theme/`
 - `.../permissions/` — `Permissions.kt` (`PermissionKind` with its grant check and settings intent; `Permissions.statuses`/`open`)
@@ -62,7 +63,7 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 
 ## Important Files
 
-- `app/src/main/AndroidManifest.xml` — permissions (`POST_NOTIFICATIONS`, `USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) and components (`MainActivity`, `LockScreenGlowActivity`, `GlowListenerService`, `GlowAccessibilityService` + `res/xml/glow_accessibility_service.xml`).
+- `app/src/main/AndroidManifest.xml` — permissions (`POST_NOTIFICATIONS`, `USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) and components (application `RimlitApp`, `MainActivity`, `LockScreenGlowActivity`, `GlowListenerService`, `GlowAccessibilityService` + `res/xml/glow_accessibility_service.xml`).
 - `app/src/main/java/app/rimlit/MainActivity.kt` — entry point; requests `POST_NOTIFICATIONS`; refreshes permission state in `onResume`.
 - `app/build.gradle.kts` — module config (SDK levels, deps, Java 11 / Kotlin jvmTarget 11, lint config). Release signing and `versionCode` come only from `RELEASE_*` environment variables.
 - `build.gradle.kts` — root; bumps KGP to the catalog `kotlin` version (2.4.21) via `buildscript classpath` (JDK 25 support).
@@ -89,6 +90,6 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 ## Testing & QA
 
 - Local unit tests: JUnit 4 + `kotlin-test` in `app/src/test`, run with `gradle :app:testDebugUnitTest` (also in CI). No instrumented tests (`app/src/androidTest` is absent, no `testInstrumentationRunner`).
-- `engine/GlowMachineModelCheckTest` explores every reachable state of the state machine over a small adversarial event alphabet (about 3.6 M states, 133 M transitions, ~75 s; the test JVM gets a 4 GB heap, overridable with `-PtestMaxHeap=`) and asserts the invariants listed in it on every state and transition; a violation fails with the shortest event trace. Never trim the alphabet or fixtures to make it fit: each variant multiplies the state space, so make the search cheaper or raise the heap instead. `GlowMachineScenarioTest` pins the intended behaviour, one scenario per decision; `PostFilterTest` covers the notification filter.
+- `engine/GlowMachineModelCheckTest` explores every reachable state of the state machine over a small adversarial event alphabet (about 3.6 M states, 133 M transitions, ~75 s; the test JVM gets a 4 GB heap, overridable with `-PtestMaxHeap=`) and asserts the invariants listed in it on every state and transition; a violation fails with the shortest event trace. Never trim the alphabet or fixtures to make it fit: each variant multiplies the state space, so make the search cheaper or raise the heap instead. `GlowMachineScenarioTest` pins the intended behaviour, one scenario per decision; `GlowCoordinatorTest` covers the settings gate, environment sampling and the executor contracts with a fake driver; `PostFilterTest` covers the notification filter.
 - When the machine changes: keep the model check green, add a scenario for any new behaviour, and plant the bug the new invariant guards against once to see the check fail.
 - Current verification: `gradle :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on an emulator or device (adb grant commands are in `HANDOFF.md`).
