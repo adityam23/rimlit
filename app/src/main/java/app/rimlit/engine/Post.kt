@@ -14,8 +14,8 @@ data class Post(
     val isOwn: Boolean,
     /** Rimlit's own test notification, which bypasses the master toggle. */
     val isTest: Boolean,
-    /** Carries a full-screen intent: an incoming call or a ringing alarm. */
-    val isRinging: Boolean,
+    /** Carries a full-screen intent: an incoming call, a ringing alarm, or Rimlit's own lock-screen trampoline. */
+    val hasFullScreenIntent: Boolean,
     val isOngoing: Boolean,
     val isGroupSummary: Boolean,
     /** `FLAG_ONLY_ALERT_ONCE`: a re-post with it is a silent update. */
@@ -24,7 +24,13 @@ data class Post(
     val importance: Int?,
     /** False when Do Not Disturb hides this notification. */
     val passesDnd: Boolean,
-)
+) {
+    /**
+     * An incoming call or alarm showing its own full-screen UI, which nothing may cover. Rimlit's own full-screen
+     * intent is only the trampoline that wakes the screen into its lock-screen glow.
+     */
+    val isRinging: Boolean get() = hasFullScreenIntent && !isOwn
+}
 
 /** The user's settings allow a glow for this post. Our own test notification bypasses the master toggle. */
 internal fun GlowSettings.wants(post: Post): Boolean =

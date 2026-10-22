@@ -86,7 +86,7 @@ class GlowListenerService : NotificationListenerService() {
             packageName = packageName,
             isOwn = packageName == this@GlowListenerService.packageName,
             isTest = GlowNotifications.isTest(this@GlowListenerService, this),
-            isRinging = notification.fullScreenIntent != null,
+            hasFullScreenIntent = notification.fullScreenIntent != null,
             isOngoing = isOngoing,
             isGroupSummary = flags and Notification.FLAG_GROUP_SUMMARY != 0,
             onlyAlertOnce = flags and Notification.FLAG_ONLY_ALERT_ONCE != 0,

@@ -22,7 +22,7 @@ class PostFilterTest {
     @Test
     fun onlyAlertingPostsGlow() {
         assertTrue(post("a").alerts(isUpdate = false))
-        assertTrue(post("a", ringing = true).alerts(isUpdate = false), "ringing events are ongoing but alert")
+        assertTrue(post("a", fullScreenIntent = true).alerts(isUpdate = false), "ringing events are ongoing but alert")
         assertFalse(post("a", ongoing = true).alerts(isUpdate = false))
         assertFalse(post("a").copy(isGroupSummary = true).alerts(isUpdate = false))
         assertTrue(post("a", onlyAlertOnce = true).alerts(isUpdate = false))

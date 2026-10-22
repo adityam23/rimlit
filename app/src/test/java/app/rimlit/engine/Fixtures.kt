@@ -13,10 +13,10 @@ internal object Fixtures {
 
     fun post(
         key: String,
-        ringing: Boolean = false,
+        fullScreenIntent: Boolean = false,
         onlyAlertOnce: Boolean = false,
         importance: Int? = NotificationManager.IMPORTANCE_DEFAULT,
-        ongoing: Boolean = ringing,
+        ongoing: Boolean = fullScreenIntent,
         own: Boolean = false,
         test: Boolean = false,
     ) = Post(
@@ -24,7 +24,7 @@ internal object Fixtures {
         packageName = if (own) OWN_APP else OTHER_APP,
         isOwn = own,
         isTest = test,
-        isRinging = ringing,
+        hasFullScreenIntent = fullScreenIntent,
         isOngoing = ongoing,
         isGroupSummary = false,
         onlyAlertOnce = onlyAlertOnce,
@@ -48,14 +48,16 @@ internal object Fixtures {
 
     val POSTS = listOf(
         post("a"),
-        post("a", ringing = true),
+        post("a", fullScreenIntent = true),
         post("a", onlyAlertOnce = true),
         post("a", importance = NotificationManager.IMPORTANCE_LOW),
         // Also an answered call: re-posted ongoing, without its full-screen intent.
         post("a", ongoing = true),
         post("a", own = true),
         post("b"),
-        post("b", ringing = true),
+        post("b", fullScreenIntent = true),
+        // The lock-screen trampoline: Rimlit's own full-screen intent, which is not a call.
+        post("b", fullScreenIntent = true, ongoing = false, own = true),
         post("b", onlyAlertOnce = true),
         post("b", own = true, test = true),
     )
