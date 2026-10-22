@@ -9,7 +9,7 @@
 
 ## Project Overview
 
-Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (in progress: a formally checked notification/glow state machine in `engine`; the app runs on it, and palette extraction moves off the main thread next). It may be absent in a fresh clone; never commit it.
+Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (in progress: a formally checked notification/glow state machine in `engine`; the app runs on it, with palette extraction off the main thread). It may be absent in a fresh clone; never commit it.
 
 ## Architecture & Data Flow
 
@@ -24,7 +24,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 - `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Post.kt` (notification facts and the filter), `GlowCoordinator.kt` (serial queue gated on settings, environment sampling), `GlowExecutor.kt` + `SurfaceSlot.kt` (run effects and hold the executor contracts), `GlowDriver.kt` (the platform port)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
 - `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery)
-- `.../runtime/` — `AndroidGlowDriver.kt` (the `GlowDriver`: system state, surfaces, main-thread timers, extraction), `ScreenStateReceiver.kt` (screen on/off, unlock)
+- `.../runtime/` — `AndroidGlowDriver.kt` (the `GlowDriver`: system state, surfaces, main-thread timers, palette extraction on `Dispatchers.IO`), `ScreenStateReceiver.kt` (screen on/off, unlock)
 - `.../overlay/` — `EdgeOverlayController.kt` (opens the overlay window a surface draws in, app or accessibility type), `GlowAccessibilityService.kt` (optional, inert: hosts the accessibility overlay that draws above the lock screen)
 - `.../ui/glow/` — `EdgeGlow` (renderer), `GlowHost` (draws a surface's frame, animating its fades), `GlowGeometry`, `GlowLayout`, `BloomMask`, `GlowColors`, `WindowCutout`
 - `.../ui/components/` — `SettingsComponents.kt` (scaffold, list, `SettingCard`, `SettingIcon`, `CommitSlider`, `SettingSlider`, `PreviewButtons`), `PaletteEditor.kt` (+ `paletteBrush`)
