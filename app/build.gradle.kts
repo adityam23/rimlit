@@ -61,6 +61,14 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests.all {
+            // The state machine's model check holds every reachable state in memory; Gradle's default test heap
+            // (512 MB) is far too small, and its inputs must never be trimmed to fit.
+            it.maxHeapSize = providers.gradleProperty("testMaxHeap").getOrElse("4g")
+        }
+    }
 }
 
 // Static analysis on top of Android Lint: code smells, Compose misuse and official-style formatting.
@@ -96,6 +104,9 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlin.test.junit)
 
     detektPlugins(libs.detekt.rules.ktlint.wrapper)
     detektPlugins(libs.compose.rules.detekt)

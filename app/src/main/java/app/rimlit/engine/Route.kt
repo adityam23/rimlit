@@ -1,0 +1,55 @@
+package app.rimlit.engine
+
+import app.rimlit.model.GlowSettings
+
+/** Where a glow goes. */
+internal sealed interface Route {
+    data class To(val surface: Surface) : Route
+
+    data object Nowhere : Route
+
+    /** Only the lock screen would do, but without the grant (Android 14+) the trampoline can't wake the screen. */
+    data object NeedsFullScreenIntent : Route
+}
+
+/**
+ * The one placement policy: where a glow from [source], posted under [settings], goes now. [lockScreenUp]: the
+ * lock-screen activity is in front (covering the keyguard), so notifications re-target it instead of an overlay.
+ */
+internal fun GlowState.route(
+    source: GlowSource,
+    settings: GlowSettings,
+    lockScreenUp: Boolean = glow?.surface == Surface.LOCK_SCREEN,
+): Route = when {
+    // Previews ignore the show toggles: the user is asking to see that surface.
+    source is GlowSource.Preview && source.target == PreviewTarget.ON_SCREEN ->
+        Route.To(onScreenSurface() ?: Surface.APP_OVERLAY)
+
+    source is GlowSource.Preview -> lockScreen(lockScreenUp, ringing = false)
+
+    environment.screenOn && !lockScreenUp -> {
+        val wanted = if (environment.locked) settings.showWhenLocked else settings.showWhenUnlocked
+        onScreenSurface()?.takeIf { wanted }?.let(Route::To) ?: Route.Nowhere
+    }
+
+    settings.showWhenLocked -> lockScreen(lockScreenUp, ringing = source.post?.isRinging == true)
+
+    else -> Route.Nowhere
+}
+
+/** The accessibility overlay also draws above the lock screen; the app overlay only while unlocked. */
+private fun GlowState.onScreenSurface(): Surface? = when {
+    accessibilityOverlay -> Surface.ACCESSIBILITY_OVERLAY
+    !environment.locked -> Surface.APP_OVERLAY
+    else -> null
+}
+
+/**
+ * The opaque lock-screen activity: never for a [ringing] post nor while anything rings (it would cover
+ * Answer/Decline), and only the full-screen-intent trampoline can wake the screen into it.
+ */
+private fun GlowState.lockScreen(lockScreenUp: Boolean, ringing: Boolean): Route = when {
+    ringing || ringingKeys.isNotEmpty() -> Route.Nowhere
+    !lockScreenUp && !environment.screenOn && !environment.fullScreenIntentGranted -> Route.NeedsFullScreenIntent
+    else -> Route.To(Surface.LOCK_SCREEN)
+}

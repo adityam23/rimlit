@@ -9,18 +9,19 @@
 
 ## Project Overview
 
-Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (next: a formally specified notification/glow state machine). It may be absent in a fresh clone; never commit it.
+Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (in progress: a formally checked notification/glow state machine in `engine`; its pure core and model check are in, the app is wired to it next). It may be absent in a fresh clone; never commit it.
 
 ## Architecture & Data Flow
 
-Single Gradle module `:app`. Packages under `app.rimlit`: `model` → `data` → `notify` → `overlay` → `ui/glow` → `ui/components` → `ui` (+ `ui/theme`), plus `permissions`. No DI framework; `navigation-compose` for the four screens. The full data-flow diagram lives in `HANDOFF.md`.
+Single Gradle module `:app`. Packages under `app.rimlit`: `model` → `data` → `engine` → `notify` → `overlay` → `ui/glow` → `ui/components` → `ui` (+ `ui/theme`), plus `permissions`. No DI framework; `navigation-compose` for the four screens. The full data-flow diagram lives in `HANDOFF.md`.
 
-State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateIn(...)` → UI `collectAsStateWithLifecycle()`. Every glow — notification, overlay, lock screen, preview — renders from one `GlowSpec` built by `GlowSettings.toGlowSpec(...)`.
+State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateIn(...)` → UI `collectAsStateWithLifecycle()`. Every glow — notification, overlay, lock screen, preview — renders from one `GlowSpec` built by `GlowSettings.toGlowSpec(palette)`, with the palette resolved by `GlowSettings.paletteFor(packageName)`.
 
 ## Key Directories
 
 - `app/src/main/java/app/rimlit/` — `MainActivity`, `MainViewModel` (+ `previewSpec()`), `GlowListenerService`, `LockScreenGlowActivity` (AOD lock-screen glow)
-- `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `toGlowSpec`), `GlowSpec.kt` (parcelable render input, `GlowPalette`)
+- `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `paletteFor`, `toGlowSpec`), `GlowSpec.kt` (parcelable render input, `GlowPalette`)
+- `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Post.kt` (notification facts and the filter, also used by the listener)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
 - `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery)
 - `.../overlay/` — `EdgeOverlayController.kt` (overlay window, app or accessibility type), `GlowAccessibilityService.kt` (optional, inert: hosts the accessibility overlay that draws above the lock screen)
@@ -36,6 +37,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 ```bash
 gradle :app:assembleDebug                 # build debug APK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
+gradle :app:testDebugUnitTest            # unit tests, including the state machine's exhaustive model check (~75 s, 4 GB test heap)
 gradle :app:lintDebug                     # Android Lint
 gradle :app:detektMain                    # detekt: smells, Compose rules, official-style formatting
 gradle :app:detektMain -PdetektAutoCorrect  # fix formatting findings in place
@@ -43,7 +45,7 @@ gradle :app:assembleRelease               # minified release APK (unsigned unles
 gradle clean                              # clean
 ```
 
-No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is wired yet (see Testing & QA). CI (`.github/workflows/ci.yml`) runs the same checks on every PR and push, and publishes a signed release to GitHub Releases on merge to `main`; the secret names are in the workflow, and the full signing setup is in `docs/RELEASING.md`.
+No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run with `gradle :app:testDebugUnitTest` (see Testing & QA). CI (`.github/workflows/ci.yml`) runs the same checks on every PR and push, and publishes a signed release to GitHub Releases on merge to `main`; the secret names are in the workflow, and the full signing setup is in `docs/RELEASING.md`.
 
 ## Code Conventions & Common Patterns
 
@@ -86,6 +88,7 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). No test task is
 
 ## Testing & QA
 
-- No test frameworks, dependencies, or sources exist yet (`app/src/test` and `app/src/androidTest` are absent; no `testImplementation`/`androidTestImplementation`, no `testInstrumentationRunner`).
-- When tests are added: local unit tests `gradle :app:testDebugUnitTest`; instrumented `gradle :app:connectedDebugAndroidTest` (requires device/emulator via adb). Neither runs anything today.
-- Current verification: `gradle :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on an emulator or device (adb grant commands are in `HANDOFF.md`).
+- Local unit tests: JUnit 4 + `kotlin-test` in `app/src/test`, run with `gradle :app:testDebugUnitTest` (also in CI). No instrumented tests (`app/src/androidTest` is absent, no `testInstrumentationRunner`).
+- `engine/GlowMachineModelCheckTest` explores every reachable state of the state machine over a small adversarial event alphabet (about 3.6 M states, 133 M transitions, ~75 s; the test JVM gets a 4 GB heap, overridable with `-PtestMaxHeap=`) and asserts the invariants listed in it on every state and transition; a violation fails with the shortest event trace. Never trim the alphabet or fixtures to make it fit: each variant multiplies the state space, so make the search cheaper or raise the heap instead. `GlowMachineScenarioTest` pins the intended behaviour, one scenario per decision; `PostFilterTest` covers the notification filter.
+- When the machine changes: keep the model check green, add a scenario for any new behaviour, and plant the bug the new invariant guards against once to see the check fail.
+- Current verification: `gradle :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on an emulator or device (adb grant commands are in `HANDOFF.md`).

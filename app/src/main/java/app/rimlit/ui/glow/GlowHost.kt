@@ -11,17 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import app.rimlit.model.GlowSpec
+import app.rimlit.engine.FADE_IN_MS
+import app.rimlit.engine.FADE_OUT_MS
 import kotlinx.coroutines.delay
-
-private const val FADE_IN_MS = 180
-private const val FADE_OUT_MS = 450
-
-/**
- * One request to show a glow. Deliberately not a data class: every request is distinct by identity,
- * so a new notification restarts the timeline even when its spec equals the current one.
- */
-class GlowRequest(val spec: GlowSpec)
 
 /**
  * The single owner of a glow's timeline: fade in, hold for `spec.durationMs`, fade out, then [onFinish].
@@ -35,10 +27,10 @@ fun GlowHost(request: GlowRequest, dismissed: Boolean, onFinish: () -> Unit, mod
     val finish by rememberUpdatedState(onFinish)
     LaunchedEffect(request, dismissed) {
         if (!dismissed) {
-            alpha.animateTo(1f, tween(FADE_IN_MS, easing = LinearOutSlowInEasing))
+            alpha.animateTo(1f, tween(FADE_IN_MS.toInt(), easing = LinearOutSlowInEasing))
             delay(request.spec.durationMs)
         }
-        alpha.animateTo(0f, tween(FADE_OUT_MS, easing = FastOutSlowInEasing))
+        alpha.animateTo(0f, tween(FADE_OUT_MS.toInt(), easing = FastOutSlowInEasing))
         finish()
     }
     EdgeGlow(spec = request.spec, modifier = modifier.graphicsLayer { this.alpha = alpha.value })
