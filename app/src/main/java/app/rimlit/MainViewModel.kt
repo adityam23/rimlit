@@ -10,12 +10,12 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.rimlit.data.AppInfo
 import app.rimlit.data.AppListRepository
 import app.rimlit.data.SettingsRepository
+import app.rimlit.engine.GlowEvent
+import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.DEFAULT_GLOW_ARGB
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.GlowNotifications
-import app.rimlit.overlay.EdgeOverlayController
-import app.rimlit.overlay.GlowAccessibilityService
 import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.PermissionStatus
 import app.rimlit.permissions.Permissions
@@ -35,7 +35,6 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
 
     private val repository = SettingsRepository(application)
     private val appListRepository = AppListRepository(application)
-    private val overlayController by lazy { EdgeOverlayController(application) }
 
     val settings: StateFlow<GlowSettings> = repository.settings.stateIn(
         scope = viewModelScope,
@@ -64,15 +63,9 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         Permissions.open(getApplication(), kind)
     }
 
-    /** Shows the AOD-style lock-screen glow for [spec] immediately (preview). */
-    fun previewLockScreen(spec: GlowSpec) {
-        val app = getApplication<Application>()
-        app.startActivity(LockScreenGlowActivity.newIntent(app, spec))
-    }
-
-    /** Shows the on-screen overlay glow for [spec] immediately (preview), bypassing the notification pipeline. */
-    fun previewOverlay(spec: GlowSpec) {
-        (GlowAccessibilityService.overlay ?: overlayController).show(spec)
+    /** Shows [spec] on [target] at once, through the machine: latest wins, like a notification. */
+    fun preview(target: PreviewTarget, spec: GlowSpec) {
+        getApplication<Application>().glowCoordinator.send(GlowEvent.Preview(target, spec))
     }
 
     /**

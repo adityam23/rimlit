@@ -7,9 +7,6 @@ import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -20,15 +17,16 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import app.rimlit.model.GlowSpec
+import app.rimlit.engine.GlowState
+import app.rimlit.engine.Surface
+import app.rimlit.engine.SurfaceInstance
 import app.rimlit.ui.glow.GlowHost
-import app.rimlit.ui.glow.GlowRequest
 import app.rimlit.ui.glow.drawIntoCutout
+import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Draws the glow in an overlay window while the screen is on. One window at most: a new [show]
- * while visible re-targets the existing window instead of re-creating it (no flicker).
- * Main thread only.
+ * Opens the overlay window a glow surface draws in, while the screen is on. One window at most. The window draws
+ * whatever the machine shows on its surface, so it has no timeline of its own. Main thread only.
  *
  * [windowType] is `TYPE_APPLICATION_OVERLAY` ("Display over other apps"; hidden by the lock screen) by
  * default, or `TYPE_ACCESSIBILITY_OVERLAY` when [context] is a connected [GlowAccessibilityService].
@@ -39,36 +37,22 @@ class EdgeOverlayController(
 ) {
 
     private val windowManager = context.getSystemService(WindowManager::class.java)
-    private var overlay: Overlay? = null
 
-    fun show(spec: GlowSpec) {
-        val current = overlay
-        if (current != null) {
-            current.request = GlowRequest(spec)
-            current.dismissed = false
-            return
+    /** The window currently attached, if any. */
+    var window: SurfaceInstance? = null
+        private set
+
+    /** Attaches a window drawing [surface]'s frame of [state]; `null` if it couldn't be added (permission revoked?). */
+    fun open(state: StateFlow<GlowState?>, surface: Surface): SurfaceInstance? {
+        window?.close()
+        val created = Overlay(state, surface)
+        runCatching { windowManager.addView(created.view, layoutParams()) }.onFailure {
+            Log.w(TAG, "Failed to add overlay (permission revoked?)", it)
+            return null
         }
-        val created = Overlay(GlowRequest(spec))
-        runCatching { windowManager.addView(created.view, layoutParams()) }
-            .onSuccess {
-                created.owner.lifecycle.currentState = Lifecycle.State.RESUMED
-                overlay = created
-            }
-            .onFailure { Log.w(TAG, "Failed to add overlay (permission revoked?)", it) }
-    }
-
-    /** Fades the glow out early, then removes the window. */
-    fun dismiss() {
-        overlay?.dismissed = true
-    }
-
-    /** Removes the window immediately, without fading. */
-    fun remove() {
-        val current = overlay ?: return
-        overlay = null
-        current.owner.lifecycle.currentState = Lifecycle.State.DESTROYED
-        runCatching { windowManager.removeView(current.view) }
-            .onFailure { Log.w(TAG, "Failed to remove overlay", it) }
+        created.owner.lifecycle.currentState = Lifecycle.State.RESUMED
+        window = created
+        return created
     }
 
     private fun layoutParams() = WindowManager.LayoutParams(
@@ -88,23 +72,22 @@ class EdgeOverlayController(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) fitInsetsTypes = 0
     }
 
-    /** One attached window: its Compose state, view and lifecycle. */
-    private inner class Overlay(initial: GlowRequest) {
-        var request by mutableStateOf(initial)
-        var dismissed by mutableStateOf(false)
+    /** One attached window: its view and lifecycle. Closing it removes it at once, without fading. */
+    private inner class Overlay(state: StateFlow<GlowState?>, surface: Surface) : SurfaceInstance {
         val owner = OverlayLifecycleOwner()
         val view = ComposeView(context).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             setViewTreeLifecycleOwner(owner)
             setViewTreeSavedStateRegistryOwner(owner)
-            setContent {
-                GlowHost(
-                    request = request,
-                    dismissed = dismissed,
-                    onFinish = ::remove,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
+            setContent { GlowHost(state, surface, Modifier.fillMaxSize()) }
+        }
+
+        override fun close() {
+            if (window !== this) return
+            window = null
+            owner.lifecycle.currentState = Lifecycle.State.DESTROYED
+            runCatching { windowManager.removeView(view) }
+                .onFailure { Log.w(TAG, "Failed to remove overlay", it) }
         }
     }
 
