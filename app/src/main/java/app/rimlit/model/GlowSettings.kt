@@ -47,27 +47,34 @@ data class GlowSettings(
     val appPalettes: Map<String, List<Int>> = emptyMap(),
 ) {
     /**
-     * Builds the render input for a notification from [packageName] (`null` for previews).
-     * [autoColors] is only invoked when the auto palette is actually needed, since extraction is costly.
+     * The palette for a notification from [packageName] (`null` for previews): a per-app palette wins, then
+     * [colorMode]. `null` means [ColorMode.AUTO]: the caller extracts it from the notification, since that's costly.
      */
-    fun toGlowSpec(packageName: String?, autoColors: () -> List<Int>): GlowSpec {
-        val palette = packageName?.let(appPalettes::get)?.let(GlowPalette::Colors)
-            ?: when (colorMode) {
-                ColorMode.AUTO -> GlowPalette.Colors(autoColors())
-                ColorMode.CUSTOM -> GlowPalette.Colors(customColors)
-                ColorMode.RAINBOW -> GlowPalette.Rainbow
-            }
-        return GlowSpec(
-            style = glowStyle,
-            palette = palette,
-            region = region,
-            thicknessDp = thicknessDp,
-            glowWidthDp = glowWidthDp,
-            speed = speed,
-            brightness = brightness,
-            durationMs = durationMs,
-        )
-    }
+    fun paletteFor(packageName: String?): GlowPalette? =
+        packageName?.let(appPalettes::get)?.let(GlowPalette::Colors) ?: when (colorMode) {
+            ColorMode.AUTO -> null
+            ColorMode.CUSTOM -> GlowPalette.Colors(customColors)
+            ColorMode.RAINBOW -> GlowPalette.Rainbow
+        }
+
+    /**
+     * The render input for a notification from [packageName] (`null` for previews). [autoColors] is only invoked when
+     * the auto palette is actually needed, since extraction is costly.
+     */
+    fun toGlowSpec(packageName: String?, autoColors: () -> List<Int>): GlowSpec =
+        toGlowSpec(paletteFor(packageName) ?: GlowPalette.Colors(autoColors()))
+
+    /** The render input for these settings, painted with [palette] (see [paletteFor]). */
+    fun toGlowSpec(palette: GlowPalette): GlowSpec = GlowSpec(
+        style = glowStyle,
+        palette = palette,
+        region = region,
+        thicknessDp = thicknessDp,
+        glowWidthDp = glowWidthDp,
+        speed = speed,
+        brightness = brightness,
+        durationMs = durationMs,
+    )
 
     /** Valid ranges, shared by the UI sliders and the repository's sanitising of stored values. */
     object Ranges {

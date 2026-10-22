@@ -2,12 +2,14 @@ package app.rimlit
 
 import android.app.KeyguardManager
 import android.app.Notification
-import android.app.NotificationManager
 import android.os.PowerManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import app.rimlit.data.SettingsRepository
+import app.rimlit.engine.Post
+import app.rimlit.engine.alerts
+import app.rimlit.engine.wants
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.GlowNotifications
@@ -51,16 +53,6 @@ class GlowListenerService : NotificationListenerService() {
     /** Whether the missing full-screen-intent grant was logged since the listener connected. */
     private var warnedNoFullScreenIntent = false
 
-    /** What the system decided about a post, captured synchronously before the ranking map goes stale. */
-    private data class PostFacts(
-        /** Posting app's channel importance; `null` if the ranking was unavailable. */
-        val importance: Int?,
-        /** False when Do Not Disturb hides this notification. */
-        val passesDnd: Boolean,
-        /** Re-post of a notification that was already showing. */
-        val isUpdate: Boolean,
-    )
-
     override fun onListenerConnected() {
         super.onListenerConnected()
         GlowNotifications.createChannels(this)
@@ -81,12 +73,26 @@ class GlowListenerService : NotificationListenerService() {
         // The ranking carries the posting app's real channel importance and DND verdict (our own
         // NotificationManager can only see Rimlit's channels); read it now, before the map goes stale.
         val ranking = rankingMap?.let { map -> Ranking().takeIf { map.getRanking(sbn.key, it) } }
-        val facts = PostFacts(
+        val post = sbn.toPost(ranking)
+        val isUpdate = !activeKeys.add(sbn.key)
+        scope.launch { handlePosted(sbn, post, isUpdate, settings.filterNotNull().first()) }
+    }
+
+    /** The facts the filter decides on, captured now: the ranking map goes stale after this callback. */
+    private fun StatusBarNotification.toPost(ranking: Ranking?): Post {
+        val flags = notification.flags
+        return Post(
+            key = key,
+            packageName = packageName,
+            isOwn = packageName == this@GlowListenerService.packageName,
+            isTest = GlowNotifications.isTest(this@GlowListenerService, this),
+            isRinging = notification.fullScreenIntent != null,
+            isOngoing = isOngoing,
+            isGroupSummary = flags and Notification.FLAG_GROUP_SUMMARY != 0,
+            onlyAlertOnce = flags and Notification.FLAG_ONLY_ALERT_ONCE != 0,
             importance = ranking?.importance,
             passesDnd = ranking?.matchesInterruptionFilter() ?: true,
-            isUpdate = !activeKeys.add(sbn.key),
         )
-        scope.launch { handlePosted(sbn, facts, settings.filterNotNull().first()) }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -95,13 +101,13 @@ class GlowListenerService : NotificationListenerService() {
         overlaySource?.takeIf { it.key == sbn.key }?.let { dismissOverlay(it) }
     }
 
-    private fun handlePosted(sbn: StatusBarNotification, facts: PostFacts, current: GlowSettings) {
-        val isRinging = sbn.notification.fullScreenIntent != null
+    private fun handlePosted(sbn: StatusBarNotification, post: Post, isUpdate: Boolean, current: GlowSettings) {
+        val isRinging = post.isRinging
         // A ringing event (incoming call/alarm) that ends is re-delivered with the
         // same key but no full-screen intent (e.g. call answered) — stop the glow.
         if (!isRinging) overlaySource?.takeIf { it.ringing && it.key == sbn.key }?.let { dismissOverlay(it) }
 
-        if (!isGlowWanted(sbn, current) || !alerts(sbn, facts, isRinging)) return
+        if (!current.wants(post) || !post.alerts(isUpdate)) return
         val spec = current.toGlowSpec(sbn.packageName) { NotificationColorExtractor.extract(this, sbn) }
         val interactive = getSystemService(PowerManager::class.java)?.isInteractive == true
         if (!interactive || LockScreenGlowActivity.isVisible) {
@@ -119,29 +125,6 @@ class GlowListenerService : NotificationListenerService() {
         if (wanted && overlay != null) {
             overlay.show(spec)
             overlaySource = OverlaySource(sbn.key, isRinging, overlay)
-        }
-    }
-
-    /** The user's settings allow a glow for this app. Our own test notification bypasses the master toggle. */
-    private fun isGlowWanted(sbn: StatusBarNotification, current: GlowSettings): Boolean {
-        val allowed = GlowNotifications.isTest(this, sbn) || (current.enabled && sbn.packageName != packageName)
-        return allowed && sbn.packageName !in current.blockedPackages
-    }
-
-    /** Mirrors the system's own alerting: only a post that alerts the user glows. */
-    private fun alerts(sbn: StatusBarNotification, facts: PostFacts, isRinging: Boolean): Boolean {
-        val flags = sbn.notification.flags
-        return when {
-            sbn.isOngoing && !isRinging -> false
-
-            flags and Notification.FLAG_GROUP_SUMMARY != 0 -> false
-
-            // Silent updates (alert-once) don't alert, so they don't glow.
-            facts.isUpdate && flags and Notification.FLAG_ONLY_ALERT_ONCE != 0 -> false
-
-            facts.importance != null && facts.importance < NotificationManager.IMPORTANCE_DEFAULT -> false
-
-            else -> facts.passesDnd
         }
     }
 
