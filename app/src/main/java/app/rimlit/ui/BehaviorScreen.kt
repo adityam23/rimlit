@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.engine.PreviewTarget
 import app.rimlit.previewSpec
 import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.SectionTitle
@@ -59,8 +60,8 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
             item { SectionTitle(stringResource(R.string.preview_section)) }
             item {
                 PreviewButtons(
-                    onPreviewOnScreen = { viewModel.previewOverlay(settings.previewSpec()) },
-                    onPreviewLockScreen = { viewModel.previewLockScreen(settings.previewSpec()) },
+                    onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, settings.previewSpec()) },
+                    onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, settings.previewSpec()) },
                 )
             }
         }

@@ -4,6 +4,9 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import app.rimlit.engine.GlowEvent
+import app.rimlit.engine.Surface
+import app.rimlit.glowCoordinator
 
 /**
  * Hosts the glow in an accessibility overlay, the only window an app can draw above the lock screen.
@@ -21,6 +24,7 @@ class GlowAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         connected = this
+        glowCoordinator.send(GlowEvent.AccessibilityChanged(available = true))
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
@@ -37,9 +41,15 @@ class GlowAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() = Unit
 
+    /** Reports a glow window it was showing as gone (it can't outlive the service), then the overlay unavailable. */
     private fun disconnect() {
-        if (connected === this) connected = null
-        glowOverlay.remove()
+        if (connected !== this) return
+        connected = null
+        glowOverlay.window?.let { window ->
+            glowCoordinator.surfaceGone(Surface.ACCESSIBILITY_OVERLAY, window)
+            window.close()
+        }
+        glowCoordinator.send(GlowEvent.AccessibilityChanged(available = false))
     }
 
     companion object {

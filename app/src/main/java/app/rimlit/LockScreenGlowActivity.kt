@@ -11,34 +11,29 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.core.content.IntentCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import app.rimlit.model.GlowSpec
+import app.rimlit.engine.Surface
+import app.rimlit.engine.SurfaceInstance
 import app.rimlit.ui.glow.GlowHost
-import app.rimlit.ui.glow.GlowRequest
 import app.rimlit.ui.glow.drawIntoCutout
 
 /**
- * AOD-style glow for when the screen is off or locked, launched via a full-screen-intent notification.
+ * AOD-style glow for when the screen is off or locked: the machine's lock-screen surface, launched via a
+ * full-screen-intent notification. Black background plus whatever the machine shows on this surface.
  *
- * Black background + glow. The activity closes as soon as the glow fades (or on any touch, or when the screen
- * turns off), handing back to the keyguard and its short timeout: holding the woken screen until the system
- * timeout made screen-on time the app's main battery cost.
+ * Any instance is interchangeable: each reports itself to the coordinator once started, which binds the latest and
+ * closes one nobody asked for. The machine closes it as soon as the glow fades, handing back to the keyguard and its
+ * short timeout (holding the woken screen until the system timeout made screen-on time the app's main battery cost);
+ * a touch or `onStop` ends it too.
  */
-class LockScreenGlowActivity : ComponentActivity() {
-
-    private var request by mutableStateOf<GlowRequest?>(null)
-
-    /** Identifies this instance in [visibleInstance] (a static Activity reference would leak it). */
-    private val instanceId = nextInstanceId++
+class LockScreenGlowActivity :
+    ComponentActivity(),
+    SurfaceInstance {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -49,10 +44,8 @@ class LockScreenGlowActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
-        show(intent)
 
         setContent {
-            val current = request ?: return@setContent
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -60,69 +53,35 @@ class LockScreenGlowActivity : ComponentActivity() {
                     .pointerInput(Unit) {
                         awaitEachGesture {
                             awaitFirstDown()
-                            finish()
+                            gone()
                         }
                     },
             ) {
-                GlowHost(
-                    request = current,
-                    dismissed = false,
-                    onFinish = ::finish,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                GlowHost(glowCoordinator.state, Surface.LOCK_SCREEN, Modifier.fillMaxSize())
             }
         }
     }
 
-    /** singleInstance: a notification arriving while this is visible re-delivers here. */
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        show(intent)
-    }
-
     override fun onStart() {
         super.onStart()
-        visibleInstance = instanceId
+        glowCoordinator.surfaceOpened(Surface.LOCK_SCREEN, this)
     }
 
     /** Screen turned off (or user left): the AOD moment is over. */
     override fun onStop() {
         super.onStop()
+        gone()
+    }
+
+    override fun close() = finish()
+
+    private fun gone() {
+        glowCoordinator.surfaceGone(Surface.LOCK_SCREEN, this)
         finish()
     }
 
-    /**
-     * Clears [visibleInstance] at once, on every exit, so a notification racing the finish takes the normal
-     * routing. Only if it is still ours: that notification may already have started a newer instance.
-     */
-    override fun finish() {
-        if (visibleInstance == instanceId) visibleInstance = null
-        super.finish()
-    }
-
-    private fun show(intent: Intent) {
-        val spec = IntentCompat.getParcelableExtra(intent, EXTRA_SPEC, GlowSpec::class.java)
-        if (spec == null) {
-            finish()
-            return
-        }
-        request = GlowRequest(spec)
-    }
-
     companion object {
-        private const val EXTRA_SPEC = "extra_spec"
-
-        private var nextInstanceId = 0
-
-        /** The instance currently started and not finishing, if any. Main thread only. */
-        private var visibleInstance: Int? = null
-
-        /** Read by the listener (same process, main thread) to re-deliver instead of re-posting the FSI. */
-        val isVisible: Boolean
-            get() = visibleInstance != null
-
-        fun newIntent(context: Context, spec: GlowSpec): Intent = Intent(context, LockScreenGlowActivity::class.java)
-            .putExtra(EXTRA_SPEC, spec)
+        fun newIntent(context: Context): Intent = Intent(context, LockScreenGlowActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
