@@ -1,6 +1,5 @@
 package app.rimlit.engine
 
-import android.app.NotificationManager
 import app.rimlit.model.GlowSettings
 
 /**
@@ -26,15 +25,19 @@ data class Post(
     val passesDnd: Boolean,
 ) {
     /**
-     * An incoming call or alarm showing its own full-screen UI, which nothing may cover. Rimlit's own full-screen
-     * intent is only the trampoline that wakes the screen into its lock-screen glow.
+     * An incoming call or alarm showing its own full-screen UI, which nothing may cover: ongoing, with a full-screen
+     * intent. A non-ongoing one (a reminder left in the shade) doesn't ring, or it would block every lock-screen glow
+     * until cleared. Rimlit's own full-screen intent is only the trampoline that wakes the screen into its glow.
      */
-    val isRinging: Boolean get() = hasFullScreenIntent && !isOwn
+    val isRinging: Boolean get() = hasFullScreenIntent && isOngoing && !isOwn
 }
 
 /** The user's settings allow a glow for this post. Our own test notification bypasses the master toggle. */
 internal fun GlowSettings.wants(post: Post): Boolean =
     (post.isTest || (enabled && !post.isOwn)) && post.packageName !in blockedPackages
+
+/** `NotificationManager.IMPORTANCE_DEFAULT`, restated so the engine stays free of Android: below it, nothing alerts. */
+private const val IMPORTANCE_DEFAULT = 3
 
 /** Mirrors the system's own alerting: only a post that alerts the user glows. [isUpdate]: its key was already up. */
 internal fun Post.alerts(isUpdate: Boolean): Boolean = when {
@@ -45,7 +48,7 @@ internal fun Post.alerts(isUpdate: Boolean): Boolean = when {
     // Silent updates (alert-once) don't alert, so they don't glow.
     isUpdate && onlyAlertOnce -> false
 
-    importance != null && importance < NotificationManager.IMPORTANCE_DEFAULT -> false
+    importance != null && importance < IMPORTANCE_DEFAULT -> false
 
     else -> passesDnd
 }

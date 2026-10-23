@@ -18,31 +18,83 @@ import kotlin.test.fail
  * Executor reports follow their contracts: timers fire only while armed, a palette result only while pending, and a
  * surface reports only on the glow's current surface (opened only while opening). Never trim the alphabet to make
  * the search fit: make the search cheaper instead.
+ *
+ * Visited states are kept only as exact packed codes ([StateCodec]), and each one's parent and event as indices; a
+ * state is decoded back into an object only while it is expanded. The search expands one breadth-first level at a
+ * time, in parallel chunks, so every trace is still a shortest one; each level's new states are numbered in one pass
+ * after it, contiguously.
  */
 class GlowMachineModelCheckTest {
 
+    /** What one chunk of a level produced: the states it reached first, with their packed parents. */
+    private class Expansion(val codes: LongList, val parents: LongList, val transitions: Long, val violation: String?)
+
     @Test
     fun everyReachableStateAndTransitionKeepsTheInvariants() {
-        val start = Fixtures.initial()
-        // The start maps to (null, null), not null: putIfAbsent treats a null value as absent.
-        val parents = HashMap<GlowState, Pair<GlowState?, GlowEvent?>>()
-        parents[start] = null to null
-        val queue = ArrayDeque(listOf(start))
+        val codec = StateCodec()
+        val visited = ConcurrentLongSet()
+        // Per state, in number order: its parent's number and the event from it, packed (the start has parent -1).
+        // Written only between levels, so the workers can read it for traces.
+        val parents = LongList(initialCapacity = 1 shl 20)
+        val start = codec.encode(Fixtures.initial())
+        visited.add(start)
+        parents.add(parentOf(-1, 0))
+        var level = longArrayOf(start)
+        var first = 0
         var transitions = 0L
-        while (queue.isNotEmpty()) {
-            val state = queue.removeFirst()
-            stateViolation(state)?.let { fail("$it\n${trace(parents, state)}") }
+        while (level.isNotEmpty()) {
+            val current = level
+            val firstOfLevel = first
+            val expansions = (current.indices step CHUNK).toList().parallelStream()
+                .map { from -> expand(current, from, firstOfLevel, codec, visited, parents) }
+                .toList()
+            expansions.firstNotNullOfOrNull { it.violation }?.let { fail(it) }
+            transitions += expansions.sumOf { it.transitions }
+            first += current.size
+            val next = LongList(initialCapacity = maxOf(16, current.size))
+            for (expansion in expansions) {
+                for (i in 0 until expansion.codes.size) {
+                    parents.add(expansion.parents[i])
+                    next.add(expansion.codes[i])
+                }
+            }
+            level = next.toArray()
+        }
+        println("Model check: ${visited.size} states, $transitions transitions")
+        assertTrue(visited.size > 1_000, "the search should reach a meaningful state space")
+    }
+
+    /** Checks and expands up to [CHUNK] states of [level] from index [from]; the level's states are numbered from [first]. */
+    private fun expand(
+        level: LongArray,
+        from: Int,
+        first: Int,
+        codec: StateCodec,
+        visited: ConcurrentLongSet,
+        parents: LongList,
+    ): Expansion {
+        val codes = LongList()
+        val found = LongList()
+        var transitions = 0L
+        for (index in from until minOf(from + CHUNK, level.size)) {
+            val state = codec.decode(level[index])
+            val number = first + index
+            stateViolation(state)?.let { return Expansion(codes, found, transitions, "$it\n${trace(parents, number)}") }
             for (event in alphabet(state)) {
                 val step = state.on(event)
                 transitions++
                 transitionViolation(state, event, step)?.let {
-                    fail("$it\n${trace(parents, state)}\n  → $event\n  effects ${step.effects}\n  ⇒ ${step.state}")
+                    val message = "$it\n${trace(parents, number)}\n  → $event\n  effects ${step.effects}\n  ⇒ ${step.state}"
+                    return Expansion(codes, found, transitions, message)
                 }
-                if (parents.putIfAbsent(step.state, state to event) == null) queue += step.state
+                val code = codec.encode(step.state)
+                if (visited.add(code)) {
+                    codes.add(code)
+                    found.add(parentOf(number, EVENT_INDEX.getValue(event)))
+                }
             }
         }
-        println("Model check: ${parents.size} states, $transitions transitions")
-        assertTrue(parents.size > 1_000, "the search should reach a meaningful state space")
+        return Expansion(codes, found, transitions, violation = null)
     }
 
     private fun alphabet(state: GlowState): List<GlowEvent> = buildList {
@@ -92,7 +144,7 @@ class GlowMachineModelCheckTest {
     /** Invariants relating a transition's states, event and effects. */
     private fun transitionViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? =
         surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: pendingViolation(old, event, step)
-            ?: sourceViolation(old, event, step.state)
+            ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
 
     /** Invariant 1, and the wake-up rule: at most one live surface, and the state agrees with the surface effects. */
     private fun surfaceViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
@@ -217,12 +269,37 @@ class GlowMachineModelCheckTest {
         }
     }
 
-    private fun trace(parents: Map<GlowState, Pair<GlowState?, GlowEvent?>>, state: GlowState): String {
-        val events = generateSequence(state) { parents[it]?.first }.mapNotNull { parents[it]?.second }.toList()
+    /** The missing full-screen-intent grant is reported once per listener connection. */
+    private fun reportViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
+        val reports = step.effects.count { it == GlowEffect.FullScreenIntentDenied }
+        val reconnected = event is GlowEvent.ListenerConnected
+        return when {
+            reports > 1 || (reports == 1 && old.fullScreenIntentReported) -> "reports the missing grant twice"
+
+            reports == 1 && !step.state.fullScreenIntentReported -> "forgets reporting the missing grant"
+
+            old.fullScreenIntentReported && !step.state.fullScreenIntentReported && !reconnected ->
+                "reports the missing grant again without a reconnect"
+
+            else -> null
+        }
+    }
+
+    private fun parentOf(number: Int, event: Int): Long = (number.toLong() shl Int.SIZE_BITS) or event.toLong()
+
+    private fun trace(parents: LongList, number: Int): String {
+        val events = generateSequence(number) { (parents[it] shr Int.SIZE_BITS).toInt().takeIf { p -> p >= 0 } }
+            .map { parents[it] }
+            .filter { it shr Int.SIZE_BITS >= 0 }
+            .map { ALL_EVENTS[it.toInt()] }
+            .toList()
         return "trace from idle:\n" + events.asReversed().joinToString("\n") { "  $it" }
     }
 
     private companion object {
+        /** States per parallel task: large enough to amortise scheduling, small enough to balance the cores. */
+        const val CHUNK = 1024
+
         val TIMELINE_TIMERS = setOf(Timer.FADE_IN, Timer.HOLD, Timer.FADE_OUT)
 
         /** Inputs from outside the executor, possible in every state. Built once: the search visits millions. */
@@ -245,5 +322,10 @@ class GlowMachineModelCheckTest {
         val TIMER_EVENTS = Timer.entries.associateWith { GlowEvent.TimerFired(it) }
         val OPENED_EVENTS = Surface.entries.associateWith { GlowEvent.SurfaceOpened(it) }
         val GONE_EVENTS = Surface.entries.associateWith { GlowEvent.SurfaceGone(it) }
+
+        /** Every event the alphabet can produce, so a trace stores an index instead of the event. */
+        val ALL_EVENTS: List<GlowEvent> =
+            EXTERNAL_EVENTS + EXTRACTED_EVENT + TIMER_EVENTS.values + OPENED_EVENTS.values + GONE_EVENTS.values
+        val EVENT_INDEX: Map<GlowEvent, Int> = ALL_EVENTS.withIndex().associate { (index, event) -> event to index }
     }
 }

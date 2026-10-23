@@ -73,12 +73,13 @@ class LockScreenGlowActivity :
         gone()
     }
 
-    override fun close() = finish()
-
-    private fun gone() {
-        glowCoordinator.surfaceGone(Surface.LOCK_SCREEN, this)
-        finish()
+    /** Idempotent: a closed instance still reports itself gone from `onStop`, which closes it again. */
+    override fun close() {
+        if (!isFinishing) finish()
     }
+
+    /** Reported gone, which also closes (finishes) it. */
+    private fun gone() = glowCoordinator.surfaceGone(Surface.LOCK_SCREEN, this)
 
     companion object {
         fun newIntent(context: Context): Intent = Intent(context, LockScreenGlowActivity::class.java)

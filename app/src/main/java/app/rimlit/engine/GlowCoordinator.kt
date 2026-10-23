@@ -11,8 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * - **Settings gate the queue.** The machine is created on the first [settingsChanged]; inputs that arrive earlier
  *   wait in order, so nothing is decided on defaults and a removal can't overtake its post.
- * - **The environment is sampled before every input**, and sent first as [GlowEvent.EnvironmentChanged] when it
- *   changed: the keyguard can lock seconds after the screen goes off, and the grant has no broadcast.
+ * - **The environment is sampled before every input that routes** (posts, previews, palette results) and on
+ *   [environmentChanged], and sent first as [GlowEvent.EnvironmentChanged] when it changed: the keyguard can lock
+ *   seconds after the screen goes off, and the grant has no broadcast. Other inputs don't read it.
  * - **Executor contracts are checked at dispatch.** Timer, palette and surface reports are queued with a check that
  *   they are still current when their turn comes, so a stale one is dropped instead of reaching the machine.
  */
@@ -38,9 +39,6 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
         }
     }
 
-    /** A notification was posted; [extractPalette] reads its colours if the machine asks for them. */
-    fun posted(post: Post, extractPalette: () -> List<Int>) = enqueue(Input.Posted(post, extractPalette))
-
     fun send(event: GlowEvent.External) = enqueue(Input.Event(event))
 
     /** The screen or keyguard may have changed: re-sample before the next input. */
@@ -49,7 +47,7 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
     /** [instance] of [surface] is up. An instance nobody asked for is closed. */
     fun surfaceOpened(surface: Surface, instance: SurfaceInstance) = executor.surfaceOpened(surface, instance)
 
-    /** [instance] of [surface] went away by itself; `null` if it failed to open. */
+    /** [instance] of [surface] went away by itself, and is closed; `null` if it failed to open. */
     fun surfaceGone(surface: Surface, instance: SurfaceInstance?) = executor.surfaceGone(surface, instance)
 
     private fun enqueue(input: Input) {
@@ -69,23 +67,26 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
     }
 
     private fun dispatch(input: Input) {
-        // Sampled before a report is checked: the change may end what the report is about.
-        val environment = driver.environment()
-        if (environment != checkNotNull(machine.value).environment) step(GlowEvent.EnvironmentChanged(environment))
         val event = when (input) {
-            Input.Sample -> return
+            Input.Sample -> null
             is Input.Event -> input.event
-            is Input.Posted -> GlowEvent.Posted(input.post)
             is Input.Report -> input.take() ?: return
         }
-        if (event is GlowEvent.ListenerConnected) executor.listenerConnected()
-        step(event, (input as? Input.Posted)?.extractPalette)
+        if (event == null || event.routes) {
+            val environment = driver.environment()
+            if (environment != checkNotNull(machine.value).environment) step(GlowEvent.EnvironmentChanged(environment))
+        }
+        event?.let(::step)
     }
 
-    private fun step(event: GlowEvent, extractPalette: (() -> List<Int>)? = null) {
+    /** Inputs whose step places a glow, and so reads the environment. */
+    private val GlowEvent.routes: Boolean
+        get() = this is GlowEvent.Posted || this is GlowEvent.Preview || this is GlowEvent.PaletteExtracted
+
+    private fun step(event: GlowEvent) {
         val next = checkNotNull(machine.value).on(event)
         machine.value = next.state
-        next.effects.forEach { executor.execute(it, next.state, extractPalette) }
+        next.effects.forEach { executor.execute(it, next.state) }
     }
 
     private sealed interface Input {
@@ -93,8 +94,6 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
         data object Sample : Input
 
         data class Event(val event: GlowEvent) : Input
-
-        class Posted(val post: Post, val extractPalette: () -> List<Int>) : Input
 
         /** An executor report: [take] yields its event, or `null` if it is no longer current. */
         class Report(val take: () -> GlowEvent?) : Input

@@ -17,12 +17,11 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import app.rimlit.engine.GlowState
+import app.rimlit.engine.GlowCoordinator
 import app.rimlit.engine.Surface
 import app.rimlit.engine.SurfaceInstance
 import app.rimlit.ui.glow.GlowHost
 import app.rimlit.ui.glow.drawIntoCutout
-import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Opens the overlay window a glow surface draws in, while the screen is on. One window at most. The window draws
@@ -39,13 +38,15 @@ class EdgeOverlayController(
     private val windowManager = context.getSystemService(WindowManager::class.java)
 
     /** The window currently attached, if any. */
-    var window: SurfaceInstance? = null
-        private set
+    private var window: Overlay? = null
 
-    /** Attaches a window drawing [surface]'s frame of [state]; `null` if it couldn't be added (permission revoked?). */
-    fun open(state: StateFlow<GlowState?>, surface: Surface): SurfaceInstance? {
+    /**
+     * Attaches a window drawing [surface]'s frame of [coordinator]'s state; `null` if it couldn't be added
+     * (permission revoked?).
+     */
+    fun open(coordinator: GlowCoordinator, surface: Surface): SurfaceInstance? {
         window?.close()
-        val created = Overlay(state, surface)
+        val created = Overlay(coordinator, surface)
         runCatching { windowManager.addView(created.view, layoutParams()) }.onFailure {
             Log.w(TAG, "Failed to add overlay (permission revoked?)", it)
             return null
@@ -53,6 +54,11 @@ class EdgeOverlayController(
         created.owner.lifecycle.currentState = Lifecycle.State.RESUMED
         window = created
         return created
+    }
+
+    /** The host is going away: the attached window reports itself gone, which closes it. */
+    fun release() {
+        window?.let { it.coordinator.surfaceGone(it.surface, it) }
     }
 
     private fun layoutParams() = WindowManager.LayoutParams(
@@ -73,13 +79,13 @@ class EdgeOverlayController(
     }
 
     /** One attached window: its view and lifecycle. Closing it removes it at once, without fading. */
-    private inner class Overlay(state: StateFlow<GlowState?>, surface: Surface) : SurfaceInstance {
+    private inner class Overlay(val coordinator: GlowCoordinator, val surface: Surface) : SurfaceInstance {
         val owner = OverlayLifecycleOwner()
         val view = ComposeView(context).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
             setViewTreeLifecycleOwner(owner)
             setViewTreeSavedStateRegistryOwner(owner)
-            setContent { GlowHost(state, surface, Modifier.fillMaxSize()) }
+            setContent { GlowHost(coordinator.state, surface, Modifier.fillMaxSize()) }
         }
 
         override fun close() {

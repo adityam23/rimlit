@@ -137,6 +137,17 @@ class GlowMachineScenarioTest {
     }
 
     @Test
+    fun aLeftoverFullScreenIntentThatIsntOngoingDoesntRing() {
+        val reminder = GlowEvent.Posted(post("r", fullScreenIntent = true, ongoing = false))
+        val run = run(environment = SCREEN_OFF).send(reminder)
+        assertTrue(run.state.ringingKeys.isEmpty())
+        assertEquals(Surface.LOCK_SCREEN, run.glow.surface, "it glows like any post")
+
+        run.send(GlowEvent.TimerFired(Timer.OPEN), posted("a"))
+        assertEquals(Surface.LOCK_SCREEN, run.glow.surface, "and doesn't block later lock-screen glows")
+    }
+
+    @Test
     fun screenOffRightAfterAGlowStartsHandsItOffToTheLockScreen() {
         val run = run().send(posted("a"), opened(Surface.APP_OVERLAY)).environment(SCREEN_OFF)
         assertEquals(
@@ -268,6 +279,16 @@ class GlowMachineScenarioTest {
 
         val preview = run(environment = denied).send(GlowEvent.Preview(PreviewTarget.LOCK_SCREEN, PREVIEW_SPEC))
         assertEquals(listOf(GlowEffect.FullScreenIntentDenied), preview.effects)
+    }
+
+    @Test
+    fun theMissingGrantIsReportedOncePerListenerConnection() {
+        val run = run(environment = SCREEN_OFF.copy(fullScreenIntentGranted = false)).send(posted("a"))
+        assertEquals(listOf(GlowEffect.FullScreenIntentDenied), run.effects)
+        assertTrue(run.send(posted("b")).effects.isEmpty(), "skipped again, not reported again")
+
+        run.send(GlowEvent.ListenerConnected(emptySet(), emptySet()), posted("c"))
+        assertEquals(listOf(GlowEffect.FullScreenIntentDenied), run.effects)
     }
 
     @Test

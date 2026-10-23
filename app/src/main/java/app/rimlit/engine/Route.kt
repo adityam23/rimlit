@@ -16,11 +16,7 @@ internal sealed interface Route {
  * The one placement policy: where a glow from [source], posted under [settings], goes now. [lockScreenUp]: the
  * lock-screen activity is in front (covering the keyguard), so notifications re-target it instead of an overlay.
  */
-internal fun GlowState.route(
-    source: GlowSource,
-    settings: GlowSettings,
-    lockScreenUp: Boolean = glow?.surface == Surface.LOCK_SCREEN,
-): Route = when {
+internal fun GlowState.route(source: GlowSource, settings: GlowSettings, lockScreenUp: Boolean): Route = when {
     // Previews ignore the show toggles: the user is asking to see that surface.
     source is GlowSource.Preview && source.target == PreviewTarget.ON_SCREEN ->
         Route.To(onScreenSurface() ?: Surface.APP_OVERLAY)

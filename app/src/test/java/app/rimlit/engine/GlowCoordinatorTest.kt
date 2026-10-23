@@ -33,18 +33,21 @@ class GlowCoordinatorTest {
         val opens = mutableListOf<Surface>()
         var onOpen: (Surface) -> Unit = {}
         var deferExtraction = false
+        val colorsByKey = mutableMapOf<String, List<Int>>()
         val extractions = mutableListOf<() -> Unit>()
-        var denied = 0
         private val scheduled = mutableListOf<Triple<Long, () -> Unit, BooleanArray>>()
 
-        override fun environment() = environment
+        var samples = 0
 
-        override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec) {
+        override fun environment() = environment.also { samples++ }
+
+        val withdrawn = mutableListOf<Surface>()
+
+        override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec): Cancellable {
             opens += surface
             onOpen(surface)
+            return Cancellable { withdrawn += surface }
         }
-
-        override fun close(surface: Surface) = Unit
 
         override fun schedule(delayMs: Long, action: () -> Unit): Cancellable {
             val cancelled = booleanArrayOf(false)
@@ -52,19 +55,18 @@ class GlowCoordinatorTest {
             return Cancellable { if (honoursCancel) cancelled[0] = true }
         }
 
-        override fun extract(extract: () -> List<Int>, deliver: (List<Int>) -> Unit): Cancellable {
+        override fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable {
+            val colors = colorsByKey.getValue(post.key)
             if (!deferExtraction) {
-                deliver(extract())
+                deliver(colors)
                 return Cancellable {}
             }
             val cancelled = booleanArrayOf(false)
-            extractions += { if (!cancelled[0]) deliver(extract()) }
+            extractions += { if (!cancelled[0]) deliver(colors) }
             return Cancellable { if (honoursCancel) cancelled[0] = true }
         }
 
-        override fun fullScreenIntentDenied() {
-            denied++
-        }
+        override fun fullScreenIntentDenied() = Unit
 
         /** Runs every timer due within [ms], in order. */
         fun advance(ms: Long) {
@@ -82,8 +84,11 @@ class GlowCoordinatorTest {
     private val driver = FakeDriver()
     private val coordinator = GlowCoordinator { driver }
 
-    private fun posted(key: String, colors: List<Int> = listOf(0xFF00FF00.toInt())) =
-        coordinator.posted(post(key)) { colors }
+    /** Posts [key], whose notification extracts to [colors]. */
+    private fun posted(key: String, colors: List<Int> = listOf(0xFF00FF00.toInt())) {
+        driver.colorsByKey[key] = colors
+        coordinator.send(GlowEvent.Posted(post(key)))
+    }
 
     private val glow get() = coordinator.state.value?.glow
 
@@ -117,15 +122,22 @@ class GlowCoordinatorTest {
     }
 
     @Test
-    fun theEnvironmentIsSampledBeforeEveryInput() {
+    fun theEnvironmentIsSampledBeforeEveryInputThatRoutes() {
         coordinator.settingsChanged(CUSTOM)
         driver.environment = LOCK_SCREEN
         posted("a")
         assertNull(glow, "locked without the accessibility service: nowhere")
 
-        driver.environment = UNLOCKED // no broadcast: the next input samples it
+        driver.environment = UNLOCKED // no broadcast: the next post samples it
         posted("b")
         assertEquals(Surface.APP_OVERLAY, glow?.surface)
+
+        val samples = driver.samples
+        coordinator.send(GlowEvent.Removed("c"))
+        coordinator.send(GlowEvent.AccessibilityChanged(available = true))
+        assertEquals(samples, driver.samples, "inputs that don't route don't sample")
+        coordinator.environmentChanged()
+        assertEquals(samples + 1, driver.samples)
     }
 
     @Test
@@ -169,18 +181,6 @@ class GlowCoordinatorTest {
     }
 
     @Test
-    fun theMissingGrantIsReportedOncePerConnection() {
-        coordinator.settingsChanged(CUSTOM)
-        driver.environment = SCREEN_OFF.copy(fullScreenIntentGranted = false)
-        posted("a")
-        posted("b")
-        assertEquals(1, driver.denied)
-        coordinator.send(GlowEvent.ListenerConnected(emptySet(), emptySet()))
-        posted("c")
-        assertEquals(2, driver.denied)
-    }
-
-    @Test
     fun theLatestStartedLockScreenInstanceIsBound() {
         coordinator.settingsChanged(CUSTOM)
         driver.environment = SCREEN_OFF
@@ -193,6 +193,7 @@ class GlowCoordinatorTest {
         coordinator.surfaceOpened(Surface.LOCK_SCREEN, second)
         coordinator.surfaceGone(Surface.LOCK_SCREEN, first)
         assertNotNull(glow, "the stop of a replaced instance is ignored")
+        assertTrue(first.closed, "a reported instance is closed in any case")
 
         coordinator.surfaceGone(Surface.LOCK_SCREEN, second)
         assertNull(glow)
@@ -205,6 +206,7 @@ class GlowCoordinatorTest {
         posted("a")
         driver.advance(OPEN_TIMEOUT_MS) // the full-screen intent was never delivered
         assertNull(glow)
+        assertEquals(listOf(Surface.LOCK_SCREEN), driver.withdrawn, "closing withdraws the request (the trampoline)")
 
         val late = Instance()
         coordinator.surfaceOpened(Surface.LOCK_SCREEN, late)

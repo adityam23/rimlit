@@ -19,11 +19,14 @@ class RimlitApp : Application() {
     lateinit var coordinator: GlowCoordinator
         private set
 
+    /** Lives as long as the process: settings collection, glow timers and extraction deliveries. */
+    private val scope = MainScope()
+
     override fun onCreate() {
         super.onCreate()
-        coordinator = GlowCoordinator { AndroidGlowDriver(this, it) }
+        coordinator = GlowCoordinator { AndroidGlowDriver(this, it, scope) }
         ScreenStateReceiver(coordinator).register(this)
-        SettingsRepository(this).settings.onEach(coordinator::settingsChanged).launchIn(MainScope())
+        SettingsRepository(this).settings.onEach(coordinator::settingsChanged).launchIn(scope)
     }
 }
 

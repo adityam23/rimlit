@@ -6,11 +6,12 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.engine.FADE_IN_MS
 import app.rimlit.engine.FADE_OUT_MS
 import app.rimlit.engine.GlowFrame
@@ -20,12 +21,14 @@ import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Draws what the machine shows on [surface], and nothing while it shows nothing there. The machine owns the
- * timeline; this only animates towards each frame.
+ * timeline; this only animates towards each frame. Only a change of this surface's frame recomposes it, and it
+ * stops collecting while its lifecycle is stopped.
  */
 @Composable
 fun GlowHost(state: StateFlow<GlowState?>, surface: Surface, modifier: Modifier = Modifier) {
-    val current by state.collectAsState()
-    current?.frameFor(surface)?.let { GlowFrameHost(it, modifier) }
+    val current = state.collectAsStateWithLifecycle()
+    val frame by remember(current, surface) { derivedStateOf { current.value?.frameFor(surface) } }
+    frame?.let { GlowFrameHost(it, modifier) }
 }
 
 /** Fades towards [frame]'s visibility with the machine's fade durations, or snaps there when it is instant. */

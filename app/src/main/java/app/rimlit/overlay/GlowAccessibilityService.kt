@@ -5,7 +5,6 @@ import android.content.Intent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import app.rimlit.engine.GlowEvent
-import app.rimlit.engine.Surface
 import app.rimlit.glowCoordinator
 
 /**
@@ -41,14 +40,11 @@ class GlowAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() = Unit
 
-    /** Reports a glow window it was showing as gone (it can't outlive the service), then the overlay unavailable. */
+    /** Releases its glow window (it can't outlive the service), then reports the overlay unavailable. */
     private fun disconnect() {
         if (connected !== this) return
         connected = null
-        glowOverlay.window?.let { window ->
-            glowCoordinator.surfaceGone(Surface.ACCESSIBILITY_OVERLAY, window)
-            window.close()
-        }
+        glowOverlay.release()
         glowCoordinator.send(GlowEvent.AccessibilityChanged(available = false))
     }
 

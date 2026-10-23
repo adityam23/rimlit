@@ -12,20 +12,18 @@ interface GlowDriver {
 
     /**
      * Starts opening [surface] for a glow of [spec]. The surface reports back through
-     * [GlowCoordinator.surfaceOpened] or [GlowCoordinator.surfaceGone], now or later.
+     * [GlowCoordinator.surfaceOpened] or [GlowCoordinator.surfaceGone], now or later. Returns the handle that
+     * withdraws the request when the surface is closed: the lock screen's cancels its trampoline.
      */
-    fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec)
-
-    /** [surface]'s instance was closed; the lock screen also cancels its trampoline. */
-    fun close(surface: Surface)
+    fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec): Cancellable
 
     /** Runs [action] after [delayMs] unless cancelled first. */
     fun schedule(delayMs: Long, action: () -> Unit): Cancellable
 
-    /** Runs [extract] and hands its colours to [deliver], unless cancelled first. */
-    fun extract(extract: () -> List<Int>, deliver: (List<Int>) -> Unit): Cancellable
+    /** Reads [post]'s colours from its notification and hands them to [deliver], unless cancelled first. */
+    fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable
 
-    /** A lock-screen glow was skipped for the missing full-screen-intent grant; at most once per connection. */
+    /** A lock-screen glow was skipped for the missing full-screen-intent grant; once per listener connection. */
     fun fullScreenIntentDenied()
 }
 

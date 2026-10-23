@@ -2,7 +2,6 @@ package app.rimlit.engine
 
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSpec
-import java.util.EnumSet
 
 /**
  * One step of the machine: the handlers update [state] and collect the effects in the order the executor runs them,
@@ -17,6 +16,9 @@ internal class Transition(private var state: GlowState) {
 
     private val glow: Glow? get() = state.glow
 
+    /** The lock-screen activity is in front, so a new glow re-targets it instead of an overlay. */
+    private val lockScreenUp: Boolean get() = glow?.surface == Surface.LOCK_SCREEN
+
     fun step() = GlowStep(state, effects)
 
     @Suppress("CyclomaticComplexMethod") // One flat dispatch entry per event; the logic lives in the handlers.
@@ -27,20 +29,25 @@ internal class Transition(private var state: GlowState) {
             is GlowEvent.Removed -> removed(event.key)
 
             is GlowEvent.ListenerConnected -> {
-                state = state.copy(activeKeys = event.activeKeys, ringingKeys = event.ringingKeys)
+                keys(event.activeKeys, event.ringingKeys)
+                if (state.fullScreenIntentReported) state = state.copy(fullScreenIntentReported = false)
                 if (event.ringingKeys.isNotEmpty()) protectRingingScreen()
             }
 
             GlowEvent.ListenerDisconnected -> {
                 dropPending()
-                state = state.copy(activeKeys = emptySet(), ringingKeys = emptySet())
+                keys(emptySet(), emptySet())
             }
 
-            is GlowEvent.SettingsChanged -> state = state.copy(settings = event.settings)
+            is GlowEvent.SettingsChanged -> if (event.settings != state.settings) {
+                state = state.copy(settings = event.settings)
+            }
 
             is GlowEvent.EnvironmentChanged -> environment(event.environment)
 
-            is GlowEvent.AccessibilityChanged -> state = state.copy(accessibilityOverlay = event.available)
+            is GlowEvent.AccessibilityChanged -> if (event.available != state.accessibilityOverlay) {
+                state = state.copy(accessibilityOverlay = event.available)
+            }
 
             is GlowEvent.Preview -> preview(event.target, event.spec)
 
@@ -60,22 +67,21 @@ internal class Transition(private var state: GlowState) {
     private fun posted(post: Post) {
         val isUpdate = post.key in state.activeKeys
         val wasRinging = post.key in state.ringingKeys
-        state = state.copy(
-            activeKeys = state.activeKeys + post.key,
-            ringingKeys = if (post.isRinging) state.ringingKeys + post.key else state.ringingKeys - post.key,
+        keys(
+            active = state.activeKeys.with(post.key),
+            ringing = if (post.isRinging) state.ringingKeys.with(post.key) else state.ringingKeys.without(post.key),
         )
         if (post.isRinging) {
             protectRingingScreen()
         } else if (wasRinging) {
             // Ringing ended: an answered call is re-posted under its key without the full-screen intent.
-            if (state.pending?.post?.key == post.key) dropPending()
-            if (glow?.source?.post?.key == post.key) dismiss()
+            gone(post.key)
         }
 
         val settings = state.settings
         if (!settings.wants(post) || !post.alerts(isUpdate)) return
         val source = GlowSource.Notification(post)
-        val target = routed(state.route(source, settings)) ?: return
+        val target = routed(state.route(source, settings, lockScreenUp)) ?: return
         val palette = settings.paletteFor(post.packageName)
         if (palette == null) {
             state = state.copy(pending = Pending(post, settings))
@@ -97,26 +103,41 @@ internal class Transition(private var state: GlowState) {
         val pending = checkNotNull(state.pending) { "Contract: a palette arrives only for the in-flight extraction" }
         state = state.copy(pending = null)
         val source = GlowSource.Notification(pending.post)
-        val target = routed(state.route(source, pending.settings)) ?: return
+        val target = routed(state.route(source, pending.settings, lockScreenUp)) ?: return
         show(source, pending.settings.toGlowSpec(GlowPalette.Colors(colors)), target)
     }
 
     private fun removed(key: String) {
-        state = state.copy(activeKeys = state.activeKeys - key, ringingKeys = state.ringingKeys - key)
+        keys(active = state.activeKeys.without(key), ringing = state.ringingKeys.without(key))
+        gone(key)
+    }
+
+    /** Stores the posted and ringing keys; the state is kept as is when neither changed. */
+    private fun keys(active: Set<String>, ringing: Set<String>) {
+        if (active != state.activeKeys || ringing != state.ringingKeys) {
+            state = state.copy(activeKeys = active, ringingKeys = ringing)
+        }
+    }
+
+    /** [key]'s notification is gone or stopped ringing: its pending post is dropped and its glow fades out. */
+    private fun gone(key: String) {
         if (state.pending?.post?.key == key) dropPending()
         if (glow?.source?.post?.key == key) dismiss()
     }
 
     private fun preview(target: PreviewTarget, spec: GlowSpec) {
         val source = GlowSource.Preview(target)
-        val surface = routed(state.route(source, state.settings)) ?: return
+        val surface = routed(state.route(source, state.settings, lockScreenUp)) ?: return
         dropPending()
         show(source, spec, surface)
     }
 
-    /** [route]'s surface, or `null` for nowhere (reporting a missing full-screen-intent grant). */
+    /** [route]'s surface, or `null` for nowhere (reporting a missing full-screen-intent grant once per connection). */
     private fun routed(route: Route): Surface? {
-        if (route is Route.NeedsFullScreenIntent) effects += GlowEffect.FullScreenIntentDenied
+        if (route is Route.NeedsFullScreenIntent && !state.fullScreenIntentReported) {
+            state = state.copy(fullScreenIntentReported = true)
+            effects += GlowEffect.FullScreenIntentDenied
+        }
         return (route as? Route.To)?.surface
     }
 
@@ -196,7 +217,10 @@ internal class Transition(private var state: GlowState) {
         }
     }
 
-    /** Places the glow again after a screen or lock change, handing it off if it now belongs elsewhere. */
+    /**
+     * Places the glow again after a screen or lock change, handing it off if it now belongs elsewhere. The surface it
+     * is leaving doesn't count as up.
+     */
     private fun reRoute(current: Glow): Boolean {
         val surface = routed(state.route(current.source, state.settings, lockScreenUp = false)) ?: return false
         if (surface != current.surface) handOff(current, surface)
@@ -260,26 +284,20 @@ internal class Transition(private var state: GlowState) {
     }
 
     private fun arm(timer: Timer, delayMs: Long) {
-        state = state.copy(armed = state.armed.with(timer))
+        if (timer !in state.armed) state = state.copy(armed = state.armed + timer)
         effects += GlowEffect.Arm(timer, delayMs)
     }
 
     private fun disarm(vararg timers: Timer) {
-        for (timer in timers) {
-            if (timer !in state.armed) continue
-            state = state.copy(armed = state.armed.without(timer))
-            effects += GlowEffect.Disarm(timer)
-        }
+        val armed = timers.filter { it in state.armed }
+        if (armed.isEmpty()) return
+        state = state.copy(armed = state.armed - armed.toSet())
+        armed.mapTo(effects) { GlowEffect.Disarm(it) }
     }
 }
 
-/** Armed timers stay an [EnumSet]: compact and cheap to hash, which the model check's millions of states rely on. */
-private fun Set<Timer>.with(timer: Timer): Set<Timer> = EnumSet.noneOf(Timer::class.java).apply {
-    addAll(this@with)
-    add(timer)
-}
+/** This set with [element], or the same instance if it is already there. */
+private fun <T> Set<T>.with(element: T): Set<T> = if (element in this) this else this + element
 
-private fun Set<Timer>.without(timer: Timer): Set<Timer> = EnumSet.noneOf(Timer::class.java).apply {
-    addAll(this@without)
-    remove(timer)
-}
+/** This set without [element], or the same instance if it isn't there. */
+private fun <T> Set<T>.without(element: T): Set<T> = if (element in this) this - element else this
