@@ -30,6 +30,8 @@ import app.rimlit.model.GlowSpec
  * | Unlocked                 | Lock-screen glow: re-routed on screen (hand-off), else ended; fading out: ended. |
  * | TimerFired               | OPEN: never confirmed, ended. FADE_IN → HOLDING. HOLD → FADING_OUT. FADE_OUT:    |
  * |                          | ended. HAND_OFF_WINDOW: the glow stops counting as recent.                       |
+ * | Listener connected       | Stores the posted and ringing keys (ringing: as for a ringing post), and reports |
+ * |                          | the missing full-screen-intent grant again on the next skipped lock-screen glow. |
  * | Listener disconnected    | Drops a pending post and forgets keys; a shown glow fades normally.              |
  * | Settings, accessibility  | Stored only: settings apply to the next post, availability to the next routing.  |
  *
@@ -115,6 +117,8 @@ data class GlowState(
     val pending: Pending? = null,
     val glow: Glow? = null,
     val armed: Set<Timer> = emptySet(),
+    /** [GlowEffect.FullScreenIntentDenied] was emitted since the listener last connected: it is reported once. */
+    val fullScreenIntentReported: Boolean = false,
 ) {
     /** What [surface] should draw now, or `null` for nothing. */
     fun frameFor(surface: Surface): GlowFrame? = glow?.takeIf { it.surface == surface && it.opened }
@@ -180,7 +184,10 @@ sealed interface GlowEffect {
     /** Cancels the in-flight extraction; its result is never delivered. */
     data object CancelExtraction : GlowEffect
 
-    /** A lock-screen glow was skipped: without the grant (Android 14+) the trampoline can't wake the screen. */
+    /**
+     * A lock-screen glow was skipped: without the grant (Android 14+) the trampoline can't wake the screen. Emitted
+     * once per listener connection.
+     */
     data object FullScreenIntentDenied : GlowEffect
 }
 

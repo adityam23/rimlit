@@ -20,7 +20,7 @@ internal class StateCodec {
         val fields = GlowState::class.java.declaredFields.count { !Modifier.isStatic(it.modifiers) }
         check(fields == ENCODED_FIELDS) { "GlowState has $fields fields but the codec encodes $ENCODED_FIELDS" }
         val bits = settings.bits + environments.bits + 2 * keySets.bits + pendings.bits + glows.bits +
-            Timer.entries.size + 1
+            Timer.entries.size + 2
         check(bits < Long.SIZE_BITS) { "$bits bits don't fit a non-negative Long" }
     }
 
@@ -39,6 +39,7 @@ internal class StateCodec {
         put(glows.id(state.glow), glows.bits)
         put(state.armed.fold(0) { mask, timer -> mask or (1 shl timer.ordinal) }, Timer.entries.size)
         put(if (state.accessibilityOverlay) 1 else 0, 1)
+        put(if (state.fullScreenIntentReported) 1 else 0, 1)
         return code
     }
 
@@ -50,8 +51,11 @@ internal class StateCodec {
     }
 
     private companion object {
-        /** settings, environment, accessibilityOverlay, activeKeys, ringingKeys, pending, glow, armed. */
-        const val ENCODED_FIELDS = 8
+        /**
+         * settings, environment, accessibilityOverlay, activeKeys, ringingKeys, pending, glow, armed,
+         * fullScreenIntentReported.
+         */
+        const val ENCODED_FIELDS = 9
     }
 }
 

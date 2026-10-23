@@ -271,6 +271,16 @@ class GlowMachineScenarioTest {
     }
 
     @Test
+    fun theMissingGrantIsReportedOncePerListenerConnection() {
+        val run = run(environment = SCREEN_OFF.copy(fullScreenIntentGranted = false)).send(posted("a"))
+        assertEquals(listOf(GlowEffect.FullScreenIntentDenied), run.effects)
+        assertTrue(run.send(posted("b")).effects.isEmpty(), "skipped again, not reported again")
+
+        run.send(GlowEvent.ListenerConnected(emptySet(), emptySet()), posted("c"))
+        assertEquals(listOf(GlowEffect.FullScreenIntentDenied), run.effects)
+    }
+
+    @Test
     fun aSurfaceThatNeverConfirmsIsGivenUp() {
         val run = run(environment = SCREEN_OFF).send(posted("a")).fire(Timer.OPEN)
         assertNull(run.state.glow)

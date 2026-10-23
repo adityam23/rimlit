@@ -78,7 +78,6 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
             is Input.Posted -> GlowEvent.Posted(input.post)
             is Input.Report -> input.take() ?: return
         }
-        if (event is GlowEvent.ListenerConnected) executor.listenerConnected()
         step(event, (input as? Input.Posted)?.extractPalette)
     }
 

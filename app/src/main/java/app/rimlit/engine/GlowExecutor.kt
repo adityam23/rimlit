@@ -17,7 +17,6 @@ internal class GlowExecutor(
     }
     private val timers = EnumMap<Timer, Cancellable>(Timer::class.java)
     private var extraction: Cancellable? = null
-    private var reportedFullScreenIntentDenied = false
 
     /** Runs [effect] of a step that led to [state]; [extractPalette] reads the colours of the post just dispatched. */
     fun execute(effect: GlowEffect, state: GlowState, extractPalette: (() -> List<Int>)?) {
@@ -44,16 +43,8 @@ internal class GlowExecutor(
                 extraction = null
             }
 
-            GlowEffect.FullScreenIntentDenied -> if (!reportedFullScreenIntentDenied) {
-                reportedFullScreenIntentDenied = true
-                driver.fullScreenIntentDenied()
-            }
+            GlowEffect.FullScreenIntentDenied -> driver.fullScreenIntentDenied()
         }
-    }
-
-    /** The missing grant is reported again after the listener reconnects. */
-    fun listenerConnected() {
-        reportedFullScreenIntentDenied = false
     }
 
     fun surfaceOpened(surface: Surface, instance: SurfaceInstance) {

@@ -34,7 +34,6 @@ class GlowCoordinatorTest {
         var onOpen: (Surface) -> Unit = {}
         var deferExtraction = false
         val extractions = mutableListOf<() -> Unit>()
-        var denied = 0
         private val scheduled = mutableListOf<Triple<Long, () -> Unit, BooleanArray>>()
 
         override fun environment() = environment
@@ -62,9 +61,7 @@ class GlowCoordinatorTest {
             return Cancellable { if (honoursCancel) cancelled[0] = true }
         }
 
-        override fun fullScreenIntentDenied() {
-            denied++
-        }
+        override fun fullScreenIntentDenied() = Unit
 
         /** Runs every timer due within [ms], in order. */
         fun advance(ms: Long) {
@@ -166,18 +163,6 @@ class GlowCoordinatorTest {
         driver.extractions.forEach { it() }
         assertEquals("b", glow?.source?.post?.key)
         assertEquals(GlowPalette.Colors(listOf(2)), glow?.spec?.palette)
-    }
-
-    @Test
-    fun theMissingGrantIsReportedOncePerConnection() {
-        coordinator.settingsChanged(CUSTOM)
-        driver.environment = SCREEN_OFF.copy(fullScreenIntentGranted = false)
-        posted("a")
-        posted("b")
-        assertEquals(1, driver.denied)
-        coordinator.send(GlowEvent.ListenerConnected(emptySet(), emptySet()))
-        posted("c")
-        assertEquals(2, driver.denied)
     }
 
     @Test

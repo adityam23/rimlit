@@ -103,7 +103,7 @@ class GlowMachineModelCheckTest {
     /** Invariants relating a transition's states, event and effects. */
     private fun transitionViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? =
         surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: pendingViolation(old, event, step)
-            ?: sourceViolation(old, event, step.state)
+            ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
 
     /** Invariant 1, and the wake-up rule: at most one live surface, and the state agrees with the surface effects. */
     private fun surfaceViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
@@ -223,6 +223,22 @@ class GlowMachineModelCheckTest {
 
             ringingStarted && new.pending != null && new.pending.post != event.post ->
                 "a post pending from before a call could launch over its screen"
+
+            else -> null
+        }
+    }
+
+    /** The missing full-screen-intent grant is reported once per listener connection. */
+    private fun reportViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
+        val reports = step.effects.count { it == GlowEffect.FullScreenIntentDenied }
+        val reconnected = event is GlowEvent.ListenerConnected
+        return when {
+            reports > 1 || (reports == 1 && old.fullScreenIntentReported) -> "reports the missing grant twice"
+
+            reports == 1 && !step.state.fullScreenIntentReported -> "forgets reporting the missing grant"
+
+            old.fullScreenIntentReported && !step.state.fullScreenIntentReported && !reconnected ->
+                "reports the missing grant again without a reconnect"
 
             else -> null
         }
