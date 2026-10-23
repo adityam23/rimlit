@@ -37,7 +37,9 @@ class GlowCoordinatorTest {
         val extractions = mutableListOf<() -> Unit>()
         private val scheduled = mutableListOf<Triple<Long, () -> Unit, BooleanArray>>()
 
-        override fun environment() = environment
+        var samples = 0
+
+        override fun environment() = environment.also { samples++ }
 
         override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec) {
             opens += surface
@@ -119,15 +121,22 @@ class GlowCoordinatorTest {
     }
 
     @Test
-    fun theEnvironmentIsSampledBeforeEveryInput() {
+    fun theEnvironmentIsSampledBeforeEveryInputThatRoutes() {
         coordinator.settingsChanged(CUSTOM)
         driver.environment = LOCK_SCREEN
         posted("a")
         assertNull(glow, "locked without the accessibility service: nowhere")
 
-        driver.environment = UNLOCKED // no broadcast: the next input samples it
+        driver.environment = UNLOCKED // no broadcast: the next post samples it
         posted("b")
         assertEquals(Surface.APP_OVERLAY, glow?.surface)
+
+        val samples = driver.samples
+        coordinator.send(GlowEvent.Removed("c"))
+        coordinator.send(GlowEvent.AccessibilityChanged(available = true))
+        assertEquals(samples, driver.samples, "inputs that don't route don't sample")
+        coordinator.environmentChanged()
+        assertEquals(samples + 1, driver.samples)
     }
 
     @Test

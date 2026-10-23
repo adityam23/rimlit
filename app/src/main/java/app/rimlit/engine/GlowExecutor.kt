@@ -15,8 +15,10 @@ internal class GlowExecutor(
     private val slots = EnumMap<Surface, SurfaceSlot>(Surface::class.java).apply {
         Surface.entries.forEach { put(it, SurfaceSlot()) }
     }
-    private val timers = EnumMap<Timer, Cancellable>(Timer::class.java)
-    private var extraction: Cancellable? = null
+    private val timers = EnumMap<Timer, LatestHandle>(Timer::class.java).apply {
+        Timer.entries.forEach { put(it, LatestHandle()) }
+    }
+    private val extraction = LatestHandle()
 
     /** Runs [effect] of a step that led to [state]. */
     fun execute(effect: GlowEffect, state: GlowState) {
@@ -32,16 +34,19 @@ internal class GlowExecutor(
                 driver.close(effect.surface)
             }
 
-            is GlowEffect.Arm -> arm(effect.timer, effect.delayMs)
-
-            is GlowEffect.Disarm -> timers.remove(effect.timer)?.cancel()
-
-            is GlowEffect.ExtractPalette -> extract(effect.post)
-
-            GlowEffect.CancelExtraction -> {
-                extraction?.cancel()
-                extraction = null
+            is GlowEffect.Arm -> timers.getValue(effect.timer).replace { claim ->
+                driver.schedule(effect.delayMs) { report { GlowEvent.TimerFired(effect.timer).takeIf { claim() } } }
             }
+
+            is GlowEffect.Disarm -> timers.getValue(effect.timer).cancel()
+
+            is GlowEffect.ExtractPalette -> extraction.replace { claim ->
+                driver.extract(effect.post) { colors ->
+                    report { GlowEvent.PaletteExtracted(colors).takeIf { claim() } }
+                }
+            }
+
+            GlowEffect.CancelExtraction -> extraction.cancel()
 
             GlowEffect.FullScreenIntentDenied -> driver.fullScreenIntentDenied()
         }
@@ -55,25 +60,5 @@ internal class GlowExecutor(
     fun surfaceGone(surface: Surface, instance: SurfaceInstance?) {
         val isCurrent = slots.getValue(surface).gone(instance) ?: return
         report { GlowEvent.SurfaceGone(surface).takeIf { isCurrent() } }
-    }
-
-    /** A timer fires only for its latest arming: re-arming or disarming replaces the handle it checks against. */
-    private fun arm(timer: Timer, delayMs: Long) {
-        timers.remove(timer)?.cancel()
-        lateinit var handle: Cancellable
-        handle = driver.schedule(delayMs) {
-            report { GlowEvent.TimerFired(timer).takeIf { timers.remove(timer, handle) } }
-        }
-        timers[timer] = handle
-    }
-
-    /** Delivers only to the extraction still in flight; a replaced or cancelled one is dropped. */
-    private fun extract(post: Post) {
-        extraction?.cancel()
-        lateinit var handle: Cancellable
-        handle = driver.extract(post) { colors ->
-            report { GlowEvent.PaletteExtracted(colors).takeIf { extraction === handle }?.also { extraction = null } }
-        }
-        extraction = handle
     }
 }

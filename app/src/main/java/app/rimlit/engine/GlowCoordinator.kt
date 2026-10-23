@@ -11,8 +11,9 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * - **Settings gate the queue.** The machine is created on the first [settingsChanged]; inputs that arrive earlier
  *   wait in order, so nothing is decided on defaults and a removal can't overtake its post.
- * - **The environment is sampled before every input**, and sent first as [GlowEvent.EnvironmentChanged] when it
- *   changed: the keyguard can lock seconds after the screen goes off, and the grant has no broadcast.
+ * - **The environment is sampled before every input that routes** (posts, previews, palette results) and on
+ *   [environmentChanged], and sent first as [GlowEvent.EnvironmentChanged] when it changed: the keyguard can lock
+ *   seconds after the screen goes off, and the grant has no broadcast. Other inputs don't read it.
  * - **Executor contracts are checked at dispatch.** Timer, palette and surface reports are queued with a check that
  *   they are still current when their turn comes, so a stale one is dropped instead of reaching the machine.
  */
@@ -66,16 +67,21 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
     }
 
     private fun dispatch(input: Input) {
-        // Sampled before a report is checked: the change may end what the report is about.
-        val environment = driver.environment()
-        if (environment != checkNotNull(machine.value).environment) step(GlowEvent.EnvironmentChanged(environment))
         val event = when (input) {
-            Input.Sample -> return
+            Input.Sample -> null
             is Input.Event -> input.event
             is Input.Report -> input.take() ?: return
         }
-        step(event)
+        if (event == null || event.routes) {
+            val environment = driver.environment()
+            if (environment != checkNotNull(machine.value).environment) step(GlowEvent.EnvironmentChanged(environment))
+        }
+        event?.let(::step)
     }
+
+    /** Inputs whose step places a glow, and so reads the environment. */
+    private val GlowEvent.routes: Boolean
+        get() = this is GlowEvent.Posted || this is GlowEvent.Preview || this is GlowEvent.PaletteExtracted
 
     private fun step(event: GlowEvent) {
         val next = checkNotNull(machine.value).on(event)

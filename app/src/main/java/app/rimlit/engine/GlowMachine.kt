@@ -72,7 +72,7 @@ enum class Timer { OPEN, FADE_IN, HOLD, FADE_OUT, HAND_OFF_WINDOW }
 
 enum class PreviewTarget { ON_SCREEN, LOCK_SCREEN }
 
-/** The device state routing depends on; the coordinator reports every change, and samples it before each post. */
+/** The device state routing depends on; the coordinator samples it before each input that routes. */
 data class Environment(val screenOn: Boolean, val locked: Boolean, val fullScreenIntentGranted: Boolean)
 
 sealed interface GlowSource {

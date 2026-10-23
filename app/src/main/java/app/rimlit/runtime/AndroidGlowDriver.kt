@@ -2,8 +2,6 @@ package app.rimlit.runtime
 
 import android.app.KeyguardManager
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import app.rimlit.GlowListenerService
@@ -22,8 +20,9 @@ import app.rimlit.overlay.GlowAccessibilityService
 import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.isGranted
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -34,14 +33,14 @@ import kotlinx.coroutines.withContext
 class AndroidGlowDriver(
     private val context: Context,
     private val coordinator: GlowCoordinator,
+    /** The process's main-thread scope: timers and extraction deliveries run in it. */
+    private val scope: CoroutineScope,
     extractionDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : GlowDriver {
 
     /** One extraction at a time: a superseded one that hasn't started never runs. */
     private val extractionLane = extractionDispatcher.limitedParallelism(1)
 
-    private val handler = Handler(Looper.getMainLooper())
-    private val scope = MainScope()
     private val appOverlay by lazy { EdgeOverlayController(context) }
 
     override fun environment() = Environment(
@@ -78,9 +77,11 @@ class AndroidGlowDriver(
     }
 
     override fun schedule(delayMs: Long, action: () -> Unit): Cancellable {
-        val runnable = Runnable(action)
-        handler.postDelayed(runnable, delayMs)
-        return Cancellable { handler.removeCallbacks(runnable) }
+        val job = scope.launch {
+            delay(delayMs)
+            action()
+        }
+        return Cancellable { job.cancel() }
     }
 
     /**
