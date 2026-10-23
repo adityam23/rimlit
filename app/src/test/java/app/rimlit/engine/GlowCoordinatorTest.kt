@@ -33,6 +33,7 @@ class GlowCoordinatorTest {
         val opens = mutableListOf<Surface>()
         var onOpen: (Surface) -> Unit = {}
         var deferExtraction = false
+        val colorsByKey = mutableMapOf<String, List<Int>>()
         val extractions = mutableListOf<() -> Unit>()
         private val scheduled = mutableListOf<Triple<Long, () -> Unit, BooleanArray>>()
 
@@ -51,13 +52,14 @@ class GlowCoordinatorTest {
             return Cancellable { if (honoursCancel) cancelled[0] = true }
         }
 
-        override fun extract(extract: () -> List<Int>, deliver: (List<Int>) -> Unit): Cancellable {
+        override fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable {
+            val colors = colorsByKey.getValue(post.key)
             if (!deferExtraction) {
-                deliver(extract())
+                deliver(colors)
                 return Cancellable {}
             }
             val cancelled = booleanArrayOf(false)
-            extractions += { if (!cancelled[0]) deliver(extract()) }
+            extractions += { if (!cancelled[0]) deliver(colors) }
             return Cancellable { if (honoursCancel) cancelled[0] = true }
         }
 
@@ -79,8 +81,11 @@ class GlowCoordinatorTest {
     private val driver = FakeDriver()
     private val coordinator = GlowCoordinator { driver }
 
-    private fun posted(key: String, colors: List<Int> = listOf(0xFF00FF00.toInt())) =
-        coordinator.posted(post(key)) { colors }
+    /** Posts [key], whose notification extracts to [colors]. */
+    private fun posted(key: String, colors: List<Int> = listOf(0xFF00FF00.toInt())) {
+        driver.colorsByKey[key] = colors
+        coordinator.send(GlowEvent.Posted(post(key)))
+    }
 
     private val glow get() = coordinator.state.value?.glow
 

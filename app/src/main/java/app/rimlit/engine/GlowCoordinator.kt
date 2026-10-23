@@ -38,9 +38,6 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
         }
     }
 
-    /** A notification was posted; [extractPalette] reads its colours if the machine asks for them. */
-    fun posted(post: Post, extractPalette: () -> List<Int>) = enqueue(Input.Posted(post, extractPalette))
-
     fun send(event: GlowEvent.External) = enqueue(Input.Event(event))
 
     /** The screen or keyguard may have changed: re-sample before the next input. */
@@ -75,16 +72,15 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
         val event = when (input) {
             Input.Sample -> return
             is Input.Event -> input.event
-            is Input.Posted -> GlowEvent.Posted(input.post)
             is Input.Report -> input.take() ?: return
         }
-        step(event, (input as? Input.Posted)?.extractPalette)
+        step(event)
     }
 
-    private fun step(event: GlowEvent, extractPalette: (() -> List<Int>)? = null) {
+    private fun step(event: GlowEvent) {
         val next = checkNotNull(machine.value).on(event)
         machine.value = next.state
-        next.effects.forEach { executor.execute(it, next.state, extractPalette) }
+        next.effects.forEach { executor.execute(it, next.state) }
     }
 
     private sealed interface Input {
@@ -92,8 +88,6 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
         data object Sample : Input
 
         data class Event(val event: GlowEvent) : Input
-
-        class Posted(val post: Post, val extractPalette: () -> List<Int>) : Input
 
         /** An executor report: [take] yields its event, or `null` if it is no longer current. */
         class Report(val take: () -> GlowEvent?) : Input

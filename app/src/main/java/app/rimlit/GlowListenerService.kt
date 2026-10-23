@@ -6,13 +6,13 @@ import android.service.notification.StatusBarNotification
 import app.rimlit.engine.GlowEvent
 import app.rimlit.engine.Post
 import app.rimlit.notify.GlowNotifications
-import app.rimlit.notify.NotificationColorExtractor
 
 /** Detects notifications from all apps and forwards them to the glow machine, which decides everything else. */
 class GlowListenerService : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        connected = this
         GlowNotifications.createChannels(this)
         val posts = activeNotifications.orEmpty().map { it.toPost(ranking = null) }
         glowCoordinator.send(
@@ -24,16 +24,29 @@ class GlowListenerService : NotificationListenerService() {
     }
 
     override fun onListenerDisconnected() {
+        forget()
         glowCoordinator.send(GlowEvent.ListenerDisconnected)
         super.onListenerDisconnected()
     }
+
+    override fun onDestroy() {
+        forget()
+        super.onDestroy()
+    }
+
+    private fun forget() {
+        if (connected === this) connected = null
+    }
+
+    /** The notification posted under [key] now; `null` if it is gone or the listener was unbound. Any thread. */
+    fun notification(key: String): Notification? = getActiveNotifications(arrayOf(key))?.firstOrNull()?.notification
 
     override fun onNotificationPosted(sbn: StatusBarNotification?, rankingMap: RankingMap?) {
         sbn ?: return
         // The ranking carries the posting app's real channel importance and DND verdict (our own
         // NotificationManager can only see Rimlit's channels); read it now, before the map goes stale.
         val ranking = rankingMap?.let { map -> Ranking().takeIf { map.getRanking(sbn.key, it) } }
-        glowCoordinator.posted(sbn.toPost(ranking)) { NotificationColorExtractor.extract(this, sbn) }
+        glowCoordinator.send(GlowEvent.Posted(sbn.toPost(ranking)))
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -56,5 +69,11 @@ class GlowListenerService : NotificationListenerService() {
             importance = ranking?.importance,
             passesDnd = ranking?.matchesInterruptionFilter() ?: true,
         )
+    }
+
+    companion object {
+        /** Set only between connect and disconnect/destroy, so it never outlives the service. Main thread only. */
+        var connected: GlowListenerService? = null
+            private set
     }
 }

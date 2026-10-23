@@ -18,8 +18,8 @@ internal class GlowExecutor(
     private val timers = EnumMap<Timer, Cancellable>(Timer::class.java)
     private var extraction: Cancellable? = null
 
-    /** Runs [effect] of a step that led to [state]; [extractPalette] reads the colours of the post just dispatched. */
-    fun execute(effect: GlowEffect, state: GlowState, extractPalette: (() -> List<Int>)?) {
+    /** Runs [effect] of a step that led to [state]. */
+    fun execute(effect: GlowEffect, state: GlowState) {
         when (effect) {
             is GlowEffect.Open -> {
                 val glow = checkNotNull(state.glow) { "Opens only for its glow" }
@@ -36,7 +36,7 @@ internal class GlowExecutor(
 
             is GlowEffect.Disarm -> timers.remove(effect.timer)?.cancel()
 
-            is GlowEffect.ExtractPalette -> extract(checkNotNull(extractPalette) { "Extracts only for its post" })
+            is GlowEffect.ExtractPalette -> extract(effect.post)
 
             GlowEffect.CancelExtraction -> {
                 extraction?.cancel()
@@ -68,10 +68,10 @@ internal class GlowExecutor(
     }
 
     /** Delivers only to the extraction still in flight; a replaced or cancelled one is dropped. */
-    private fun extract(extractPalette: () -> List<Int>) {
+    private fun extract(post: Post) {
         extraction?.cancel()
         lateinit var handle: Cancellable
-        handle = driver.extract(extractPalette) { colors ->
+        handle = driver.extract(post) { colors ->
             report { GlowEvent.PaletteExtracted(colors).takeIf { extraction === handle }?.also { extraction = null } }
         }
         extraction = handle

@@ -128,10 +128,10 @@ data class GlowState(
 }
 
 sealed interface GlowEvent {
-    /** Inputs a component sends straight to the coordinator; the others are posts, samples or executor reports. */
+    /** Inputs a component sends straight to the coordinator; the others are settings, samples or executor reports. */
     sealed interface External : GlowEvent
 
-    data class Posted(val post: Post) : GlowEvent
+    data class Posted(val post: Post) : External
 
     data class Removed(val key: String) : External
 

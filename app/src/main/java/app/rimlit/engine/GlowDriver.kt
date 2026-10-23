@@ -22,8 +22,8 @@ interface GlowDriver {
     /** Runs [action] after [delayMs] unless cancelled first. */
     fun schedule(delayMs: Long, action: () -> Unit): Cancellable
 
-    /** Runs [extract] and hands its colours to [deliver], unless cancelled first. */
-    fun extract(extract: () -> List<Int>, deliver: (List<Int>) -> Unit): Cancellable
+    /** Reads [post]'s colours from its notification and hands them to [deliver], unless cancelled first. */
+    fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable
 
     /** A lock-screen glow was skipped for the missing full-screen-intent grant; once per listener connection. */
     fun fullScreenIntentDenied()

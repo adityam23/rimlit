@@ -6,12 +6,13 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
-import android.service.notification.StatusBarNotification
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.os.BundleCompat
 import androidx.palette.graphics.Palette
 import app.rimlit.model.DEFAULT_GLOW_ARGB
 import app.rimlit.model.hueOf
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /** Derives a 1–3 color palette from a notification's imagery, falling back to the app icon. */
 object NotificationColorExtractor {
@@ -21,10 +22,15 @@ object NotificationColorExtractor {
     /** Minimum hue distance (degrees) for a swatch to count as a distinct palette color. */
     private const val MIN_HUE_DISTANCE = 25f
 
-    fun extract(context: Context, sbn: StatusBarNotification): List<Int> {
-        val bitmap = notificationImage(context, sbn.notification)
-            ?: appIcon(context, sbn.packageName)
+    /**
+     * The palette of [notification]'s imagery, else of [packageName]'s icon (also when the notification is gone).
+     * Blocking; a cancelled caller skips the palette once the image is loaded.
+     */
+    suspend fun extract(context: Context, notification: Notification?, packageName: String): List<Int> {
+        val bitmap = notification?.let { notificationImage(context, it) }
+            ?: appIcon(context, packageName)
             ?: return listOf(DEFAULT_GLOW_ARGB)
+        currentCoroutineContext().ensureActive()
         return paletteOf(bitmap)
     }
 

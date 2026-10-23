@@ -6,14 +6,17 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
+import app.rimlit.GlowListenerService
 import app.rimlit.LockScreenGlowActivity
 import app.rimlit.engine.Cancellable
 import app.rimlit.engine.Environment
 import app.rimlit.engine.GlowCoordinator
 import app.rimlit.engine.GlowDriver
+import app.rimlit.engine.Post
 import app.rimlit.engine.Surface
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.GlowNotifications
+import app.rimlit.notify.NotificationColorExtractor
 import app.rimlit.overlay.EdgeOverlayController
 import app.rimlit.overlay.GlowAccessibilityService
 import app.rimlit.permissions.PermissionKind
@@ -31,8 +34,11 @@ import kotlinx.coroutines.withContext
 class AndroidGlowDriver(
     private val context: Context,
     private val coordinator: GlowCoordinator,
-    private val extractionDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    extractionDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : GlowDriver {
+
+    /** One extraction at a time: a superseded one that hasn't started never runs. */
+    private val extractionLane = extractionDispatcher.limitedParallelism(1)
 
     private val handler = Handler(Looper.getMainLooper())
     private val scope = MainScope()
@@ -78,11 +84,18 @@ class AndroidGlowDriver(
     }
 
     /**
-     * Off the main thread: loading a URI or resource icon blocks on I/O. The colours come back on the main thread;
-     * a result that lands after a cancel anyway is dropped by the coordinator.
+     * Off the main thread, on one lane: loading a URI or resource icon blocks on I/O. Reads the notification as it is
+     * now, through the connected listener. The colours come back on the main thread; a result that lands after a
+     * cancel anyway is dropped by the coordinator.
      */
-    override fun extract(extract: () -> List<Int>, deliver: (List<Int>) -> Unit): Cancellable {
-        val job = scope.launch { deliver(withContext(extractionDispatcher) { extract() }) }
+    override fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable {
+        val listener = GlowListenerService.connected
+        val job = scope.launch {
+            val colors = withContext(extractionLane) {
+                NotificationColorExtractor.extract(context, listener?.notification(post.key), post.packageName)
+            }
+            deliver(colors)
+        }
         return Cancellable { job.cancel() }
     }
 
