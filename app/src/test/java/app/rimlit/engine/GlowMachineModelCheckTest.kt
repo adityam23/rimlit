@@ -18,31 +18,42 @@ import kotlin.test.fail
  * Executor reports follow their contracts: timers fire only while armed, a palette result only while pending, and a
  * surface reports only on the glow's current surface (opened only while opening). Never trim the alphabet to make
  * the search fit: make the search cheaper instead.
+ *
+ * Visited states are kept only as exact packed codes ([StateCodec]), and each one's parent and event as indices, so
+ * only the frontier lives as objects. States are numbered in visiting order, which a breadth-first queue dequeues in.
  */
 class GlowMachineModelCheckTest {
 
     @Test
     fun everyReachableStateAndTransitionKeepsTheInvariants() {
+        val codec = StateCodec()
+        val visited = LongSet()
+        // Per state, in visiting order: its parent's number and the event from it, packed (the start has parent -1).
+        val parents = LongList()
         val start = Fixtures.initial()
-        // The start maps to (null, null), not null: putIfAbsent treats a null value as absent.
-        val parents = HashMap<GlowState, Pair<GlowState?, GlowEvent?>>()
-        parents[start] = null to null
+        visited.add(codec.encode(start))
+        parents.add(parentOf(-1, 0))
         val queue = ArrayDeque(listOf(start))
+        var number = 0
         var transitions = 0L
         while (queue.isNotEmpty()) {
             val state = queue.removeFirst()
-            stateViolation(state)?.let { fail("$it\n${trace(parents, state)}") }
+            stateViolation(state)?.let { fail("$it\n${trace(parents, number)}") }
             for (event in alphabet(state)) {
                 val step = state.on(event)
                 transitions++
                 transitionViolation(state, event, step)?.let {
-                    fail("$it\n${trace(parents, state)}\n  → $event\n  effects ${step.effects}\n  ⇒ ${step.state}")
+                    fail("$it\n${trace(parents, number)}\n  → $event\n  effects ${step.effects}\n  ⇒ ${step.state}")
                 }
-                if (parents.putIfAbsent(step.state, state to event) == null) queue += step.state
+                if (visited.add(codec.encode(step.state))) {
+                    parents.add(parentOf(number, EVENT_INDEX.getValue(event)))
+                    queue += step.state
+                }
             }
+            number++
         }
-        println("Model check: ${parents.size} states, $transitions transitions")
-        assertTrue(parents.size > 1_000, "the search should reach a meaningful state space")
+        println("Model check: ${visited.size} states, $transitions transitions")
+        assertTrue(visited.size > 1_000, "the search should reach a meaningful state space")
     }
 
     private fun alphabet(state: GlowState): List<GlowEvent> = buildList {
@@ -217,8 +228,14 @@ class GlowMachineModelCheckTest {
         }
     }
 
-    private fun trace(parents: Map<GlowState, Pair<GlowState?, GlowEvent?>>, state: GlowState): String {
-        val events = generateSequence(state) { parents[it]?.first }.mapNotNull { parents[it]?.second }.toList()
+    private fun parentOf(number: Int, event: Int): Long = (number.toLong() shl Int.SIZE_BITS) or event.toLong()
+
+    private fun trace(parents: LongList, number: Int): String {
+        val events = generateSequence(number) { (parents[it] shr Int.SIZE_BITS).toInt().takeIf { p -> p >= 0 } }
+            .map { parents[it] }
+            .filter { it shr Int.SIZE_BITS >= 0 }
+            .map { ALL_EVENTS[it.toInt()] }
+            .toList()
         return "trace from idle:\n" + events.asReversed().joinToString("\n") { "  $it" }
     }
 
@@ -245,5 +262,10 @@ class GlowMachineModelCheckTest {
         val TIMER_EVENTS = Timer.entries.associateWith { GlowEvent.TimerFired(it) }
         val OPENED_EVENTS = Surface.entries.associateWith { GlowEvent.SurfaceOpened(it) }
         val GONE_EVENTS = Surface.entries.associateWith { GlowEvent.SurfaceGone(it) }
+
+        /** Every event the alphabet can produce, so a trace stores an index instead of the event. */
+        val ALL_EVENTS: List<GlowEvent> =
+            EXTERNAL_EVENTS + EXTRACTED_EVENT + TIMER_EVENTS.values + OPENED_EVENTS.values + GONE_EVENTS.values
+        val EVENT_INDEX: Map<GlowEvent, Int> = ALL_EVENTS.withIndex().associate { (index, event) -> event to index }
     }
 }
