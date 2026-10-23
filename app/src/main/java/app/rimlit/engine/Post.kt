@@ -1,6 +1,5 @@
 package app.rimlit.engine
 
-import android.app.NotificationManager
 import app.rimlit.model.GlowSettings
 
 /**
@@ -36,6 +35,9 @@ data class Post(
 internal fun GlowSettings.wants(post: Post): Boolean =
     (post.isTest || (enabled && !post.isOwn)) && post.packageName !in blockedPackages
 
+/** `NotificationManager.IMPORTANCE_DEFAULT`, restated so the engine stays free of Android: below it, nothing alerts. */
+private const val IMPORTANCE_DEFAULT = 3
+
 /** Mirrors the system's own alerting: only a post that alerts the user glows. [isUpdate]: its key was already up. */
 internal fun Post.alerts(isUpdate: Boolean): Boolean = when {
     isOngoing && !isRinging -> false
@@ -45,7 +47,7 @@ internal fun Post.alerts(isUpdate: Boolean): Boolean = when {
     // Silent updates (alert-once) don't alert, so they don't glow.
     isUpdate && onlyAlertOnce -> false
 
-    importance != null && importance < NotificationManager.IMPORTANCE_DEFAULT -> false
+    importance != null && importance < IMPORTANCE_DEFAULT -> false
 
     else -> passesDnd
 }
