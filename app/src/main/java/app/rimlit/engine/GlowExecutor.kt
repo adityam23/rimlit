@@ -25,14 +25,10 @@ internal class GlowExecutor(
         when (effect) {
             is GlowEffect.Open -> {
                 val glow = checkNotNull(state.glow) { "Opens only for its glow" }
-                slots.getValue(effect.surface).open()
-                driver.open(effect.surface, effect.wakeScreen, glow.spec)
+                slots.getValue(effect.surface).open { driver.open(effect.surface, effect.wakeScreen, glow.spec) }
             }
 
-            is GlowEffect.Close -> {
-                slots.getValue(effect.surface).close()
-                driver.close(effect.surface)
-            }
+            is GlowEffect.Close -> slots.getValue(effect.surface).close()
 
             is GlowEffect.Arm -> timers.getValue(effect.timer).replace { claim ->
                 driver.schedule(effect.delayMs) { report { GlowEvent.TimerFired(effect.timer).takeIf { claim() } } }
@@ -57,8 +53,11 @@ internal class GlowExecutor(
         report { GlowEvent.SurfaceOpened(surface).takeIf { isCurrent() } }
     }
 
+    /** [instance] is closed in any case: it is gone, whether or not it is the one the machine shows. */
     fun surfaceGone(surface: Surface, instance: SurfaceInstance?) {
-        val isCurrent = slots.getValue(surface).gone(instance) ?: return
+        val isCurrent = slots.getValue(surface).gone(instance)
+        instance?.close()
+        isCurrent ?: return
         report { GlowEvent.SurfaceGone(surface).takeIf { isCurrent() } }
     }
 }

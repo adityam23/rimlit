@@ -45,7 +45,6 @@
             android:name=".LockScreenGlowActivity"
             android:excludeFromRecents="true"
             android:exported="false"
-            android:launchMode="singleInstance"
             android:noHistory="true"
             android:showWhenLocked="true"
             android:taskAffinity="${applicationId}.lockscreen"

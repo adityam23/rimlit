@@ -75,10 +75,8 @@ class LockScreenGlowActivity :
 
     override fun close() = finish()
 
-    private fun gone() {
-        glowCoordinator.surfaceGone(Surface.LOCK_SCREEN, this)
-        finish()
-    }
+    /** Reported gone, which also closes (finishes) it. */
+    private fun gone() = glowCoordinator.surfaceGone(Surface.LOCK_SCREEN, this)
 
     companion object {
         fun newIntent(context: Context): Intent = Intent(context, LockScreenGlowActivity::class.java)

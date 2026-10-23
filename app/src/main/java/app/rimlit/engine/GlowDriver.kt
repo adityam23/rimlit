@@ -12,12 +12,10 @@ interface GlowDriver {
 
     /**
      * Starts opening [surface] for a glow of [spec]. The surface reports back through
-     * [GlowCoordinator.surfaceOpened] or [GlowCoordinator.surfaceGone], now or later.
+     * [GlowCoordinator.surfaceOpened] or [GlowCoordinator.surfaceGone], now or later. Returns the handle that
+     * withdraws the request when the surface is closed: the lock screen's cancels its trampoline.
      */
-    fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec)
-
-    /** [surface]'s instance was closed; the lock screen also cancels its trampoline. */
-    fun close(surface: Surface)
+    fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec): Cancellable
 
     /** Runs [action] after [delayMs] unless cancelled first. */
     fun schedule(delayMs: Long, action: () -> Unit): Cancellable

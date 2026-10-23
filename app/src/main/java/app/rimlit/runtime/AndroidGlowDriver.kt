@@ -49,31 +49,29 @@ class AndroidGlowDriver(
         fullScreenIntentGranted = PermissionKind.FULL_SCREEN_INTENT.isGranted(context),
     )
 
-    override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec) {
-        when (surface) {
-            Surface.APP_OVERLAY -> openOverlay(surface, appOverlay)
+    override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec): Cancellable = when (surface) {
+        Surface.APP_OVERLAY -> openOverlay(surface, appOverlay)
 
-            Surface.ACCESSIBILITY_OVERLAY -> openOverlay(surface, GlowAccessibilityService.overlay)
+        Surface.ACCESSIBILITY_OVERLAY -> openOverlay(surface, GlowAccessibilityService.overlay)
 
-            // The activity reports itself once started; one never delivered is given up by the open timeout.
-            Surface.LOCK_SCREEN -> {
-                val intent = LockScreenGlowActivity.newIntent(context)
-                if (wakeScreen) {
-                    GlowNotifications.postLockScreenWake(context, intent, spec.durationMs)
-                } else {
-                    context.startActivity(intent)
-                }
+        // The activity reports itself once started; one never delivered is given up by the open timeout.
+        Surface.LOCK_SCREEN -> {
+            val intent = LockScreenGlowActivity.newIntent(context)
+            if (wakeScreen) {
+                GlowNotifications.postLockScreenWake(context, intent, spec.durationMs)
+                Cancellable { GlowNotifications.cancelLockScreenWake(context) }
+            } else {
+                context.startActivity(intent)
+                NOTHING_TO_WITHDRAW
             }
         }
     }
 
-    private fun openOverlay(surface: Surface, overlay: EdgeOverlayController?) {
-        val window = overlay?.open(coordinator.state, surface)
+    /** An overlay opens at once: its window is the whole request. */
+    private fun openOverlay(surface: Surface, overlay: EdgeOverlayController?): Cancellable {
+        val window = overlay?.open(coordinator, surface)
         if (window != null) coordinator.surfaceOpened(surface, window) else coordinator.surfaceGone(surface, null)
-    }
-
-    override fun close(surface: Surface) {
-        if (surface == Surface.LOCK_SCREEN) GlowNotifications.cancelLockScreenWake(context)
+        return NOTHING_TO_WITHDRAW
     }
 
     override fun schedule(delayMs: Long, action: () -> Unit): Cancellable {
@@ -106,5 +104,6 @@ class AndroidGlowDriver(
 
     private companion object {
         const val TAG = "AndroidGlowDriver"
+        val NOTHING_TO_WITHDRAW = Cancellable {}
     }
 }

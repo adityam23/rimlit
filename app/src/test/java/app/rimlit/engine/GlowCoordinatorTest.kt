@@ -41,12 +41,13 @@ class GlowCoordinatorTest {
 
         override fun environment() = environment.also { samples++ }
 
-        override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec) {
+        val withdrawn = mutableListOf<Surface>()
+
+        override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec): Cancellable {
             opens += surface
             onOpen(surface)
+            return Cancellable { withdrawn += surface }
         }
-
-        override fun close(surface: Surface) = Unit
 
         override fun schedule(delayMs: Long, action: () -> Unit): Cancellable {
             val cancelled = booleanArrayOf(false)
@@ -192,6 +193,7 @@ class GlowCoordinatorTest {
         coordinator.surfaceOpened(Surface.LOCK_SCREEN, second)
         coordinator.surfaceGone(Surface.LOCK_SCREEN, first)
         assertNotNull(glow, "the stop of a replaced instance is ignored")
+        assertTrue(first.closed, "a reported instance is closed in any case")
 
         coordinator.surfaceGone(Surface.LOCK_SCREEN, second)
         assertNull(glow)
@@ -204,6 +206,7 @@ class GlowCoordinatorTest {
         posted("a")
         driver.advance(OPEN_TIMEOUT_MS) // the full-screen intent was never delivered
         assertNull(glow)
+        assertEquals(listOf(Surface.LOCK_SCREEN), driver.withdrawn, "closing withdraws the request (the trampoline)")
 
         val late = Instance()
         coordinator.surfaceOpened(Surface.LOCK_SCREEN, late)
