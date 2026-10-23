@@ -19,41 +19,82 @@ import kotlin.test.fail
  * surface reports only on the glow's current surface (opened only while opening). Never trim the alphabet to make
  * the search fit: make the search cheaper instead.
  *
- * Visited states are kept only as exact packed codes ([StateCodec]), and each one's parent and event as indices, so
- * only the frontier lives as objects. States are numbered in visiting order, which a breadth-first queue dequeues in.
+ * Visited states are kept only as exact packed codes ([StateCodec]), and each one's parent and event as indices; a
+ * state is decoded back into an object only while it is expanded. The search expands one breadth-first level at a
+ * time, in parallel chunks, so every trace is still a shortest one; each level's new states are numbered in one pass
+ * after it, contiguously.
  */
 class GlowMachineModelCheckTest {
+
+    /** What one chunk of a level produced: the states it reached first, with their packed parents. */
+    private class Expansion(val codes: LongList, val parents: LongList, val transitions: Long, val violation: String?)
 
     @Test
     fun everyReachableStateAndTransitionKeepsTheInvariants() {
         val codec = StateCodec()
-        val visited = LongSet()
-        // Per state, in visiting order: its parent's number and the event from it, packed (the start has parent -1).
-        val parents = LongList()
-        val start = Fixtures.initial()
-        visited.add(codec.encode(start))
+        val visited = ConcurrentLongSet()
+        // Per state, in number order: its parent's number and the event from it, packed (the start has parent -1).
+        // Written only between levels, so the workers can read it for traces.
+        val parents = LongList(initialCapacity = 1 shl 20)
+        val start = codec.encode(Fixtures.initial())
+        visited.add(start)
         parents.add(parentOf(-1, 0))
-        val queue = ArrayDeque(listOf(start))
-        var number = 0
+        var level = longArrayOf(start)
+        var first = 0
         var transitions = 0L
-        while (queue.isNotEmpty()) {
-            val state = queue.removeFirst()
-            stateViolation(state)?.let { fail("$it\n${trace(parents, number)}") }
+        while (level.isNotEmpty()) {
+            val current = level
+            val firstOfLevel = first
+            val expansions = (current.indices step CHUNK).toList().parallelStream()
+                .map { from -> expand(current, from, firstOfLevel, codec, visited, parents) }
+                .toList()
+            expansions.firstNotNullOfOrNull { it.violation }?.let { fail(it) }
+            transitions += expansions.sumOf { it.transitions }
+            first += current.size
+            val next = LongList(initialCapacity = maxOf(16, current.size))
+            for (expansion in expansions) {
+                for (i in 0 until expansion.codes.size) {
+                    parents.add(expansion.parents[i])
+                    next.add(expansion.codes[i])
+                }
+            }
+            level = next.toArray()
+        }
+        println("Model check: ${visited.size} states, $transitions transitions")
+        assertTrue(visited.size > 1_000, "the search should reach a meaningful state space")
+    }
+
+    /** Checks and expands up to [CHUNK] states of [level] from index [from]; the level's states are numbered from [first]. */
+    private fun expand(
+        level: LongArray,
+        from: Int,
+        first: Int,
+        codec: StateCodec,
+        visited: ConcurrentLongSet,
+        parents: LongList,
+    ): Expansion {
+        val codes = LongList()
+        val found = LongList()
+        var transitions = 0L
+        for (index in from until minOf(from + CHUNK, level.size)) {
+            val state = codec.decode(level[index])
+            val number = first + index
+            stateViolation(state)?.let { return Expansion(codes, found, transitions, "$it\n${trace(parents, number)}") }
             for (event in alphabet(state)) {
                 val step = state.on(event)
                 transitions++
                 transitionViolation(state, event, step)?.let {
-                    fail("$it\n${trace(parents, number)}\n  → $event\n  effects ${step.effects}\n  ⇒ ${step.state}")
+                    val message = "$it\n${trace(parents, number)}\n  → $event\n  effects ${step.effects}\n  ⇒ ${step.state}"
+                    return Expansion(codes, found, transitions, message)
                 }
-                if (visited.add(codec.encode(step.state))) {
-                    parents.add(parentOf(number, EVENT_INDEX.getValue(event)))
-                    queue += step.state
+                val code = codec.encode(step.state)
+                if (visited.add(code)) {
+                    codes.add(code)
+                    found.add(parentOf(number, EVENT_INDEX.getValue(event)))
                 }
             }
-            number++
         }
-        println("Model check: ${visited.size} states, $transitions transitions")
-        assertTrue(visited.size > 1_000, "the search should reach a meaningful state space")
+        return Expansion(codes, found, transitions, violation = null)
     }
 
     private fun alphabet(state: GlowState): List<GlowEvent> = buildList {
@@ -256,6 +297,9 @@ class GlowMachineModelCheckTest {
     }
 
     private companion object {
+        /** States per parallel task: large enough to amortise scheduling, small enough to balance the cores. */
+        const val CHUNK = 1024
+
         val TIMELINE_TIMERS = setOf(Timer.FADE_IN, Timer.HOLD, Timer.FADE_OUT)
 
         /** Inputs from outside the executor, possible in every state. Built once: the search visits millions. */
