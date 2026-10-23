@@ -137,6 +137,17 @@ class GlowMachineScenarioTest {
     }
 
     @Test
+    fun aLeftoverFullScreenIntentThatIsntOngoingDoesntRing() {
+        val reminder = GlowEvent.Posted(post("r", fullScreenIntent = true, ongoing = false))
+        val run = run(environment = SCREEN_OFF).send(reminder)
+        assertTrue(run.state.ringingKeys.isEmpty())
+        assertEquals(Surface.LOCK_SCREEN, run.glow.surface, "it glows like any post")
+
+        run.send(GlowEvent.TimerFired(Timer.OPEN), posted("a"))
+        assertEquals(Surface.LOCK_SCREEN, run.glow.surface, "and doesn't block later lock-screen glows")
+    }
+
+    @Test
     fun screenOffRightAfterAGlowStartsHandsItOffToTheLockScreen() {
         val run = run().send(posted("a"), opened(Surface.APP_OVERLAY)).environment(SCREEN_OFF)
         assertEquals(

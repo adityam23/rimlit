@@ -56,6 +56,8 @@ internal object Fixtures {
         post("a", own = true),
         post("b"),
         post("b", fullScreenIntent = true),
+        // A reminder left in the shade: a full-screen intent, but not ongoing, so not ringing.
+        post("b", fullScreenIntent = true, ongoing = false),
         // The lock-screen trampoline: Rimlit's own full-screen intent, which is not a call.
         post("b", fullScreenIntent = true, ongoing = false, own = true),
         post("b", onlyAlertOnce = true),

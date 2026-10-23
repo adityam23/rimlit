@@ -25,10 +25,11 @@ data class Post(
     val passesDnd: Boolean,
 ) {
     /**
-     * An incoming call or alarm showing its own full-screen UI, which nothing may cover. Rimlit's own full-screen
-     * intent is only the trampoline that wakes the screen into its lock-screen glow.
+     * An incoming call or alarm showing its own full-screen UI, which nothing may cover: ongoing, with a full-screen
+     * intent. A non-ongoing one (a reminder left in the shade) doesn't ring, or it would block every lock-screen glow
+     * until cleared. Rimlit's own full-screen intent is only the trampoline that wakes the screen into its glow.
      */
-    val isRinging: Boolean get() = hasFullScreenIntent && !isOwn
+    val isRinging: Boolean get() = hasFullScreenIntent && isOngoing && !isOwn
 }
 
 /** The user's settings allow a glow for this post. Our own test notification bypasses the master toggle. */
