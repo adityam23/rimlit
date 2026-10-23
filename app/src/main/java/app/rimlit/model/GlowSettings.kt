@@ -57,13 +57,6 @@ data class GlowSettings(
             ColorMode.RAINBOW -> GlowPalette.Rainbow
         }
 
-    /**
-     * The render input for a notification from [packageName] (`null` for previews). [autoColors] is only invoked when
-     * the auto palette is actually needed, since extraction is costly.
-     */
-    fun toGlowSpec(packageName: String?, autoColors: () -> List<Int>): GlowSpec =
-        toGlowSpec(paletteFor(packageName) ?: GlowPalette.Colors(autoColors()))
-
     /** The render input for these settings, painted with [palette] (see [paletteFor]). */
     fun toGlowSpec(palette: GlowPalette): GlowSpec = GlowSpec(
         style = glowStyle,
