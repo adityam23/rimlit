@@ -35,11 +35,11 @@ class AndroidGlowDriver(
     private val coordinator: GlowCoordinator,
     /** The process's main-thread scope: timers and extraction deliveries run in it. */
     private val scope: CoroutineScope,
-    extractionDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val extractionDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : GlowDriver {
 
-    /** One extraction at a time: a superseded one that hasn't started never runs. */
-    private val extractionLane = extractionDispatcher.limitedParallelism(1)
+    /** One notification image loads at a time: a superseded one that hasn't started never runs. */
+    private val imageLane = extractionDispatcher.limitedParallelism(1)
 
     private val appOverlay by lazy { EdgeOverlayController(context) }
 
@@ -83,15 +83,17 @@ class AndroidGlowDriver(
     }
 
     /**
-     * Off the main thread, on one lane: loading a URI or resource icon blocks on I/O. Reads the notification as it is
-     * now, through the connected listener. The colours come back on the main thread; a result that lands after a
-     * cancel anyway is dropped by the coordinator.
+     * Off the main thread, notification images on one lane: loading a URI or resource icon blocks on I/O. Reads the
+     * notification as it is now, through the connected listener. The colours come back on the main thread; a result
+     * that lands after a cancel anyway is dropped by the coordinator.
      */
     override fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable {
         val listener = GlowListenerService.connected
         val job = scope.launch {
-            val colors = withContext(extractionLane) {
-                NotificationColorExtractor.extract(context, listener?.notification(post.key), post.packageName)
+            val colors = withContext(extractionDispatcher) {
+                NotificationColorExtractor.extract(context, post.packageName, imageLane) {
+                    listener?.notification(post.key)
+                }
             }
             deliver(colors)
         }
