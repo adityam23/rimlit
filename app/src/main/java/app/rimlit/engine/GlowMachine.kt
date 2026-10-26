@@ -26,7 +26,7 @@ import app.rimlit.model.GlowSpec
  * | SurfaceGone              | Ended (no fade; nothing left to draw on).                                        |
  * | Screen off               | Lock-screen glow: ended. On-screen glow that started within HAND_OFF_SHARE of    |
  * |                          | its hold: re-routed, so it hands off to the lock screen when allowed there.      |
- * |                          | Otherwise it fades out in the dark.                                              |
+ * |                          | Otherwise ended: its timers stop in deep sleep, so it would reappear on wake.    |
  * | Unlocked                 | Lock-screen glow: re-routed on screen (hand-off), else ended; fading out: ended. |
  * | TimerFired               | OPEN: never confirmed, ended. FADE_IN → HOLDING. HOLD → FADING_OUT. FADE_OUT:    |
  * |                          | ended. HAND_OFF_WINDOW: the glow stops counting as recent.                       |

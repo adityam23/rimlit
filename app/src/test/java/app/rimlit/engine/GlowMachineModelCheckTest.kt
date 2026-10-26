@@ -166,8 +166,9 @@ class GlowMachineModelCheckTest {
         }
         if (live != setOfNotNull(new.glow?.surface)) return "live surfaces $live disagree with the state"
         val screenTurnedOff = old.environment.screenOn && !new.environment.screenOn
-        val lockScreenKept = new.glow?.surface == Surface.LOCK_SCREEN && step.effects.none { it is GlowEffect.Open }
-        return "a lock-screen glow outlived the screen turning off".takeIf { screenTurnedOff && lockScreenKept }
+        // Only a hand-off opening the lock screen survives: timers stop in deep sleep, so a kept glow would freeze.
+        val handedOff = new.glow?.surface == Surface.LOCK_SCREEN && step.effects.any { it is GlowEffect.Open }
+        return "a glow outlived the screen turning off".takeIf { screenTurnedOff && new.glow != null && !handedOff }
     }
 
     /** The executor's timers mirror the armed set, and every timer moves its glow strictly forward (invariant 7). */
