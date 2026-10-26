@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ElevatedCard
@@ -141,6 +142,7 @@ private fun PermissionState(status: PermissionStatus) {
 private fun PermissionKind.icon(): ImageVector = when (this) {
     PermissionKind.NOTIFICATION_ACCESS -> Icons.Filled.Notifications
     PermissionKind.OVERLAY -> Icons.Filled.Layers
+    PermissionKind.NOTIFICATIONS -> Icons.Filled.NotificationsActive
     PermissionKind.FULL_SCREEN_INTENT -> Icons.Filled.Fullscreen
     PermissionKind.ACCESSIBILITY -> Icons.Filled.Lock
     PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
@@ -152,6 +154,7 @@ private fun PermissionKind.title(): String = stringResource(
     when (this) {
         PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_title
         PermissionKind.OVERLAY -> R.string.perm_overlay_title
+        PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_title
         PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_title
         PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_title
         PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_title
@@ -164,6 +167,7 @@ private fun PermissionKind.description(): String = stringResource(
     when (this) {
         PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_desc
         PermissionKind.OVERLAY -> R.string.perm_overlay_desc
+        PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_desc
         PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_desc
         PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_desc
         PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_desc

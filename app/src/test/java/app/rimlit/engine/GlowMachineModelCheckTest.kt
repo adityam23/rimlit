@@ -270,17 +270,17 @@ class GlowMachineModelCheckTest {
         }
     }
 
-    /** The missing full-screen-intent grant is reported once per listener connection. */
+    /** That the screen can't be woken is reported once per listener connection. */
     private fun reportViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
-        val reports = step.effects.count { it == GlowEffect.FullScreenIntentDenied }
+        val reports = step.effects.count { it == GlowEffect.WakeScreenDenied }
         val reconnected = event is GlowEvent.ListenerConnected
         return when {
-            reports > 1 || (reports == 1 && old.fullScreenIntentReported) -> "reports the missing grant twice"
+            reports > 1 || (reports == 1 && old.wakeScreenDeniedReported) -> "reports the missing wake access twice"
 
-            reports == 1 && !step.state.fullScreenIntentReported -> "forgets reporting the missing grant"
+            reports == 1 && !step.state.wakeScreenDeniedReported -> "forgets reporting the missing wake access"
 
-            old.fullScreenIntentReported && !step.state.fullScreenIntentReported && !reconnected ->
-                "reports the missing grant again without a reconnect"
+            old.wakeScreenDeniedReported && !step.state.wakeScreenDeniedReported && !reconnected ->
+                "reports the missing wake access again without a reconnect"
 
             else -> null
         }

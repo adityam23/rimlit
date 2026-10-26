@@ -8,8 +8,8 @@ internal sealed interface Route {
 
     data object Nowhere : Route
 
-    /** Only the lock screen would do, but without the grant (Android 14+) the trampoline can't wake the screen. */
-    data object NeedsFullScreenIntent : Route
+    /** Only the lock screen would do, but the trampoline can't wake the screen (see [Environment.canWakeScreen]). */
+    data object NeedsWakeAccess : Route
 }
 
 /**
@@ -46,6 +46,6 @@ private fun GlowState.onScreenSurface(): Surface? = when {
  */
 private fun GlowState.lockScreen(lockScreenUp: Boolean, ringing: Boolean): Route = when {
     ringing || ringingKeys.isNotEmpty() -> Route.Nowhere
-    !lockScreenUp && !environment.screenOn && !environment.fullScreenIntentGranted -> Route.NeedsFullScreenIntent
+    !lockScreenUp && !environment.screenOn && !environment.canWakeScreen -> Route.NeedsWakeAccess
     else -> Route.To(Surface.LOCK_SCREEN)
 }

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  *   wait in order, so nothing is decided on defaults and a removal can't overtake its post.
  * - **The environment is sampled before every input that routes** (posts, previews, palette results) and on
  *   [environmentChanged], and sent first as [GlowEvent.EnvironmentChanged] when it changed: the keyguard can lock
- *   seconds after the screen goes off, and the grant has no broadcast. Other inputs don't read it.
+ *   seconds after the screen goes off, and the wake grants have no broadcast. Other inputs don't read it.
  * - **Executor contracts are checked at dispatch.** Timer, palette and surface reports are queued with a check that
  *   they are still current when their turn comes, so a stale one is dropped instead of reaching the machine.
  */

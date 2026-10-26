@@ -30,7 +30,7 @@ internal class Transition(private var state: GlowState) {
 
             is GlowEvent.ListenerConnected -> {
                 keys(event.activeKeys, event.ringingKeys)
-                if (state.fullScreenIntentReported) state = state.copy(fullScreenIntentReported = false)
+                if (state.wakeScreenDeniedReported) state = state.copy(wakeScreenDeniedReported = false)
                 if (event.ringingKeys.isNotEmpty()) protectRingingScreen()
             }
 
@@ -132,11 +132,11 @@ internal class Transition(private var state: GlowState) {
         show(source, spec, surface)
     }
 
-    /** [route]'s surface, or `null` for nowhere (reporting a missing full-screen-intent grant once per connection). */
+    /** [route]'s surface, or `null` for nowhere (reporting once per connection that the screen can't be woken). */
     private fun routed(route: Route): Surface? {
-        if (route is Route.NeedsFullScreenIntent && !state.fullScreenIntentReported) {
-            state = state.copy(fullScreenIntentReported = true)
-            effects += GlowEffect.FullScreenIntentDenied
+        if (route is Route.NeedsWakeAccess && !state.wakeScreenDeniedReported) {
+            state = state.copy(wakeScreenDeniedReported = true)
+            effects += GlowEffect.WakeScreenDenied
         }
         return (route as? Route.To)?.surface
     }

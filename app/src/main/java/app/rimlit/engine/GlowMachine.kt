@@ -31,7 +31,7 @@ import app.rimlit.model.GlowSpec
  * | TimerFired               | OPEN: never confirmed, ended. FADE_IN → HOLDING. HOLD → FADING_OUT. FADE_OUT:    |
  * |                          | ended. HAND_OFF_WINDOW: the glow stops counting as recent.                       |
  * | Listener connected       | Stores the posted and ringing keys (ringing: as for a ringing post), and reports |
- * |                          | the missing full-screen-intent grant again on the next skipped lock-screen glow. |
+ * |                          | that the screen can't be woken again on the next skipped lock-screen glow.       |
  * | Listener disconnected    | Drops a pending post and forgets keys; a shown glow fades normally.              |
  * | Settings, accessibility  | Stored only: settings apply to the next post, availability to the next routing.  |
  *
@@ -73,7 +73,15 @@ enum class Timer { OPEN, FADE_IN, HOLD, FADE_OUT, HAND_OFF_WINDOW }
 enum class PreviewTarget { ON_SCREEN, LOCK_SCREEN }
 
 /** The device state routing depends on; the coordinator samples it before each input that routes. */
-data class Environment(val screenOn: Boolean, val locked: Boolean, val fullScreenIntentGranted: Boolean)
+data class Environment(
+    val screenOn: Boolean,
+    val locked: Boolean,
+    /**
+     * The full-screen-intent trampoline can wake the screen: its grant (Android 14+), notifications allowed for
+     * Rimlit, and its channel important enough to launch a full-screen intent.
+     */
+    val canWakeScreen: Boolean,
+)
 
 sealed interface GlowSource {
     /** The notification behind the glow; `null` for a preview. */
@@ -117,8 +125,8 @@ data class GlowState(
     val pending: Pending? = null,
     val glow: Glow? = null,
     val armed: Set<Timer> = emptySet(),
-    /** [GlowEffect.FullScreenIntentDenied] was emitted since the listener last connected: it is reported once. */
-    val fullScreenIntentReported: Boolean = false,
+    /** [GlowEffect.WakeScreenDenied] was emitted since the listener last connected: it is reported once. */
+    val wakeScreenDeniedReported: Boolean = false,
 ) {
     /** What [surface] should draw now, or `null` for nothing. */
     fun frameFor(surface: Surface): GlowFrame? = glow?.takeIf { it.surface == surface && it.opened }
@@ -185,10 +193,10 @@ sealed interface GlowEffect {
     data object CancelExtraction : GlowEffect
 
     /**
-     * A lock-screen glow was skipped: without the grant (Android 14+) the trampoline can't wake the screen. Emitted
+     * A lock-screen glow was skipped: the trampoline can't wake the screen (see [Environment.canWakeScreen]). Emitted
      * once per listener connection.
      */
-    data object FullScreenIntentDenied : GlowEffect
+    data object WakeScreenDenied : GlowEffect
 }
 
 data class GlowStep(val state: GlowState, val effects: List<GlowEffect>)

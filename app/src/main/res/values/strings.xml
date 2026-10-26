@@ -13,6 +13,8 @@
     <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps.</string>
     <string name="perm_overlay_title">Display over other apps</string>
     <string name="perm_overlay_desc">Lets Rimlit glow while the screen is on.</string>
+    <string name="perm_post_notifications_title">Notifications</string>
+    <string name="perm_post_notifications_desc">Lets Rimlit post the silent notification that wakes the screen into the glow. Keep Rimlit\'s notifications and its \"Edge lighting\" category on, at high importance.</string>
     <string name="perm_fsi_title">Full-screen notifications</string>
     <string name="perm_fsi_desc">Lets Rimlit wake the screen to glow while it is off. Android 14 and newer hide this behind a separate grant.</string>
     <string name="perm_accessibility_title">Lock screen glow</string>

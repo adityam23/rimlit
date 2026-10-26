@@ -10,11 +10,15 @@ import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
+import app.rimlit.notify.GlowNotifications
 
 /** Special-access grants the feature depends on; [optional] ones only unlock extra behaviour. */
 enum class PermissionKind(val optional: Boolean = false) {
     NOTIFICATION_ACCESS,
     OVERLAY,
+
+    /** Notifications allowed and the glow channel unblocked: the lock-screen trampoline is a notification. */
+    NOTIFICATIONS,
     FULL_SCREEN_INTENT,
     ACCESSIBILITY(optional = true),
     BATTERY_OPTIMIZATION,
@@ -28,6 +32,8 @@ fun PermissionKind.isGranted(context: Context): Boolean = when (this) {
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
     PermissionKind.OVERLAY -> Settings.canDrawOverlays(context)
+
+    PermissionKind.NOTIFICATIONS -> GlowNotifications.canPostLockScreenWake(context)
 
     PermissionKind.FULL_SCREEN_INTENT ->
         Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
@@ -50,10 +56,12 @@ private fun PermissionKind.settingsIntent(context: Context): Intent {
 
         PermissionKind.OVERLAY -> Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, packageUri)
 
+        PermissionKind.NOTIFICATIONS -> appNotificationSettings(context)
+
         PermissionKind.FULL_SCREEN_INTENT -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, packageUri)
         } else {
-            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            appNotificationSettings(context)
         }
 
         PermissionKind.ACCESSIBILITY -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -61,6 +69,9 @@ private fun PermissionKind.settingsIntent(context: Context): Intent {
         PermissionKind.BATTERY_OPTIMIZATION -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri)
     }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }
+
+private fun appNotificationSettings(context: Context): Intent =
+    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
 
 object Permissions {
 

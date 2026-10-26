@@ -44,7 +44,7 @@ internal class GlowExecutor(
 
             GlowEffect.CancelExtraction -> extraction.cancel()
 
-            GlowEffect.FullScreenIntentDenied -> driver.fullScreenIntentDenied()
+            GlowEffect.WakeScreenDenied -> driver.wakeScreenDenied()
         }
     }
 

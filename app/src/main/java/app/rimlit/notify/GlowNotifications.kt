@@ -41,6 +41,18 @@ object GlowNotifications {
         )
     }
 
+    /**
+     * The trampoline can be posted and launch its full-screen intent: notifications are allowed for Rimlit and the
+     * glow channel is still high importance (SystemUI launches full-screen intents only from those). A channel not
+     * created yet counts, since it is created at high importance.
+     */
+    fun canPostLockScreenWake(context: Context): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val high = NotificationManager.IMPORTANCE_HIGH
+        val importance = manager.getNotificationChannel(GLOW_CHANNEL_ID)?.importance ?: high
+        return manager.areNotificationsEnabled() && importance >= high
+    }
+
     /** Rimlit's own test notification. The package must match too: another app could reuse the channel id. */
     fun isTest(context: Context, sbn: StatusBarNotification): Boolean =
         sbn.packageName == context.packageName && sbn.notification.channelId == TEST_CHANNEL_ID

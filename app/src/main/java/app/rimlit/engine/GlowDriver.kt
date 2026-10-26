@@ -7,7 +7,7 @@ import app.rimlit.model.GlowSpec
  * the main thread, and every callback it takes must run there too.
  */
 interface GlowDriver {
-    /** The screen, keyguard and full-screen-intent grant as they are now. */
+    /** The screen, keyguard and what waking the screen needs, as they are now. */
     fun environment(): Environment
 
     /**
@@ -23,8 +23,8 @@ interface GlowDriver {
     /** Reads [post]'s colours from its notification and hands them to [deliver], unless cancelled first. */
     fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable
 
-    /** A lock-screen glow was skipped for the missing full-screen-intent grant; once per listener connection. */
-    fun fullScreenIntentDenied()
+    /** A lock-screen glow was skipped because the screen can't be woken; once per listener connection. */
+    fun wakeScreenDenied()
 }
 
 fun interface Cancellable {

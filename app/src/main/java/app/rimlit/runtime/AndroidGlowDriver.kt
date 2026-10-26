@@ -46,7 +46,7 @@ class AndroidGlowDriver(
     override fun environment() = Environment(
         screenOn = context.getSystemService(PowerManager::class.java)?.isInteractive == true,
         locked = context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true,
-        fullScreenIntentGranted = PermissionKind.FULL_SCREEN_INTENT.isGranted(context),
+        canWakeScreen = WAKE_ACCESS.all { it.isGranted(context) },
     )
 
     override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec): Cancellable = when (surface) {
@@ -98,12 +98,16 @@ class AndroidGlowDriver(
         return Cancellable { job.cancel() }
     }
 
-    override fun fullScreenIntentDenied() {
-        Log.w(TAG, "Full-screen intent access denied: skipping lock-screen glows until it is granted")
+    override fun wakeScreenDenied() {
+        val missing = WAKE_ACCESS.filterNot { it.isGranted(context) }
+        Log.w(TAG, "Can't wake the screen (missing $missing): skipping lock-screen glows until granted")
     }
 
     private companion object {
         const val TAG = "AndroidGlowDriver"
         val NOTHING_TO_WITHDRAW = Cancellable {}
+
+        /** What the full-screen-intent trampoline needs to wake the screen. */
+        val WAKE_ACCESS = listOf(PermissionKind.FULL_SCREEN_INTENT, PermissionKind.NOTIFICATIONS)
     }
 }
