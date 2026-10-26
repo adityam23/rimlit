@@ -1,10 +1,13 @@
 package app.rimlit.data
 
 import android.content.Context
+import android.util.Log
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -14,10 +17,21 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.MAX_PALETTE_COLORS
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
 import java.util.Locale
 
-private val Context.dataStore by preferencesDataStore(name = "settings")
+private const val TAG = "SettingsRepository"
+
+private val Context.dataStore by preferencesDataStore(
+    name = "settings",
+    // A corrupt file would otherwise fail every read, crashing each start: losing the settings once is better.
+    corruptionHandler = ReplaceFileCorruptionHandler { e ->
+        Log.w(TAG, "Settings file corrupt; reset to defaults", e)
+        emptyPreferences()
+    },
+)
 
 private object Keys {
     val ENABLED = booleanPreferencesKey("enabled")
@@ -42,7 +56,14 @@ private object Keys {
 /** Single source of truth for user settings, backed by Preferences DataStore. */
 class SettingsRepository(private val context: Context) {
 
-    val settings: Flow<GlowSettings> = context.dataStore.data.map { it.toSettings() }
+    /** The stored settings; defaults if the file can't be read (an I/O error ends the flow with them). */
+    val settings: Flow<GlowSettings> = context.dataStore.data
+        .catch { e ->
+            if (e !is IOException) throw e
+            Log.w(TAG, "Couldn't read settings; using defaults", e)
+            emit(emptyPreferences())
+        }
+        .map { it.toSettings() }
 
     /** Atomically read-modify-writes the settings. */
     suspend fun update(transform: (GlowSettings) -> GlowSettings) {
