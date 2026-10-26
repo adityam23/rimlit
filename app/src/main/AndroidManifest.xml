@@ -40,9 +40,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Full-screen-intent target: renders the glow over the lock screen. -->
+        <!-- Full-screen-intent target: renders the glow over the lock screen. Handles rotation, folding and
+             night-mode changes in place: being recreated would stop it, which ends the glow mid-hold. -->
         <activity
             android:name=".LockScreenGlowActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboard|keyboardHidden|navigation"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
