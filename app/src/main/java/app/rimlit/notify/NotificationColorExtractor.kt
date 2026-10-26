@@ -30,7 +30,7 @@ object NotificationColorExtractor {
     private const val MIN_HUE_DISTANCE = 25f
 
     /** How long a notification's image may take to load, waiting for [extract]'s lane included. */
-    private const val IMAGE_LOAD_TIMEOUT_MS = 1_000L
+    const val IMAGE_LOAD_TIMEOUT_MS = 1_000L
 
     /**
      * The palette of the imagery of the notification [loadNotification] returns, else of [packageName]'s icon: also

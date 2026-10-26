@@ -9,6 +9,8 @@ import android.content.Intent
 import android.service.notification.StatusBarNotification
 import androidx.annotation.StringRes
 import app.rimlit.R
+import app.rimlit.engine.FADE_IN_MS
+import app.rimlit.engine.OPEN_TIMEOUT_MS
 
 /** Rimlit's own notifications: the full-screen-intent trampoline that wakes the screen, and the test notification. */
 object GlowNotifications {
@@ -17,6 +19,9 @@ object GlowNotifications {
     private const val TEST_CHANNEL_ID = "glow_test"
     private const val GLOW_NOTIFICATION_ID = 1
     private const val TEST_NOTIFICATION_ID = 100
+
+    /** The longest a post can take to start holding: its image loads, its surface opens, it fades in. */
+    private const val GLOW_RUN_UP_MS = NotificationColorExtractor.IMAGE_LOAD_TIMEOUT_MS + OPEN_TIMEOUT_MS + FADE_IN_MS
 
     /** Creates (or refreshes the names of) both channels; safe to call repeatedly. */
     fun createChannels(context: Context) {
@@ -57,7 +62,11 @@ object GlowNotifications {
     fun isTest(context: Context, sbn: StatusBarNotification): Boolean =
         sbn.packageName == context.packageName && sbn.notification.channelId == TEST_CHANNEL_ID
 
-    /** Posts a test notification that goes through the real listener pipeline and times out after [durationMs]. */
+    /**
+     * Posts a test notification that goes through the real listener pipeline. Its glow holds for [durationMs] once
+     * shown, so the notification outlives the longest run-up (extraction, opening, fade-in) before timing out: its
+     * removal would otherwise cut the hold short.
+     */
     fun postTest(context: Context, durationMs: Long) {
         createChannels(context)
         val notification = Notification.Builder(context, TEST_CHANNEL_ID)
@@ -65,7 +74,7 @@ object GlowNotifications {
             .setContentTitle(context.getString(R.string.test_notification_title))
             .setContentText(context.getString(R.string.test_notification_desc))
             .setAutoCancel(true)
-            .setTimeoutAfter(durationMs)
+            .setTimeoutAfter(durationMs + GLOW_RUN_UP_MS)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(TEST_NOTIFICATION_ID, notification)
     }
