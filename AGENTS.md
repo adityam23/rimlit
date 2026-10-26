@@ -9,7 +9,7 @@
 
 ## Project Overview
 
-Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and roadmap (in progress: a formally checked notification/glow state machine in `engine`; the app runs on it, with palette extraction off the main thread). It may be absent in a fresh clone; never commit it.
+Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Every glow's lifecycle runs on one exhaustively model-checked state machine in `engine`, with palette extraction off the main thread. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and open questions. It may be absent in a fresh clone; never commit it.
 
 ## Architecture & Data Flow
 
@@ -21,7 +21,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 
 - `app/src/main/java/app/rimlit/` — `RimlitApp` (owns the coordinator; `Context.glowCoordinator`), `MainActivity`, `MainViewModel` (+ `previewSpec()`), `GlowListenerService` (builds `Post`s and forwards events), `LockScreenGlowActivity` (the AOD lock-screen surface)
 - `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `paletteFor`, `toGlowSpec`), `GlowSpec.kt` (parcelable render input, `GlowPalette`)
-- `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Post.kt` (notification facts and the filter), `GlowCoordinator.kt` (serial queue gated on settings, environment sampling), `GlowExecutor.kt` + `SurfaceSlot.kt` (run effects and hold the executor contracts), `GlowDriver.kt` (the platform port)
+- `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Post.kt` (notification facts and the filter), `GlowCoordinator.kt` (serial queue gated on settings, environment sampling), `GlowExecutor.kt` + `SurfaceSlot.kt` + `LatestHandle.kt` (run effects and hold the executor contracts), `GlowDriver.kt` (the platform port)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
 - `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery)
 - `.../runtime/` — `AndroidGlowDriver.kt` (the `GlowDriver`: system state, surfaces, main-thread timers, palette extraction by key on one `Dispatchers.IO` lane), `ScreenStateReceiver.kt` (screen on/off, unlock)
@@ -30,7 +30,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 - `.../ui/components/` — `SettingsComponents.kt` (scaffold, list, `SettingCard`, `SettingIcon`, `CommitSlider`, `SettingSlider`, `PreviewButtons`), `PaletteEditor.kt` (+ `paletteBrush`)
 - `.../ui/` — `MainScreen`, `StyleScreen`, `AppsScreen`, `BehaviorScreen`, `AppNavHost` (nav); `.../ui/theme/`
 - `.../permissions/` — `Permissions.kt` (`PermissionKind` with its grant check and settings intent; `Permissions.statuses`/`open`)
-- `app/src/main/res/` — `values/` (strings, themes, launcher background), `drawable/` + `mipmap-anydpi/` (adaptive icon), `xml/data_extraction_rules.xml`, `xml/glow_accessibility_service.xml`
+- `app/src/main/res/` — `values/` (strings, themes, launcher background), `values-night/` (dark window theme), `drawable/` + `mipmap-anydpi/` (adaptive icon), `xml/data_extraction_rules.xml`, `xml/glow_accessibility_service.xml`
 - `gradle/` — `libs.versions.toml` (version catalog)
 
 ## Development Commands

@@ -36,7 +36,7 @@ Rimlit has no internet permission at all, so it cannot send anything off your de
 You need JDK 25, Gradle 9.8 and the Android SDK (platform 36). The project intentionally has no Gradle wrapper, so use your installed `gradle`:
 
 ```bash
-gradle :app:assembleDebug :app:lintDebug :app:detektMain
+gradle :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:detektMain
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
