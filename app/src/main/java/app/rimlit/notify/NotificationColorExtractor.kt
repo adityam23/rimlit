@@ -43,7 +43,9 @@ object NotificationColorExtractor {
         loadNotification: () -> Notification?,
     ): List<Int> {
         val image = imageLane.load { loadNotification()?.let { notificationImage(context, it) } }
-        val bitmap = image ?: appIcon(context, packageName) ?: return listOf(DEFAULT_GLOW_ARGB)
+        val bitmap = image
+            ?: untrusted("app icon") { appIcon(context, packageName) }
+            ?: return listOf(DEFAULT_GLOW_ARGB)
         currentCoroutineContext().ensureActive()
         return paletteOf(bitmap)
     }
@@ -68,15 +70,15 @@ object NotificationColorExtractor {
     }
 
     /**
-     * [load]s one image from another app's notification as a software bitmap `Palette` can read. That imagery is
-     * untrusted input (an undecodable URI, a missing permission, a hardware bitmap), so any failure only skips this
-     * source: it must never take the process, and the listener with it, down.
+     * [load]s one image of another app's (its notification's imagery or its icon) as a software bitmap `Palette` can
+     * read. That is untrusted input (an undecodable URI, a missing permission, a broken resource, a hardware bitmap),
+     * so any failure only skips this source: it must never take the process, and the listener with it, down.
      */
     @Suppress("TooGenericExceptionCaught") // Untrusted input from any app: every failure falls back, none crashes.
     private inline fun untrusted(source: String, load: () -> Bitmap?): Bitmap? = try {
         load()?.let { if (it.config == Bitmap.Config.HARDWARE) it.copy(Bitmap.Config.ARGB_8888, false) else it }
     } catch (e: RuntimeException) {
-        Log.w(TAG, "Skipping the notification's $source", e)
+        Log.w(TAG, "Skipping the posting app's $source", e)
         null
     }
 
