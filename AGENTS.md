@@ -15,7 +15,7 @@ Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when an
 
 Single Gradle module `:app`. Packages under `app.rimlit`: `model` → `data` → `engine` → `notify` → `overlay` → `runtime` → `ui/glow` → `ui/components` → `ui` (+ `ui/theme`), plus `permissions`. No DI framework; `navigation-compose` for the four screens. The full data-flow diagram lives in `HANDOFF.md`.
 
-State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateIn(...)` → UI `collectAsStateWithLifecycle()`. Every glow's lifecycle goes through one `GlowCoordinator`, owned by `RimlitApp`: the listener, the screen receiver, the accessibility service and the previews send it events, and the overlay windows and the lock-screen activity draw `coordinator.state.frameFor(surface)`. Every glow — notification, overlay, lock screen, preview — renders from one `GlowSpec` built by `GlowSettings.toGlowSpec(palette)`, with the palette resolved by `GlowSettings.paletteFor(packageName)`.
+State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateIn(...)` → UI `collectAsStateWithLifecycle()`. Every glow's lifecycle goes through one `GlowCoordinator`, owned by `RimlitApp`: the listener, the screen receiver, the accessibility service and the previews send it events, and the overlay windows and the lock-screen activity draw `coordinator.state.frameFor(surface)`. Every glow — notification, overlay, lock screen, preview — renders from one `GlowSpec` built by `GlowSettings.toGlowSpec(palette)`, with the palette resolved by `GlowSettings.paletteFor(packageName)`, played as the `Playback` that `GlowSpec.playback(lockScreen, DeviceConditions)` resolves for its surface and the device (brightness, stillness, frame cap).
 
 ## Key Directories
 
@@ -26,7 +26,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 - `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery), `AbandoningLane.kt` (one-at-a-time blocking loads under a timeout, abandoning a stuck one)
 - `.../runtime/` — `AndroidGlowDriver.kt` (the `GlowDriver`: system state, surfaces, main-thread timers, palette extraction by key on one `Dispatchers.IO` lane), `ScreenStateReceiver.kt` (screen on/off, unlock)
 - `.../overlay/` — `EdgeOverlayController.kt` (opens the overlay window a surface draws in, app or accessibility type), `GlowAccessibilityService.kt` (recommended, inert: hosts the accessibility overlay, which draws above the lock screen and without Android's overlay notice; the app overlay is the fallback)
-- `.../ui/glow/` — `EdgeGlow` (renderer), `GlowHost` (draws a surface's frame, animating its fades), `GlowGeometry`, `GlowLayout`, `BloomMask`, `GlowColors`, `WindowCutout`
+- `.../ui/glow/` — `EdgeGlow` (renderer), `Playback` (how a spec plays on a surface, from the device conditions), `GlowHost` (draws a surface's frame, animating its fades), `GlowGeometry`, `GlowLayout`, `BloomMask`, `GlowColors`, `WindowCutout`
 - `.../ui/components/` — `SettingsComponents.kt` (scaffold, list, `SettingCard`, `SwitchCard`, `RadioCard`, `SettingIcon`, `CommitSlider`, `SettingSlider`, `PreviewButtons`), `PaletteEditor.kt` (+ `paletteBrush`)
 - `.../ui/` — `MainScreen`, `StyleScreen`, `AppsScreen`, `BehaviorScreen`, `AppNavHost` (nav); `.../ui/theme/`
 - `.../permissions/` — `Permissions.kt` (`PermissionKind` with its grant check and settings intent; `Permissions.statuses`/`open`)
