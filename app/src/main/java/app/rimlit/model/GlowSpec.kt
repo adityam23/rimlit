@@ -16,7 +16,7 @@ sealed interface GlowPalette {
 
 /**
  * Everything needed to render one glow. The single input to the renderer, the overlay,
- * the lock-screen activity, and the in-app previews; built via [GlowSettings.toGlowSpec].
+ * the lock-screen activity, and the in-app previews; built via [GlowSettings.resolve] or [GlowSettings.previewSpec].
  */
 data class GlowSpec(
     val style: GlowStyle,

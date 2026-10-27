@@ -5,6 +5,7 @@ import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
+import app.rimlit.model.Look
 import app.rimlit.model.QuietHours
 import app.rimlit.model.QuietScope
 
@@ -37,10 +38,18 @@ internal object Fixtures {
     )
 
     /** Auto colours, so posts go through pending extraction; not the default ones, so the effect must carry them. */
-    val AUTO = GlowSettings(enabled = true, autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 2))
+    val AUTO = GlowSettings(
+        enabled = true,
+        looks = listOf(Look(autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 2))),
+    )
 
-    /** Custom colours, so posts show at once. */
-    val CUSTOM = AUTO.copy(colorMode = ColorMode.CUSTOM)
+    /** These settings with [edit] applied to their default look. */
+    fun GlowSettings.withDefaultLook(edit: (Look) -> Look) = updateLook(defaultLookId, edit)
+
+    /** These settings with custom colours, so posts show at once. */
+    fun GlowSettings.custom() = withDefaultLook { it.copy(colorMode = ColorMode.CUSTOM) }
+
+    val CUSTOM = AUTO.custom()
 
     /** A clock time outside, then inside, the quiet hours below. */
     const val DAYTIME = 12 * 60
@@ -52,7 +61,7 @@ internal object Fixtures {
     val SETTINGS = listOf(
         AUTO,
         // Other auto colours, so an extraction carrying the live settings instead of the post-time ones is caught.
-        AUTO.copy(autoColors = AutoColors(AutoColorSource.APP_ICON, count = 1)),
+        AUTO.withDefaultLook { it.copy(autoColors = AutoColors(AutoColorSource.APP_ICON, count = 1)) },
         CUSTOM,
         AUTO.copy(enabled = false),
         AUTO.copy(showWhenScreenOff = false),

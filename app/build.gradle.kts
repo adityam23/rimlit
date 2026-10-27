@@ -107,6 +107,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test.junit)
+    // The real org.json for JVM tests of the settings' JSON; the app uses the platform's.
+    testImplementation(libs.org.json)
 
     detektPlugins(libs.detekt.rules.ktlint.wrapper)
     detektPlugins(libs.compose.rules.detekt)

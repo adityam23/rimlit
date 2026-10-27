@@ -22,12 +22,12 @@ enum class BatterySaver {
     ALWAYS,
 }
 
-/** Where the glow colors come from. Per-app palettes override all modes. */
+/** Where a look's colors come from. Per-app palettes override all modes. */
 enum class ColorMode {
-    /** Palette extracted from the notifying app, as [GlowSettings.autoColors] says. */
+    /** Palette extracted from the notifying app, as [Look.autoColors] says. */
     AUTO,
 
-    /** The user's [GlowSettings.customColors] (one color = solid, more = gradient). */
+    /** The look's [Look.customColors] (one color = solid, more = gradient). */
     CUSTOM,
 
     /** Full hue cycle flowing around the edge. */
@@ -62,25 +62,32 @@ const val MAX_AUTO_COLORS = 3
 /** Stand-in for the auto palette in previews; they show its first [AutoColors.count]. */
 private val PreviewAutoColors = listOf(DEFAULT_GLOW_ARGB, 0xFFE040FB.toInt(), 0xFFFFC400.toInt())
 
+/** What a notification glows with, from [GlowSettings.resolve]. */
+sealed interface Resolution {
+
+    /** The colors are known: show [spec]. */
+    data class Ready(val spec: GlowSpec) : Resolution
+
+    /** Auto colors: extract them as [autoColors] say (costly, so the caller does), then resolve again with them. */
+    data class Extract(val autoColors: AutoColors) : Resolution
+}
+
 /**
  * Persisted user configuration.
  *
+ * How glows look lives in [looks]: notifications glow with the one named by [defaultLookId], unless their app's rule
+ * in [appRules] picks another look or a palette of its own. The rest is global: how long glows hold, and when and
+ * where they show.
  * `blockedPackages` holds apps that never trigger edge lighting (empty = allow all).
- * `appPalettes` maps a package to its own 1–5 color palette, overriding [colorMode].
  * Where glows show: [showWhenScreenOff] the lock-screen surface (the screen woken from off), [showOnLockScreen] an
  * overlay above a visible lock screen, [showWhenUnlocked] an overlay while unlocked.
  */
 data class GlowSettings(
     val enabled: Boolean = false,
-    val glowStyle: GlowStyle = GlowStyle.GLOW,
-    val colorMode: ColorMode = ColorMode.AUTO,
-    val autoColors: AutoColors = AutoColors(),
-    val customColors: List<Int> = listOf(DEFAULT_GLOW_ARGB),
-    val thicknessDp: Float = 4f,
-    val glowWidthDp: Float = 24f,
-    val speed: Float = 1f,
-    val brightness: Float = 1f,
-    /** Brightness on the lock-screen surface; `null` follows [brightness]. */
+    /** 1–[MAX_LOOKS] looks, with unique ids and names (see [lookNameKey]), one of them the default. */
+    val looks: List<Look> = listOf(Look()),
+    val defaultLookId: String = DEFAULT_LOOK_ID,
+    /** Brightness on the lock-screen surface; `null` follows the look's brightness. */
     val screenOffBrightness: Float? = null,
     val durationMs: Long = 4_000L,
     val batterySaver: BatterySaver = BatterySaver.WITH_SYSTEM,
@@ -90,44 +97,70 @@ data class GlowSettings(
     /** A double tap on the lock-screen glow unlocks and opens its notification; off, it only ends the glow. */
     val openOnDoubleTap: Boolean = true,
     val quietHours: QuietHours = QuietHours(),
-    val region: EdgeRegion = EdgeRegion.FULL_SCREEN,
     /** Corner radius of the screen-edge outline; `null` matches the display's own corners. */
     val cornerRadiusDp: Float? = null,
     /** The camera cutout the ring hugs; `null` matches the one the display reports. */
     val customCutout: CustomCutout? = null,
     val blockedPackages: Set<String> = emptySet(),
-    val appPalettes: Map<String, List<Int>> = emptyMap(),
+    /** Per-app rules, by package name, overriding the default look. */
+    val appRules: Map<String, Rule> = emptyMap(),
 ) {
-    /**
-     * The palette for a notification from [packageName] (`null` for previews): a per-app palette wins, then
-     * [colorMode]. `null` means [ColorMode.AUTO]: the caller extracts it from the notification, since that's costly.
-     */
-    fun paletteFor(packageName: String?): GlowPalette? =
-        packageName?.let(appPalettes::get)?.let(GlowPalette::Colors) ?: when (colorMode) {
-            ColorMode.AUTO -> null
-            ColorMode.CUSTOM -> GlowPalette.Colors(customColors)
-            ColorMode.RAINBOW -> GlowPalette.Rainbow
-        }
+    init {
+        require(looks.size in 1..MAX_LOOKS) { "Settings hold 1–$MAX_LOOKS looks" }
+        require(looks.distinctBy { it.id }.size == looks.size) { "Look ids must be unique" }
+        require(looks.distinctBy { lookNameKey(it.name) }.size == looks.size) { "Look names must be unique" }
+        require(looks.any { it.id == defaultLookId }) { "The default look must exist" }
+    }
 
-    /** The render input for these settings, painted with [palette] (see [paletteFor]). */
-    fun toGlowSpec(palette: GlowPalette): GlowSpec = GlowSpec(
-        style = glowStyle,
+    /** The look notifications glow with unless their app's rule says otherwise. */
+    val defaultLook: Look get() = looks.first { it.id == defaultLookId }
+
+    /** The look with [id], or `null` when there is none. */
+    fun look(id: String): Look? = looks.firstOrNull { it.id == id }
+
+    /** These settings with the look [id] replaced by [edit] of it. */
+    fun updateLook(id: String, edit: (Look) -> Look): GlowSettings =
+        copy(looks = looks.map { if (it.id == id) edit(it) else it })
+
+    /**
+     * The one place a notification's look and colors are chosen: [packageName]'s rule, then the default look (also
+     * when the rule names a look that no longer exists). A palette rule paints the default look; otherwise the look's
+     * own colors apply, and auto colors need [extracted] (see [Resolution.Extract]).
+     */
+    fun resolve(packageName: String, extracted: List<Int>? = null): Resolution {
+        val rule = appRules[packageName]
+        val look = (rule as? Rule.UseLook)?.let { look(it.lookId) } ?: defaultLook
+        val palette = (rule as? Rule.UsePalette)?.let { GlowPalette.Colors(it.colors) }
+            ?: look.palette
+            ?: extracted?.let(GlowPalette::Colors)
+            ?: return Resolution.Extract(look.autoColors)
+        return Resolution.Ready(spec(look, palette))
+    }
+
+    /**
+     * The spec previews of [look] render (the default look unless one is being edited): auto colors, with no
+     * notifying app to sample, use a stand-in.
+     */
+    fun previewSpec(look: Look = defaultLook): GlowSpec =
+        spec(look, look.palette ?: GlowPalette.Colors(PreviewAutoColors.take(look.autoColors.count)))
+
+    /** The one spec builder: [look] painted with [palette], with these settings' global parts. */
+    private fun spec(look: Look, palette: GlowPalette): GlowSpec = GlowSpec(
+        style = look.style,
         palette = palette,
-        region = region,
+        region = look.region,
         cornerRadiusDp = cornerRadiusDp,
         customCutout = customCutout,
-        thicknessDp = thicknessDp,
-        glowWidthDp = glowWidthDp,
-        speed = speed,
-        brightness = brightness,
-        screenOffBrightness = screenOffBrightness ?: brightness,
+        thicknessDp = look.thicknessDp,
+        glowWidthDp = look.glowWidthDp,
+        speed = look.speed,
+        brightness = look.brightness,
+        screenOffBrightness = screenOffBrightness ?: look.brightness,
         durationMs = durationMs,
         batterySaver = batterySaver,
+        // No look asks for particles yet.
+        particles = null,
     )
-
-    /** The spec previews render for these settings: auto colours, with no notifying app to sample, use a stand-in. */
-    fun previewSpec(): GlowSpec =
-        toGlowSpec(paletteFor(packageName = null) ?: GlowPalette.Colors(PreviewAutoColors.take(autoColors.count)))
 
     /** Valid ranges, shared by the UI sliders and the repository's sanitising of stored values. */
     object Ranges {
@@ -146,5 +179,6 @@ data class GlowSettings(
         val particleSpeed = speed
         val particleAmount = 0.1f..1f
         val particleRotation = 0f..360f
+        val lookNameLength = 1..30
     }
 }

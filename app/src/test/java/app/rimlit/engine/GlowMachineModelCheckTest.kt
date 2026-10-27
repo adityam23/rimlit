@@ -5,6 +5,7 @@ import app.rimlit.engine.Fixtures.EXTRACTED
 import app.rimlit.engine.Fixtures.POSTS
 import app.rimlit.engine.Fixtures.PREVIEW_SPEC
 import app.rimlit.engine.Fixtures.SETTINGS
+import app.rimlit.model.Resolution
 import org.junit.Test
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -256,6 +257,9 @@ class GlowMachineModelCheckTest {
         return "$event didn't move the glow forward".takeUnless { advanced }
     }
 
+    /** The auto colours this pending post's own settings resolve it to. */
+    private fun Pending.autoColors() = (settings.resolve(post.packageName) as? Resolution.Extract)?.autoColors
+
     /** The executor's extraction mirrors the pending post; dropped posts never come back. */
     private fun pendingViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
         val new = step.state
@@ -264,7 +268,7 @@ class GlowMachineModelCheckTest {
         return when {
             extracts.any { it.post != new.pending?.post } -> "extracts for a post that isn't pending"
 
-            extracts.any { it.autoColors != new.pending?.settings?.autoColors } ->
+            extracts.any { it.autoColors != new.pending?.autoColors() } ->
                 "extracts with other auto colours than the pending post's settings"
 
             // Revoked notification access starts no new glow.

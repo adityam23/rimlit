@@ -45,6 +45,7 @@ import app.rimlit.R
 import app.rimlit.data.AppInfo
 import app.rimlit.model.DEFAULT_GLOW_ARGB
 import app.rimlit.model.GlowSettings
+import app.rimlit.model.Rule
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.paletteBrush
@@ -98,13 +99,13 @@ fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier 
     editing?.let { app ->
         AppPaletteDialog(
             app = app,
-            initial = settings.appPalettes[app.packageName],
+            initial = settings.paletteOf(app.packageName),
             onSave = { colors ->
-                viewModel.update { it.copy(appPalettes = it.appPalettes + (app.packageName to colors)) }
+                viewModel.update { it.copy(appRules = it.appRules + (app.packageName to Rule.UsePalette(colors))) }
                 editing = null
             },
             onUseDefault = {
-                viewModel.update { it.copy(appPalettes = it.appPalettes - app.packageName) }
+                viewModel.update { it.copy(appRules = it.appRules - app.packageName) }
                 editing = null
             },
             onDismiss = { editing = null },
@@ -137,13 +138,17 @@ private fun AppList(
             AppRow(
                 app = app,
                 blocked = app.packageName in settings.blockedPackages,
-                palette = settings.appPalettes[app.packageName],
+                palette = settings.paletteOf(app.packageName),
                 onEditPalette = { onEditPalette(app) },
                 onToggle = { blocked -> onToggle(app, blocked) },
             )
         }
     }
 }
+
+/** The palette [packageName]'s rule paints it with; `null` when it has none. */
+private fun GlowSettings.paletteOf(packageName: String): List<Int>? =
+    (appRules[packageName] as? Rule.UsePalette)?.colors
 
 private fun GlowSettings.withBlocked(packageName: String, blocked: Boolean) =
     copy(blockedPackages = if (blocked) blockedPackages + packageName else blockedPackages - packageName)
