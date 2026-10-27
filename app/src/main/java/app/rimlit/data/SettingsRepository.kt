@@ -63,6 +63,7 @@ private object Keys {
     val QUIET_END_MINUTE = intPreferencesKey("quiet_end_minute")
     val QUIET_SCOPE = stringPreferencesKey("quiet_scope")
     val REGION = stringPreferencesKey("region")
+    val CORNER_RADIUS_DP = floatPreferencesKey("corner_radius_dp")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
     val APP_PALETTES = stringSetPreferencesKey("app_palettes")
 
@@ -114,9 +115,7 @@ private fun Preferences.toSettings() = GlowSettings(
     glowWidthDp = clamped(Keys.GLOW_WIDTH_DP, defaults.glowWidthDp, Ranges.glowWidthDp),
     speed = clamped(Keys.SPEED, defaults.speed, Ranges.speed),
     brightness = clamped(Keys.BRIGHTNESS, defaults.brightness, Ranges.brightness),
-    // Absent is the default, "same as on screen" (null): write removes the key for it.
-    screenOffBrightness = (this[Keys.SCREEN_OFF_BRIGHTNESS] ?: defaults.screenOffBrightness)
-        ?.coerceIn(Ranges.brightness),
+    screenOffBrightness = clampedOrNull(Keys.SCREEN_OFF_BRIGHTNESS, defaults.screenOffBrightness, Ranges.brightness),
     durationMs = clamped(Keys.DURATION_MS, defaults.durationMs, Ranges.durationMs),
     batterySaver = this[Keys.BATTERY_SAVER].toEnumOr(defaults.batterySaver),
     showWhenScreenOff = lockedToggle(Keys.SHOW_WHEN_SCREEN_OFF, defaults.showWhenScreenOff),
@@ -129,6 +128,7 @@ private fun Preferences.toSettings() = GlowSettings(
         scope = this[Keys.QUIET_SCOPE].toEnumOr(defaults.quietHours.scope),
     ),
     region = this[Keys.REGION].toEnumOr(defaults.region),
+    cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
     blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
     appPalettes = this[Keys.APP_PALETTES]?.let(::decodeAppPalettes) ?: defaults.appPalettes,
 )
@@ -144,6 +144,21 @@ private fun Preferences.lockedToggle(key: Preferences.Key<Boolean>, default: Boo
 private fun <T : Comparable<T>> Preferences.clamped(key: Preferences.Key<T>, default: T, range: ClosedRange<T>): T =
     valueOr(key, default).coerceIn(range)
 
+/**
+ * An optional setting: the stored value of [key] clamped to [range], or [default] when it was never written. Its
+ * `null` is stored as an absent key (see [setOrRemove]).
+ */
+private fun <T : Comparable<T>> Preferences.clampedOrNull(
+    key: Preferences.Key<T>,
+    default: T?,
+    range: ClosedRange<T>,
+): T? = (this[key] ?: default)?.coerceIn(range)
+
+/** Writes an optional setting: [value], or removes [key] for `null`. */
+private fun <T> MutablePreferences.setOrRemove(key: Preferences.Key<T>, value: T?) {
+    if (value != null) this[key] = value else remove(key)
+}
+
 private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.ENABLED] = settings.enabled
     this[Keys.GLOW_STYLE] = settings.glowStyle.name
@@ -155,12 +170,7 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.GLOW_WIDTH_DP] = settings.glowWidthDp
     this[Keys.SPEED] = settings.speed
     this[Keys.BRIGHTNESS] = settings.brightness
-    val screenOffBrightness = settings.screenOffBrightness
-    if (screenOffBrightness != null) {
-        this[Keys.SCREEN_OFF_BRIGHTNESS] = screenOffBrightness
-    } else {
-        remove(Keys.SCREEN_OFF_BRIGHTNESS)
-    }
+    setOrRemove(Keys.SCREEN_OFF_BRIGHTNESS, settings.screenOffBrightness)
     this[Keys.DURATION_MS] = settings.durationMs
     this[Keys.BATTERY_SAVER] = settings.batterySaver.name
     this[Keys.SHOW_WHEN_SCREEN_OFF] = settings.showWhenScreenOff
@@ -171,6 +181,7 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.QUIET_END_MINUTE] = settings.quietHours.endMinute
     this[Keys.QUIET_SCOPE] = settings.quietHours.scope.name
     this[Keys.REGION] = settings.region.name
+    setOrRemove(Keys.CORNER_RADIUS_DP, settings.cornerRadiusDp)
     this[Keys.BLOCKED_PACKAGES] = settings.blockedPackages
     this[Keys.APP_PALETTES] = settings.appPalettes.map { (pkg, colors) -> "$pkg=${encodePalette(colors)}" }.toSet()
     remove(Keys.LEGACY_CUSTOM_COLOR)

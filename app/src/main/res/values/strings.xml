@@ -128,6 +128,9 @@
     <string name="region_both_title">Around camera cutout and screen edge</string>
     <string name="region_both_desc">Glow traces the screen border and rings the front camera</string>
     <string name="region_cutout_unavailable">This device has no camera cutout</string>
+    <string name="corner_match_title">Match display corners</string>
+    <string name="corner_match_desc">Turn off to round the screen-edge glow\'s corners your own way</string>
+    <string name="corner_radius_label">Corner radius</string>
 
     <!-- Test notification (Style screen) -->
     <string name="test_notification_button">Send test notification</string>

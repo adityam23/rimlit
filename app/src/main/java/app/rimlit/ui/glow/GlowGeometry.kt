@@ -48,6 +48,9 @@ internal class GlowGeometry(
     }
 }
 
+/** Corner radius assumed where the system doesn't report the display's own (before API 31). */
+private const val FALLBACK_CORNER_DP = 24f
+
 /** Physical display shape the glow follows, in window pixels. */
 internal data class DisplayShape(
     /** Top-left, top-right, bottom-right, bottom-left corner radii. */
@@ -56,9 +59,13 @@ internal data class DisplayShape(
     val cutout: RectF?,
 ) {
     companion object {
-        /** Reads the real rounded corners (API 31+) and cutout from the window [view] is attached to. */
-        fun of(view: View, fallbackCornerPx: Float): DisplayShape {
+        /**
+         * Reads the real rounded corners (API 31+) and cutout from the window [view] is attached to. Corners the
+         * system doesn't report are [FALLBACK_CORNER_DP].
+         */
+        fun of(view: View): DisplayShape {
             val insets = view.rootWindowInsets
+            val fallbackCornerPx = FALLBACK_CORNER_DP * view.resources.displayMetrics.density
             val radii = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && insets != null) {
                 listOf(
                     RoundedCorner.POSITION_TOP_LEFT,
@@ -82,6 +89,9 @@ internal data class DisplayShape(
         }
     }
 
+    /** This shape with all four corners rounded to [radiusPx] instead. */
+    fun withCornerRadius(radiusPx: Float) = copy(cornerRadii = FloatArray(4) { radiusPx })
+
     override fun equals(other: Any?) =
         other is DisplayShape && cornerRadii.contentEquals(other.cornerRadii) && cutout == other.cutout
 
@@ -95,10 +105,14 @@ internal fun View.cutoutBounds(): RectF? = rootWindowInsets?.displayCutout?.let 
         ?.let(::RectF)
 }
 
-/** Border following the screen's rounded corners, inset so the full stroke stays on-screen. */
+/**
+ * Border following the screen's rounded corners, inset so the full stroke stays on-screen. Each radius is capped
+ * at half the shorter side, so the outline never overlaps itself.
+ */
 internal fun screenEdgeGeometry(width: Float, height: Float, shape: DisplayShape, strokePx: Float): GlowGeometry {
     val inset = strokePx / 2f
-    val radii = FloatArray(8) { i -> (shape.cornerRadii[i / 2] - inset).coerceAtLeast(0f) }
+    val maxRadius = (min(width, height) / 2f - inset).coerceAtLeast(0f)
+    val radii = FloatArray(8) { i -> (shape.cornerRadii[i / 2] - inset).coerceIn(0f, maxRadius) }
     val path = Path().apply {
         addRoundRect(RectF(inset, inset, width - inset, height - inset), radii, Path.Direction.CW)
     }

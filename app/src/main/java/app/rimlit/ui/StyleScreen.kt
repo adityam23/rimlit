@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -52,6 +53,7 @@ import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.glow.BATTERY_SAVER_FPS
+import app.rimlit.ui.glow.DisplayShape
 import app.rimlit.ui.glow.EdgeGlow
 import app.rimlit.ui.glow.Playback
 import app.rimlit.ui.glow.cutoutBounds
@@ -75,6 +77,11 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
 
     val view = LocalView.current
     val hasCutout = remember(view) { view.cutoutBounds() != null }
+    val density = LocalDensity.current
+    // Where the corner slider starts when the user stops matching the display: the display's own radius.
+    val displayCornerDp = remember(view, density) {
+        with(density) { DisplayShape.of(view).cornerRadii.max().toDp().value }
+    }
     // Preview what this device will really show: the renderer falls back to the full edge without a cutout.
     val spec = draft.previewSpec().let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
     // While the screen-off brightness slider is dragged, the preview plays as the lock screen would, to show it.
@@ -94,6 +101,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             }
             styleSection(draft, spec, playback, editor)
             regionSection(draft, hasCutout, editor)
+            cornerRadiusItems(draft, displayCornerDp, editor)
             colorSection(draft, editor)
             tuningSection(draft, editor) { dragging -> draggingScreenOff = dragging }
             batterySaverSection(draft, editor)
@@ -186,6 +194,35 @@ private fun LazyListScope.regionSection(draft: GlowSettings, hasCutout: Boolean,
             onSelect = { editor.commit { it.copy(region = region) } },
             subtitle = stringResource(if (available) region.descRes else R.string.region_cutout_unavailable),
             enabled = available,
+        )
+    }
+}
+
+/**
+ * The screen-edge outline's corners: the display's own until the user unlinks them, then a custom radius
+ * starting from the display's own, [displayCornerDp].
+ */
+private fun LazyListScope.cornerRadiusItems(draft: GlowSettings, displayCornerDp: Float, editor: SettingsDraft) {
+    item {
+        SwitchCard(
+            title = stringResource(R.string.corner_match_title),
+            checked = draft.cornerRadiusDp == null,
+            onCheckedChange = { match ->
+                val custom = displayCornerDp.coerceIn(Ranges.cornerRadiusDp)
+                editor.commit { it.copy(cornerRadiusDp = if (match) null else custom) }
+            },
+            subtitle = stringResource(R.string.corner_match_desc),
+        )
+    }
+    val radius = draft.cornerRadiusDp ?: return
+    item {
+        SettingSlider(
+            label = stringResource(R.string.corner_radius_label),
+            value = radius,
+            range = Ranges.cornerRadiusDp,
+            valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
+            onPreview = { v -> editor.preview { it.copy(cornerRadiusDp = v) } },
+            onCommit = { v -> editor.persist { it.copy(cornerRadiusDp = v) } },
         )
     }
 }
