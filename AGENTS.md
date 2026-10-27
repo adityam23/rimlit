@@ -20,7 +20,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 ## Key Directories
 
 - `app/src/main/java/app/rimlit/` — `RimlitApp` (owns the coordinator; `Context.glowCoordinator`), `MainActivity`, `MainViewModel`, `GlowListenerService` (builds `Post`s and forwards events), `LockScreenGlowActivity` (the AOD lock-screen surface)
-- `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `paletteFor`, `toGlowSpec`, `previewSpec`), `GlowSpec.kt` (render input, `GlowPalette`)
+- `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `paletteFor`, `toGlowSpec`, `previewSpec`), `QuietHours.kt` (`QuietHours`, `QuietScope`: when glows are muted), `GlowSpec.kt` (render input, `GlowPalette`)
 - `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Post.kt` (notification facts and the filter), `GlowCoordinator.kt` (serial queue gated on settings, environment sampling), `GlowExecutor.kt` + `SurfaceSlot.kt` + `LatestHandle.kt` (run effects and hold the executor contracts), `GlowDriver.kt` (the platform port)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
 - `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery), `AbandoningLane.kt` (one-at-a-time blocking loads under a timeout, abandoning a stuck one)
