@@ -8,7 +8,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 
 ## Features
 
-- **Works everywhere:** while you use the phone the glow is drawn over whatever is on screen; when the screen is off it wakes into a black, always-on-display style glow. With the optional lock screen glow it also frames the lock screen itself.
+- **Works everywhere:** while you use the phone the glow is drawn over whatever is on screen; when the screen is off it wakes into a black, always-on-display style glow. With the recommended accessibility glow it also frames the lock screen itself.
 - **Three styles:** a crisp breathing edge, a soft bloom with a bright core, or a blade of light racing around the screen.
 - **Your colors:** one to three colors picked automatically from the notifying app's icon (or from the notification's picture, such as the sender's photo), a single custom color, a gradient of up to five colors, or a flowing rainbow. Any app can get its own palette.
 - **Tune it:** thickness, glow width, speed, brightness and duration, with a live preview that updates as you drag.
@@ -25,8 +25,12 @@ Open Rimlit, turn on **Edge lighting**, and grant the permissions listed on the 
 - **Display over other apps** — to draw the glow while you use the phone.
 - **Notifications** — Rimlit wakes the screen with a silent notification of its own, so keep its notifications and its "Edge lighting" category on.
 - **Full-screen notifications** — to wake the screen and show the glow when it is off.
-- **Lock screen glow** (optional) — an accessibility service that lets Rimlit draw the glow above the lock screen while it is showing. It only owns the glow window: it receives no accessibility events and cannot read or control anything on screen. On Android 13 and newer you may first need to tap **Allow restricted settings** in Rimlit's App info menu.
+- **Accessibility glow** (recommended) — an accessibility service, **Rimlit glow**, that draws the glow over your apps and above the lock screen. It only owns the glow window: it receives no accessibility events and cannot read or control anything on screen. On Android 13 and newer you may first need to tap **Allow restricted settings** in Rimlit's App info menu.
 - **Unrestricted battery** (recommended) — so the system doesn't delay the glow. Some phones (Xiaomi, Huawei, OnePlus) also need autostart enabled in their own battery settings.
+
+### Why does Android say "Rimlit is displaying over other apps"?
+
+Without the accessibility glow, Rimlit draws on-screen glows with **Display over other apps**, and Android posts that notice for as long as such a window is up. Turning on **Rimlit glow** in Accessibility settings avoids it: the glow is then drawn in an accessibility window, which Android doesn't announce. The home screen tells you when the notice will appear, including when the service is turned on but isn't running (turn it off and on again). On recent Android versions the notice itself can't be turned off; it is already a silent, minimised notification.
 
 ## Privacy
 

@@ -12,19 +12,56 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 import app.rimlit.notify.GlowNotifications
 
-/** Special-access grants the feature depends on; [optional] ones only unlock extra behaviour. */
-enum class PermissionKind(val optional: Boolean = false) {
+/** How much the glow depends on a grant. */
+enum class Need {
+    /** Without it, some glows never show. */
+    REQUIRED,
+
+    /** Glows show without it, but worse (delayed, or with Android's overlay notice). */
+    RECOMMENDED,
+}
+
+/** Special-access grants the feature depends on, and how much ([need]). */
+enum class PermissionKind(val need: Need = Need.REQUIRED) {
     NOTIFICATION_ACCESS,
     OVERLAY,
 
     /** Notifications allowed and the glow channel unblocked: the lock-screen trampoline is a notification. */
     NOTIFICATIONS,
     FULL_SCREEN_INTENT,
-    ACCESSIBILITY(optional = true),
-    BATTERY_OPTIMIZATION,
+
+    /** The accessibility overlay: also above the lock screen, and without Android's overlay notice. */
+    ACCESSIBILITY(Need.RECOMMENDED),
+    BATTERY_OPTIMIZATION(Need.RECOMMENDED),
 }
 
 data class PermissionStatus(val kind: PermissionKind, val granted: Boolean)
+
+/**
+ * Why on-screen glows fall back to the app overlay (`TYPE_APPLICATION_OVERLAY`), which makes Android post its own
+ * "Rimlit is displaying over other apps" notification while one is up.
+ */
+enum class OverlayFallback {
+    /** The accessibility service is off. */
+    SERVICE_OFF,
+
+    /** The accessibility service is on in settings, but the system hasn't bound it (killed, or stuck after updates). */
+    SERVICE_NOT_RUNNING,
+}
+
+/**
+ * Why on-screen glows would fall back to the app overlay now, given the grants in [statuses] and whether the
+ * accessibility service is [serviceConnected]; `null` if they don't: the service draws them, or without Display over
+ * other apps nothing does.
+ */
+fun overlayFallback(statuses: List<PermissionStatus>, serviceConnected: Boolean): OverlayFallback? {
+    fun granted(kind: PermissionKind) = statuses.any { it.kind == kind && it.granted }
+    return when {
+        serviceConnected || !granted(PermissionKind.OVERLAY) -> null
+        granted(PermissionKind.ACCESSIBILITY) -> OverlayFallback.SERVICE_NOT_RUNNING
+        else -> OverlayFallback.SERVICE_OFF
+    }
+}
 
 /** Whether the user has granted this. */
 fun PermissionKind.isGranted(context: Context): Boolean = when (this) {

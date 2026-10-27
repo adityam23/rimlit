@@ -21,6 +21,7 @@ import app.rimlit.ui.components.SwitchCard
 @Composable
 fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val fallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
 
     SubScreenScaffold(
         title = stringResource(R.string.nav_behavior_title),
@@ -52,6 +53,7 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
                 PreviewButtons(
                     onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, settings.previewSpec()) },
                     onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, settings.previewSpec()) },
+                    onScreenFallsBack = fallback != null,
                 )
             }
         }

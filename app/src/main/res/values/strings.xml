@@ -1,8 +1,8 @@
 <resources>
     <string name="app_name">Rimlit</string>
     <string name="notification_listener_label">Rimlit notifications</string>
-    <string name="accessibility_service_label">Rimlit lock screen glow</string>
-    <string name="accessibility_service_desc">Draws the edge glow above the lock screen. Rimlit only uses this to show its glow window: it receives no accessibility events and cannot read or control anything on your screen.</string>
+    <string name="accessibility_service_label">Rimlit glow</string>
+    <string name="accessibility_service_desc">Draws the edge glow over your apps and the lock screen, without Android\'s \"displaying over other apps\" notification. Rimlit only uses this to show its glow window: it receives no accessibility events and cannot read or control anything on your screen.</string>
 
     <string name="master_toggle_title">Edge lighting</string>
     <string name="master_toggle_subtitle">Glow the screen edges when a notification arrives</string>
@@ -17,16 +17,21 @@
     <string name="perm_post_notifications_desc">Lets Rimlit post the silent notification that wakes the screen into the glow. Keep Rimlit\'s notifications and its \"Edge lighting\" category on, at high importance.</string>
     <string name="perm_fsi_title">Full-screen notifications</string>
     <string name="perm_fsi_desc">Lets Rimlit wake the screen to glow while it is off. Android 14 and newer hide this behind a separate grant.</string>
-    <string name="perm_accessibility_title">Lock screen glow</string>
-    <string name="perm_accessibility_desc">Lets Rimlit glow above the lock screen while it is showing. Turn on \"Rimlit lock screen glow\" in Accessibility settings; on Android 13 and newer, sideloaded apps may first need \"Allow restricted settings\" from Rimlit\'s App info menu.</string>
+    <string name="perm_accessibility_title">Accessibility glow</string>
+    <string name="perm_accessibility_desc">Lets Rimlit glow above the lock screen too, and without Android\'s \"displaying over other apps\" notification. Turn on \"Rimlit glow\" in Accessibility settings; on Android 13 and newer, sideloaded apps may first need \"Allow restricted settings\" from Rimlit\'s App info menu.</string>
     <string name="perm_battery_title">Unrestricted battery</string>
     <string name="perm_battery_desc">Recommended so the glow is not delayed by battery optimization.</string>
 
     <string name="status_granted">Granted</string>
     <string name="status_needed">Required</string>
-    <string name="status_optional">Optional</string>
+    <string name="status_recommended">Recommended</string>
 
-    <string name="info_text">Rimlit lights up the screen border whenever any app posts a notification. With the screen off it wakes into a black, always-on-display style glow; while the screen is on it draws an overlay, including above the lock screen when the optional lock screen glow is enabled. Some OEMs (Xiaomi, Huawei, OnePlus) additionally require enabling autostart in their own battery settings.</string>
+    <string name="fallback_title">Android will show a notice</string>
+    <string name="fallback_service_off">On-screen glows are drawn over other apps, so Android shows \"Rimlit is displaying over other apps\" while one is up. Turn on \"Rimlit glow\" in Accessibility settings to avoid it.</string>
+    <string name="fallback_service_not_running">\"Rimlit glow\" is on in Accessibility settings but isn\'t running, so on-screen glows are drawn over other apps and Android shows its notice. Turn it off and on again.</string>
+    <string name="preview_fallback_hint">Android will show \"Rimlit is displaying over other apps\" until Rimlit glow is turned on in Accessibility settings.</string>
+
+    <string name="info_text">Rimlit lights up the screen border whenever any app posts a notification. With the screen off it wakes into a black, always-on-display style glow; while the screen is on it draws an overlay, including above the lock screen when the accessibility glow is on. Some OEMs (Xiaomi, Huawei, OnePlus) additionally require enabling autostart in their own battery settings.</string>
     <!-- Notification channel of the lock-screen glow notification (titled app_name) -->
     <string name="notification_channel_name">Edge lighting</string>
     <string name="notification_channel_desc">Glow shown on the lock screen when a notification arrives</string>

@@ -7,13 +7,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessibilityNew
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
@@ -33,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.permissions.Need
+import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.PermissionStatus
 import app.rimlit.ui.components.SectionTitle
@@ -52,6 +55,7 @@ fun MainScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val fallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
 
     SubScreenScaffold(title = stringResource(R.string.app_name), onBack = null, modifier = modifier) { innerPadding ->
         SettingsList(innerPadding) {
@@ -63,6 +67,14 @@ fun MainScreen(
                     subtitle = stringResource(R.string.master_toggle_subtitle),
                     prominent = true,
                 )
+            }
+            // Only while the fallback is really in use: glows on, and drawn over other apps.
+            fallback?.takeIf { settings.enabled }?.let { reason ->
+                item {
+                    NavCard(Icons.Filled.Info, R.string.fallback_title, reason.descriptionRes) {
+                        viewModel.openPermission(PermissionKind.ACCESSIBILITY)
+                    }
+                }
             }
             item { SectionTitle(stringResource(R.string.section_permissions)) }
             items(permissions, key = { it.kind.name }) { status ->
@@ -121,13 +133,18 @@ private fun PermissionState(status: PermissionStatus) {
         )
     } else {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val need = status.kind.need
             Text(
-                text = stringResource(if (status.kind.optional) R.string.status_optional else R.string.status_needed),
+                text = stringResource(
+                    when (need) {
+                        Need.REQUIRED -> R.string.status_needed
+                        Need.RECOMMENDED -> R.string.status_recommended
+                    },
+                ),
                 style = MaterialTheme.typography.labelLarge,
-                color = if (status.kind.optional) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.error
+                color = when (need) {
+                    Need.REQUIRED -> MaterialTheme.colorScheme.error
+                    Need.RECOMMENDED -> MaterialTheme.colorScheme.tertiary
                 },
             )
             Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -140,9 +157,15 @@ private fun PermissionKind.icon(): ImageVector = when (this) {
     PermissionKind.OVERLAY -> Icons.Filled.Layers
     PermissionKind.NOTIFICATIONS -> Icons.Filled.NotificationsActive
     PermissionKind.FULL_SCREEN_INTENT -> Icons.Filled.Fullscreen
-    PermissionKind.ACCESSIBILITY -> Icons.Filled.Lock
+    PermissionKind.ACCESSIBILITY -> Icons.Filled.AccessibilityNew
     PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
 }
+
+private val OverlayFallback.descriptionRes
+    get() = when (this) {
+        OverlayFallback.SERVICE_OFF -> R.string.fallback_service_off
+        OverlayFallback.SERVICE_NOT_RUNNING -> R.string.fallback_service_not_running
+    }
 
 @Composable
 @ReadOnlyComposable

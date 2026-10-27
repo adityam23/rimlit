@@ -259,12 +259,27 @@ fun SettingSlider(
     }
 }
 
-/** The two full-size previews: the on-screen overlay and the lock-screen glow. */
+/**
+ * The two full-size previews: the on-screen overlay and the lock-screen glow. [onScreenFallsBack]: the on-screen one
+ * would use the app overlay, so a note warns of Android's notice.
+ */
 @Composable
-fun PreviewButtons(onPreviewOnScreen: () -> Unit, onPreviewLockScreen: () -> Unit, modifier: Modifier = Modifier) {
+fun PreviewButtons(
+    onPreviewOnScreen: () -> Unit,
+    onPreviewLockScreen: () -> Unit,
+    modifier: Modifier = Modifier,
+    onScreenFallsBack: Boolean = false,
+) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = onPreviewOnScreen, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.preview_unlocked))
+        }
+        if (onScreenFallsBack) {
+            Text(
+                text = stringResource(R.string.preview_fallback_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         OutlinedButton(onClick = onPreviewLockScreen, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.preview_locked))
