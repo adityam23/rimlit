@@ -38,7 +38,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 ```bash
 gradle :app:assembleDebug                 # build debug APK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-gradle :app:testDebugUnitTest            # unit tests, including the state machine's exhaustive model check (~35 s on 16 cores, 1 GB test heap)
+gradle :app:testDebugUnitTest            # unit tests, including the state machine's exhaustive model check (~15 s on 16 cores, 1 GB test heap)
 gradle :app:lintDebug                     # Android Lint
 gradle :app:detektMain                    # detekt: smells, Compose rules, official-style formatting
 gradle :app:detektMain -PdetektAutoCorrect  # fix formatting findings in place
@@ -90,6 +90,6 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 ## Testing & QA
 
 - Local unit tests: JUnit 4 + `kotlin-test` in `app/src/test`, run with `gradle :app:testDebugUnitTest` (also in CI). No instrumented tests (`app/src/androidTest` is absent, no `testInstrumentationRunner`).
-- `engine/GlowMachineModelCheckTest` explores every reachable state of the state machine over a small adversarial event alphabet (about 9.3 M states, 360 M transitions, ~35 s on 16 cores; it searches one breadth-first level at a time in parallel and stores visited states as exact packed codes, and the test JVM gets a 1 GB heap, overridable with `-PtestMaxHeap=`) and asserts the invariants listed in it on every state and transition; a violation fails with the shortest event trace. Never trim the alphabet or fixtures to make it fit: each variant multiplies the state space, so make the search cheaper or raise the heap instead. `GlowMachineScenarioTest` pins the intended behaviour, one scenario per decision; `GlowCoordinatorTest` covers the settings gate, environment sampling and the executor contracts with a fake driver; `PostFilterTest` covers the notification filter.
+- `engine/GlowMachineModelCheckTest` explores every reachable state of the state machine over a small adversarial event alphabet (about 4.2 M states, 162 M transitions, ~15 s on 16 cores; it searches one breadth-first level at a time in parallel and stores visited states as exact packed codes, and the test JVM gets a 1 GB heap, overridable with `-PtestMaxHeap=`) and asserts the invariants listed in it on every state and transition; a violation fails with the shortest event trace. Never trim the alphabet or fixtures to make it fit: each variant multiplies the state space, so make the search cheaper or raise the heap instead. `GlowMachineScenarioTest` pins the intended behaviour, one scenario per decision; `GlowCoordinatorTest` covers the settings gate, environment sampling and the executor contracts with a fake driver; `PostFilterTest` covers the notification filter.
 - When the machine changes: keep the model check green, add a scenario for any new behaviour, and plant the bug the new invariant guards against once to see the check fail.
 - Current verification: `gradle :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:detektMain` green (lint "No issues found"), plus manual testing on an emulator or device (adb grant commands are in `HANDOFF.md`).
