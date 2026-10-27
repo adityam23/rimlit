@@ -214,12 +214,11 @@ internal class Transition(private var state: GlowState) {
 
     /**
      * The screen turned off: only a recent on-screen glow the user may have missed survives, handed off to the lock
-     * screen. A lock-screen glow's AOD moment is over (the activity's onStop follows), and any other glow would show
-     * nothing in the dark while its timers stop in deep sleep, so it would reappear on the next wake.
+     * screen. A lock-screen glow's AOD moment is over (the activity's onStop follows), and with the screen off `route`
+     * places nothing on an overlay, so any other glow ends.
      */
     private fun handedOffInTheDark(current: Glow): Boolean =
-        current.surface != Surface.LOCK_SCREEN && Timer.HAND_OFF_WINDOW in state.armed && reRoute(current) &&
-            glow?.surface == Surface.LOCK_SCREEN
+        current.surface != Surface.LOCK_SCREEN && Timer.HAND_OFF_WINDOW in state.armed && reRoute(current)
 
     /**
      * Places the glow again after a screen or lock change, handing it off if it now belongs elsewhere. The surface it
