@@ -108,9 +108,14 @@ class GlowMachineModelCheckTest {
 
     /** Invariants of a single state. */
     private fun stateViolation(state: GlowState): String? {
+        // Live settings: a post the settings stopped wanting is never pending, and its glow only fades out.
+        if (state.pending?.let { state.settings.wants(it.post) } == false) return "pending a post the settings don't want"
         val glow = state.glow ?: return "timers armed without a glow".takeIf { state.armed.isNotEmpty() }
         val armed = state.armed
         return when {
+            glow.source.post?.let { state.settings.wants(it) } == false && glow.phase != Phase.FADING_OUT ->
+                "shows a post the settings don't want"
+
             (Timer.OPEN in armed) == glow.opened -> "the open timeout must be armed exactly while opening"
 
             glow.opened && glow.phase == Phase.STARTING -> "an opened glow must have started its timeline"
@@ -145,6 +150,32 @@ class GlowMachineModelCheckTest {
     private fun transitionViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? =
         surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: pendingViolation(old, event, step)
             ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
+            ?: placementViolation(old, event, step)
+
+    /**
+     * A notification glow is only placed (opened, or re-targeted to a new post) where the settings it is placed under
+     * want it: the surface's show toggle is on, and quiet hours don't mute it unless it rings or is the test.
+     */
+    private fun placementViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
+        val glow = step.state.glow ?: return null
+        val post = glow.source.post ?: return null
+        if (step.effects.none { it is GlowEffect.Open } && glow.source == old.glow?.source) return null
+        // An extracted post is placed under the settings it was posted with.
+        val settings = if (event is GlowEvent.PaletteExtracted) checkNotNull(old.pending).settings else step.state.settings
+        val environment = step.state.environment
+        val lockScreen = glow.surface == Surface.LOCK_SCREEN
+        val toggle = when {
+            lockScreen -> settings.showWhenScreenOff
+            environment.locked -> settings.showOnLockScreen
+            else -> settings.showWhenUnlocked
+        }
+        return when {
+            !toggle -> "placed on ${glow.surface} with its show toggle off"
+            !post.isRinging && !post.isTest && settings.quietHours.mutes(environment.minuteOfDay, lockScreen) ->
+                "placed on ${glow.surface} in quiet hours"
+            else -> null
+        }
+    }
 
     /** Invariant 1, and the wake-up rule: at most one live surface, and the state agrees with the surface effects. */
     private fun surfaceViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {

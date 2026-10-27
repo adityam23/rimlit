@@ -18,6 +18,7 @@ import app.rimlit.model.AutoColors
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.MAX_PALETTE_COLORS
+import app.rimlit.model.QuietHours
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -52,14 +53,22 @@ private object Keys {
     val SPEED = floatPreferencesKey("speed")
     val BRIGHTNESS = floatPreferencesKey("brightness")
     val DURATION_MS = longPreferencesKey("duration_ms")
-    val SHOW_WHEN_LOCKED = booleanPreferencesKey("show_when_locked")
+    val SHOW_WHEN_SCREEN_OFF = booleanPreferencesKey("show_when_screen_off")
+    val SHOW_ON_LOCK_SCREEN = booleanPreferencesKey("show_on_lock_screen")
     val SHOW_WHEN_UNLOCKED = booleanPreferencesKey("show_when_unlocked")
+    val QUIET_ENABLED = booleanPreferencesKey("quiet_enabled")
+    val QUIET_START_MINUTE = intPreferencesKey("quiet_start_minute")
+    val QUIET_END_MINUTE = intPreferencesKey("quiet_end_minute")
+    val QUIET_SCOPE = stringPreferencesKey("quiet_scope")
     val REGION = stringPreferencesKey("region")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
     val APP_PALETTES = stringSetPreferencesKey("app_palettes")
 
     /** Pre-palette single custom color; read only to migrate into [CUSTOM_COLORS]. */
     val LEGACY_CUSTOM_COLOR = longPreferencesKey("custom_color_argb")
+
+    /** One toggle for both locked places; read only to migrate into [SHOW_WHEN_SCREEN_OFF], [SHOW_ON_LOCK_SCREEN]. */
+    val LEGACY_SHOW_WHEN_LOCKED = booleanPreferencesKey("show_when_locked")
 }
 
 /** Single source of truth for user settings, backed by Preferences DataStore. */
@@ -104,8 +113,15 @@ private fun Preferences.toSettings() = GlowSettings(
     speed = clamped(Keys.SPEED, defaults.speed, Ranges.speed),
     brightness = clamped(Keys.BRIGHTNESS, defaults.brightness, Ranges.brightness),
     durationMs = clamped(Keys.DURATION_MS, defaults.durationMs, Ranges.durationMs),
-    showWhenLocked = valueOr(Keys.SHOW_WHEN_LOCKED, defaults.showWhenLocked),
+    showWhenScreenOff = lockedToggle(Keys.SHOW_WHEN_SCREEN_OFF, defaults.showWhenScreenOff),
+    showOnLockScreen = lockedToggle(Keys.SHOW_ON_LOCK_SCREEN, defaults.showOnLockScreen),
     showWhenUnlocked = valueOr(Keys.SHOW_WHEN_UNLOCKED, defaults.showWhenUnlocked),
+    quietHours = QuietHours(
+        enabled = valueOr(Keys.QUIET_ENABLED, defaults.quietHours.enabled),
+        startMinute = clamped(Keys.QUIET_START_MINUTE, defaults.quietHours.startMinute, Ranges.minuteOfDay),
+        endMinute = clamped(Keys.QUIET_END_MINUTE, defaults.quietHours.endMinute, Ranges.minuteOfDay),
+        scope = this[Keys.QUIET_SCOPE].toEnumOr(defaults.quietHours.scope),
+    ),
     region = this[Keys.REGION].toEnumOr(defaults.region),
     blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
     appPalettes = this[Keys.APP_PALETTES]?.let(::decodeAppPalettes) ?: defaults.appPalettes,
@@ -113,6 +129,10 @@ private fun Preferences.toSettings() = GlowSettings(
 
 /** The stored value of [key], or [default] when it was never written. */
 private fun <T> Preferences.valueOr(key: Preferences.Key<T>, default: T): T = this[key] ?: default
+
+/** A toggle split from the legacy show-when-locked one: never written yet, it starts at that toggle's value. */
+private fun Preferences.lockedToggle(key: Preferences.Key<Boolean>, default: Boolean): Boolean =
+    valueOr(key, valueOr(Keys.LEGACY_SHOW_WHEN_LOCKED, default))
 
 /** The stored value of [key] clamped to [range], or [default] when it was never written. */
 private fun <T : Comparable<T>> Preferences.clamped(key: Preferences.Key<T>, default: T, range: ClosedRange<T>): T =
@@ -130,12 +150,18 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.SPEED] = settings.speed
     this[Keys.BRIGHTNESS] = settings.brightness
     this[Keys.DURATION_MS] = settings.durationMs
-    this[Keys.SHOW_WHEN_LOCKED] = settings.showWhenLocked
+    this[Keys.SHOW_WHEN_SCREEN_OFF] = settings.showWhenScreenOff
+    this[Keys.SHOW_ON_LOCK_SCREEN] = settings.showOnLockScreen
     this[Keys.SHOW_WHEN_UNLOCKED] = settings.showWhenUnlocked
+    this[Keys.QUIET_ENABLED] = settings.quietHours.enabled
+    this[Keys.QUIET_START_MINUTE] = settings.quietHours.startMinute
+    this[Keys.QUIET_END_MINUTE] = settings.quietHours.endMinute
+    this[Keys.QUIET_SCOPE] = settings.quietHours.scope.name
     this[Keys.REGION] = settings.region.name
     this[Keys.BLOCKED_PACKAGES] = settings.blockedPackages
     this[Keys.APP_PALETTES] = settings.appPalettes.map { (pkg, colors) -> "$pkg=${encodePalette(colors)}" }.toSet()
     remove(Keys.LEGACY_CUSTOM_COLOR)
+    remove(Keys.LEGACY_SHOW_WHEN_LOCKED)
 }
 
 private inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E =

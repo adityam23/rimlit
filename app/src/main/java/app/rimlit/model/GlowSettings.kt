@@ -51,6 +51,8 @@ private val PreviewAutoColors = listOf(DEFAULT_GLOW_ARGB, 0xFFE040FB.toInt(), 0x
  *
  * `blockedPackages` holds apps that never trigger edge lighting (empty = allow all).
  * `appPalettes` maps a package to its own 1–5 color palette, overriding [colorMode].
+ * Where glows show: [showWhenScreenOff] the lock-screen surface (the screen woken from off), [showOnLockScreen] an
+ * overlay above a visible lock screen, [showWhenUnlocked] an overlay while unlocked.
  */
 data class GlowSettings(
     val enabled: Boolean = false,
@@ -63,8 +65,10 @@ data class GlowSettings(
     val speed: Float = 1f,
     val brightness: Float = 1f,
     val durationMs: Long = 4_000L,
-    val showWhenLocked: Boolean = true,
+    val showWhenScreenOff: Boolean = true,
+    val showOnLockScreen: Boolean = true,
     val showWhenUnlocked: Boolean = true,
+    val quietHours: QuietHours = QuietHours(),
     val region: EdgeRegion = EdgeRegion.FULL_SCREEN,
     val blockedPackages: Set<String> = emptySet(),
     val appPalettes: Map<String, List<Int>> = emptyMap(),
@@ -104,5 +108,6 @@ data class GlowSettings(
         val speed = 0.25f..3f
         val brightness = 0.2f..1f
         val durationMs = 1_000L..10_000L
+        val minuteOfDay = 0 until MINUTES_PER_DAY
     }
 }

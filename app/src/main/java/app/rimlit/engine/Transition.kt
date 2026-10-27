@@ -1,6 +1,7 @@
 package app.rimlit.engine
 
 import app.rimlit.model.GlowPalette
+import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 
 /**
@@ -39,9 +40,7 @@ internal class Transition(private var state: GlowState) {
                 keys(emptySet(), emptySet())
             }
 
-            is GlowEvent.SettingsChanged -> if (event.settings != state.settings) {
-                state = state.copy(settings = event.settings)
-            }
+            is GlowEvent.SettingsChanged -> settingsChanged(event.settings)
 
             is GlowEvent.EnvironmentChanged -> environment(event.environment)
 
@@ -90,6 +89,17 @@ internal class Transition(private var state: GlowState) {
             dropPending()
             show(source, settings.toGlowSpec(palette), target)
         }
+    }
+
+    /**
+     * Settings apply from the next post, so a glow keeps the look it started with; but a post they no longer want
+     * (master toggle off, its app blocked) stops: pending, it is dropped, shown, it fades out. Previews have no post.
+     */
+    private fun settingsChanged(new: GlowSettings) {
+        if (new == state.settings) return
+        state = state.copy(settings = new)
+        if (state.pending?.let { new.wants(it.post) } == false) dropPending()
+        if (glow?.source?.post?.let { new.wants(it) } == false) dismiss()
     }
 
     /** Something rings: its own call/alarm screen is up or launching, and nothing may cover it, not even a post

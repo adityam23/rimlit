@@ -5,6 +5,8 @@ import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
+import app.rimlit.model.QuietHours
+import app.rimlit.model.QuietScope
 
 /** Small, representative inputs shared by the model check and the scenario tests. Never trim them to save time. */
 internal object Fixtures {
@@ -40,14 +42,24 @@ internal object Fixtures {
     /** Custom colours, so posts show at once. */
     val CUSTOM = AUTO.copy(colorMode = ColorMode.CUSTOM)
 
+    /** A clock time outside, then inside, the quiet hours below. */
+    const val DAYTIME = 12 * 60
+    const val NIGHT = 23 * 60
+
+    /** Quiet from 22:00 to 07:00, muting [scope]. */
+    fun quiet(scope: QuietScope) = AUTO.copy(quietHours = QuietHours(enabled = true, scope = scope))
+
     val SETTINGS = listOf(
         AUTO,
         // Other auto colours, so an extraction carrying the live settings instead of the post-time ones is caught.
         AUTO.copy(autoColors = AutoColors(AutoColorSource.APP_ICON, count = 1)),
         CUSTOM,
         AUTO.copy(enabled = false),
-        AUTO.copy(showWhenLocked = false),
+        AUTO.copy(showWhenScreenOff = false),
+        AUTO.copy(showOnLockScreen = false),
         AUTO.copy(showWhenUnlocked = false),
+        quiet(QuietScope.ALL),
+        quiet(QuietScope.SCREEN_OFF),
     )
 
     val POSTS = listOf(
@@ -74,13 +86,15 @@ internal object Fixtures {
 
     val ENVIRONMENTS = listOf(true, false).flatMap { screenOn ->
         listOf(true, false).flatMap { locked ->
-            listOf(true, false).map { granted -> Environment(screenOn, locked, granted) }
+            listOf(true, false).flatMap { granted ->
+                listOf(DAYTIME, NIGHT).map { minute -> Environment(screenOn, locked, granted, minute) }
+            }
         }
     }
 
-    val UNLOCKED = Environment(screenOn = true, locked = false, canWakeScreen = true)
-    val LOCK_SCREEN = Environment(screenOn = true, locked = true, canWakeScreen = true)
-    val SCREEN_OFF = Environment(screenOn = false, locked = true, canWakeScreen = true)
+    val UNLOCKED = Environment(screenOn = true, locked = false, canWakeScreen = true, minuteOfDay = DAYTIME)
+    val LOCK_SCREEN = Environment(screenOn = true, locked = true, canWakeScreen = true, minuteOfDay = DAYTIME)
+    val SCREEN_OFF = Environment(screenOn = false, locked = true, canWakeScreen = true, minuteOfDay = DAYTIME)
 
     fun initial(settings: GlowSettings = AUTO, environment: Environment = UNLOCKED, accessibility: Boolean = false) =
         GlowState(settings = settings, environment = environment, accessibilityOverlay = accessibility)

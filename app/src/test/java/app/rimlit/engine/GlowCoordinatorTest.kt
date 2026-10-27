@@ -7,7 +7,9 @@ import app.rimlit.engine.Fixtures.SCREEN_OFF
 import app.rimlit.engine.Fixtures.UNLOCKED
 import app.rimlit.engine.Fixtures.post
 import app.rimlit.model.AutoColors
+import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowPalette
+import app.rimlit.model.QuietScope
 import app.rimlit.model.GlowSpec
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -141,6 +143,18 @@ class GlowCoordinatorTest {
         assertEquals(samples, driver.samples, "inputs that don't route don't sample")
         coordinator.environmentChanged()
         assertEquals(samples + 1, driver.samples)
+    }
+
+    @Test
+    fun quietHoursFollowTheClockSampledAtEachPost() {
+        coordinator.settingsChanged(Fixtures.quiet(QuietScope.ALL).copy(colorMode = ColorMode.CUSTOM))
+        driver.environment = UNLOCKED.copy(minuteOfDay = Fixtures.NIGHT)
+        posted("a")
+        assertNull(glow)
+
+        driver.environment = UNLOCKED.copy(minuteOfDay = Fixtures.DAYTIME) // morning: no broadcast, the post samples it
+        posted("b")
+        assertEquals(Surface.APP_OVERLAY, glow?.surface)
     }
 
     @Test

@@ -1,22 +1,47 @@
 package app.rimlit.ui
 
+import android.text.format.DateFormat
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MobileOff
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDialog
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.engine.PreviewTarget
+import app.rimlit.model.GlowSettings
+import app.rimlit.model.QuietHours
+import app.rimlit.model.QuietScope
 import app.rimlit.ui.components.PreviewButtons
+import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
+import app.rimlit.ui.components.SettingCard
 import app.rimlit.ui.components.SettingIcon
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -29,24 +54,9 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
         modifier = modifier,
     ) { innerPadding ->
         SettingsList(innerPadding) {
-            item { SectionTitle(stringResource(R.string.behavior_section)) }
-            item {
-                SwitchCard(
-                    title = stringResource(R.string.show_locked_title),
-                    checked = settings.showWhenLocked,
-                    onCheckedChange = { show -> viewModel.update { it.copy(showWhenLocked = show) } },
-                    subtitle = stringResource(R.string.show_locked_desc),
-                    leading = { SettingIcon(Icons.Filled.Lock) },
-                )
-            }
-            item {
-                SwitchCard(
-                    title = stringResource(R.string.show_unlocked_title),
-                    checked = settings.showWhenUnlocked,
-                    onCheckedChange = { show -> viewModel.update { it.copy(showWhenUnlocked = show) } },
-                    subtitle = stringResource(R.string.show_unlocked_desc),
-                    leading = { SettingIcon(Icons.Filled.PhoneAndroid) },
-                )
+            whereSection(settings, lockScreenNeedsService = fallback != null, viewModel::update)
+            quietHoursSection(settings.quietHours) { edit ->
+                viewModel.update { it.copy(quietHours = edit(it.quietHours)) }
             }
             item { SectionTitle(stringResource(R.string.preview_section)) }
             item {
@@ -59,3 +69,148 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
         }
     }
 }
+
+/**
+ * The three places a glow can show, each with its own toggle. [lockScreenNeedsService]: the accessibility overlay
+ * isn't up, so the lock-screen toggle can't take effect yet, and says so.
+ */
+private fun LazyListScope.whereSection(
+    settings: GlowSettings,
+    lockScreenNeedsService: Boolean,
+    update: ((GlowSettings) -> GlowSettings) -> Unit,
+) {
+    item { SectionTitle(stringResource(R.string.behavior_section)) }
+    item {
+        SwitchCard(
+            title = stringResource(R.string.show_screen_off_title),
+            checked = settings.showWhenScreenOff,
+            onCheckedChange = { show -> update { it.copy(showWhenScreenOff = show) } },
+            subtitle = stringResource(R.string.show_screen_off_desc),
+            leading = { SettingIcon(Icons.Filled.MobileOff) },
+        )
+    }
+    item {
+        SwitchCard(
+            title = stringResource(R.string.show_lock_screen_title),
+            checked = settings.showOnLockScreen,
+            onCheckedChange = { show -> update { it.copy(showOnLockScreen = show) } },
+            subtitle = if (lockScreenNeedsService) {
+                stringResource(
+                    R.string.show_lock_screen_needs_service,
+                    stringResource(R.string.accessibility_service_label),
+                )
+            } else {
+                stringResource(R.string.show_lock_screen_desc)
+            },
+            leading = { SettingIcon(Icons.Filled.Lock) },
+        )
+    }
+    item {
+        SwitchCard(
+            title = stringResource(R.string.show_unlocked_title),
+            checked = settings.showWhenUnlocked,
+            onCheckedChange = { show -> update { it.copy(showWhenUnlocked = show) } },
+            subtitle = stringResource(R.string.show_unlocked_desc),
+            leading = { SettingIcon(Icons.Filled.PhoneAndroid) },
+        )
+    }
+}
+
+private fun LazyListScope.quietHoursSection(quiet: QuietHours, update: ((QuietHours) -> QuietHours) -> Unit) {
+    item { SectionTitle(stringResource(R.string.quiet_section)) }
+    item {
+        SwitchCard(
+            title = stringResource(R.string.quiet_title),
+            checked = quiet.enabled,
+            onCheckedChange = { enabled -> update { it.copy(enabled = enabled) } },
+            subtitle = stringResource(R.string.quiet_desc),
+            leading = { SettingIcon(Icons.Filled.Bedtime) },
+        )
+    }
+    if (!quiet.enabled) return
+    item {
+        TimeCard(stringResource(R.string.quiet_start), quiet.startMinute) { m -> update { it.copy(startMinute = m) } }
+    }
+    item {
+        TimeCard(stringResource(R.string.quiet_end), quiet.endMinute) { m -> update { it.copy(endMinute = m) } }
+    }
+    items(QuietScope.entries, key = { it.name }) { scope ->
+        RadioCard(
+            title = stringResource(scope.titleRes),
+            selected = quiet.scope == scope,
+            onSelect = { update { it.copy(scope = scope) } },
+            subtitle = stringResource(scope.descRes),
+        )
+    }
+}
+
+/** A time of day, as a card that opens a time picker. */
+@Composable
+private fun TimeCard(title: String, minuteOfDay: Int, onChange: (Int) -> Unit) {
+    var picking by remember { mutableStateOf(false) }
+    SettingCard(
+        title = title,
+        subtitle = timeText(minuteOfDay),
+        onClick = { picking = true },
+        leading = { SettingIcon(Icons.Filled.Schedule) },
+    )
+    if (picking) {
+        TimeDialog(
+            title = title,
+            minuteOfDay = minuteOfDay,
+            onConfirm = { minute ->
+                picking = false
+                onChange(minute)
+            },
+            onDismiss = { picking = false },
+        )
+    }
+}
+
+/** Material's time picker dialog for [minuteOfDay], in the system's 12- or 24-hour format. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeDialog(title: String, minuteOfDay: Int, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
+    val state = rememberTimePickerState(
+        initialHour = minuteOfDay / 60,
+        initialMinute = minuteOfDay % 60,
+        is24Hour = DateFormat.is24HourFormat(LocalContext.current),
+    )
+    TimePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        title = { Text(title) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
+    ) {
+        TimePicker(state = state)
+    }
+}
+
+/**
+ * [minuteOfDay] in the user's time format (12- or 24-hour, as the system is set). A wall-clock time, not today's
+ * instant: a time the clocks skip on the day they change still reads as itself.
+ */
+@Composable
+@ReadOnlyComposable
+private fun timeText(minuteOfDay: Int): String {
+    val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
+    val pattern = DateFormat.getBestDateTimePattern(locale, if (DateFormat.is24HourFormat(context)) "Hm" else "hm")
+    return DateTimeFormatter.ofPattern(pattern, locale).format(LocalTime.of(minuteOfDay / 60, minuteOfDay % 60))
+}
+
+private val QuietScope.titleRes
+    get() = when (this) {
+        QuietScope.ALL -> R.string.quiet_scope_all_title
+        QuietScope.SCREEN_OFF -> R.string.quiet_scope_screen_off_title
+    }
+
+private val QuietScope.descRes
+    get() = when (this) {
+        QuietScope.ALL -> R.string.quiet_scope_all_desc
+        QuietScope.SCREEN_OFF -> R.string.quiet_scope_screen_off_desc
+    }

@@ -34,7 +34,9 @@ import app.rimlit.model.GlowSpec
  * | Listener connected       | Stores the posted and ringing keys (ringing: as for a ringing post), and reports |
  * |                          | that the screen can't be woken again on the next skipped lock-screen glow.       |
  * | Listener disconnected    | Drops a pending post and forgets keys; a shown glow fades normally.              |
- * | Settings, accessibility  | Stored only: settings apply to the next post, availability to the next routing.  |
+ * | SettingsChanged          | Stored; they apply from the next post, except that a pending post they no longer |
+ * |                          | want (master off, app blocked) is dropped and the glow of one fades out.         |
+ * | Accessibility            | Stored only: availability applies to the next routing.                           |
  *
  * A hand-off closes one surface and opens another while the timers keep running, so the new surface shows the
  * remaining hold, instantly. Ending closes the surface (which also cancels the lock-screen trampoline).
@@ -85,6 +87,8 @@ data class Environment(
      * Rimlit, and its channel important enough to launch a full-screen intent.
      */
     val canWakeScreen: Boolean,
+    /** Local time, in minutes from midnight: only quiet hours read it, so it is as fresh as the last placement. */
+    val minuteOfDay: Int,
 )
 
 sealed interface GlowSource {
