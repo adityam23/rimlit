@@ -28,7 +28,11 @@ enum class AutoColorSource {
 }
 
 /** How [ColorMode.AUTO] extracts a palette: from [source], its [count] most vivid distinct hues. */
-data class AutoColors(val source: AutoColorSource = AutoColorSource.APP_ICON, val count: Int = 1)
+data class AutoColors(val source: AutoColorSource = AutoColorSource.APP_ICON, val count: Int = 1) {
+    init {
+        require(count in GlowSettings.Ranges.autoColorCount) { "Auto colors pick 1–$MAX_AUTO_COLORS colors" }
+    }
+}
 
 /** Brand cyan; used as the default custom color and whenever no color can be resolved. */
 const val DEFAULT_GLOW_ARGB: Int = 0xFF00BCD4.toInt()
