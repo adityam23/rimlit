@@ -16,6 +16,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,6 +35,7 @@ import app.rimlit.R
 import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
+import app.rimlit.model.BatterySaver
 import app.rimlit.model.ColorMode
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSettings
@@ -47,8 +50,13 @@ import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
+import app.rimlit.ui.components.SwitchCard
+import app.rimlit.ui.glow.BATTERY_SAVER_FPS
 import app.rimlit.ui.glow.EdgeGlow
+import app.rimlit.ui.glow.Playback
 import app.rimlit.ui.glow.cutoutBounds
+import app.rimlit.ui.glow.playback
+import app.rimlit.ui.glow.rememberDeviceConditions
 import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
@@ -69,21 +77,26 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     val hasCutout = remember(view) { view.cutoutBounds() != null }
     // Preview what this device will really show: the renderer falls back to the full edge without a cutout.
     val spec = draft.previewSpec().let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
+    // While the screen-off brightness slider is dragged, the preview plays as the lock screen would, to show it.
+    var draggingScreenOff by remember { mutableStateOf(false) }
+    val playback = spec.playback(lockScreen = draggingScreenOff, rememberDeviceConditions())
 
     SubScreenScaffold(title = stringResource(R.string.nav_style_title), onBack = onBack, modifier = modifier) {
         SettingsList(it) {
             item {
                 LivePreview(
                     spec = spec,
+                    playback = playback,
                     onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, spec) },
                     onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, spec) },
                     fallback = fallback,
                 )
             }
-            styleSection(draft, spec, editor)
+            styleSection(draft, spec, playback, editor)
             regionSection(draft, hasCutout, editor)
             colorSection(draft, editor)
-            tuningSection(draft, editor)
+            tuningSection(draft, editor) { dragging -> draggingScreenOff = dragging }
+            batterySaverSection(draft, editor)
             item {
                 OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.test_notification_button))
@@ -130,7 +143,12 @@ private class SettingsDraft(initial: GlowSettings, private val save: (SettingsEd
     }
 }
 
-private fun LazyListScope.styleSection(draft: GlowSettings, spec: GlowSpec, editor: SettingsDraft) {
+private fun LazyListScope.styleSection(
+    draft: GlowSettings,
+    spec: GlowSpec,
+    playback: Playback,
+    editor: SettingsDraft,
+) {
     item { SectionTitle(stringResource(R.string.style_section)) }
     items(GlowStyle.entries, key = { it.name }) { style ->
         RadioCard(
@@ -147,6 +165,8 @@ private fun LazyListScope.styleSection(draft: GlowSettings, spec: GlowSpec, edit
                 ) {
                     EdgeGlow(
                         spec = spec.copy(style = style, region = EdgeRegion.FULL_SCREEN, thicknessDp = 2f),
+                        // Always moving, so each style shows what it is; a still Blade would look like Glow.
+                        playback = playback.copy(still = false),
                         preview = true,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -222,7 +242,11 @@ private fun LazyListScope.autoColorsSection(auto: AutoColors, editor: SettingsDr
     }
 }
 
-private fun LazyListScope.tuningSection(draft: GlowSettings, editor: SettingsDraft) {
+private fun LazyListScope.tuningSection(
+    draft: GlowSettings,
+    editor: SettingsDraft,
+    onDraggingScreenOff: (Boolean) -> Unit,
+) {
     item { SectionTitle(stringResource(R.string.tuning_section)) }
     item {
         SettingSlider(
@@ -264,6 +288,7 @@ private fun LazyListScope.tuningSection(draft: GlowSettings, editor: SettingsDra
             onCommit = { v -> editor.persist { it.copy(brightness = v) } },
         )
     }
+    screenOffBrightnessItems(draft, editor, onDraggingScreenOff)
     item {
         SettingSlider(
             label = stringResource(R.string.duration_label),
@@ -276,10 +301,61 @@ private fun LazyListScope.tuningSection(draft: GlowSettings, editor: SettingsDra
     }
 }
 
+/**
+ * The lock-screen glow's own brightness: the same as on screen until the user unlinks it. [onDragging] reports its
+ * slider's drag, so the live preview can show that brightness meanwhile.
+ */
+private fun LazyListScope.screenOffBrightnessItems(
+    draft: GlowSettings,
+    editor: SettingsDraft,
+    onDragging: (Boolean) -> Unit,
+) {
+    item {
+        SwitchCard(
+            title = stringResource(R.string.screen_off_brightness_same_title),
+            checked = draft.screenOffBrightness == null,
+            onCheckedChange = { same ->
+                editor.commit { it.copy(screenOffBrightness = if (same) null else it.brightness) }
+            },
+            subtitle = stringResource(R.string.screen_off_brightness_same_desc),
+        )
+    }
+    val screenOff = draft.screenOffBrightness ?: return
+    item {
+        SettingSlider(
+            label = stringResource(R.string.screen_off_brightness_label),
+            value = screenOff,
+            range = Ranges.brightness,
+            valueText = { stringResource(R.string.value_percent, (it * 100).roundToInt()) },
+            onPreview = { v ->
+                onDragging(true)
+                editor.preview { it.copy(screenOffBrightness = v) }
+            },
+            onCommit = { v ->
+                onDragging(false)
+                editor.persist { it.copy(screenOffBrightness = v) }
+            },
+        )
+    }
+}
+
+private fun LazyListScope.batterySaverSection(draft: GlowSettings, editor: SettingsDraft) {
+    item { SectionTitle(stringResource(R.string.battery_saver_section)) }
+    items(BatterySaver.entries, key = { it.name }) { saver ->
+        RadioCard(
+            title = stringResource(saver.titleRes),
+            selected = draft.batterySaver == saver,
+            onSelect = { editor.commit { it.copy(batterySaver = saver) } },
+            subtitle = saver.description(),
+        )
+    }
+}
+
 /** Phone-shaped live preview, plus buttons to see it full-size. */
 @Composable
 private fun LivePreview(
     spec: GlowSpec,
+    playback: Playback,
     onPreviewOnScreen: () -> Unit,
     onPreviewLockScreen: () -> Unit,
     fallback: OverlayFallback?,
@@ -296,11 +372,30 @@ private fun LivePreview(
                     .clip(RoundedCornerShape(16.dp))
                     .background(PreviewBackground),
             ) {
-                EdgeGlow(spec = spec, preview = true, modifier = Modifier.fillMaxSize())
+                EdgeGlow(spec = spec, playback = playback, preview = true, modifier = Modifier.fillMaxSize())
             }
             PreviewButtons(onPreviewOnScreen, onPreviewLockScreen, Modifier.weight(1f), fallback)
         }
     }
+}
+
+private val BatterySaver.titleRes
+    get() = when (this) {
+        BatterySaver.OFF -> R.string.battery_saver_off_title
+        BatterySaver.WITH_SYSTEM -> R.string.battery_saver_system_title
+        BatterySaver.ALWAYS -> R.string.battery_saver_always_title
+    }
+
+@Composable
+@ReadOnlyComposable
+private fun BatterySaver.description(): String = when (this) {
+    BatterySaver.OFF -> stringResource(R.string.battery_saver_off_desc)
+
+    BatterySaver.WITH_SYSTEM ->
+        pluralStringResource(R.plurals.battery_saver_system_desc, BATTERY_SAVER_FPS, BATTERY_SAVER_FPS)
+
+    BatterySaver.ALWAYS ->
+        pluralStringResource(R.plurals.battery_saver_always_desc, BATTERY_SAVER_FPS, BATTERY_SAVER_FPS)
 }
 
 private val GlowStyle.titleRes

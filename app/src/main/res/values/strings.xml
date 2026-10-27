@@ -89,6 +89,24 @@
     <string name="value_percent">%1$d%%</string>
     <string name="value_seconds">%1$.1f s</string>
     <string name="value_count">%1$d</string>
+    <string name="screen_off_brightness_same_title">Same brightness with the screen off</string>
+    <string name="screen_off_brightness_same_desc">Turn off to give the screen-off glow its own brightness</string>
+    <string name="screen_off_brightness_label">Screen-off brightness</string>
+
+    <!-- Battery saver -->
+    <string name="battery_saver_section">Battery saver</string>
+    <string name="battery_saver_off_title">Off</string>
+    <string name="battery_saver_off_desc">Glows always animate at the display\'s full frame rate</string>
+    <string name="battery_saver_system_title">With system battery saver</string>
+    <plurals name="battery_saver_system_desc">
+        <item quantity="one">While the system\'s battery saver is on, glows draw at most %1$d frame a second</item>
+        <item quantity="other">While the system\'s battery saver is on, glows draw at most %1$d frames a second</item>
+    </plurals>
+    <string name="battery_saver_always_title">Always</string>
+    <plurals name="battery_saver_always_desc">
+        <item quantity="one">Glows always draw at most %1$d frame a second</item>
+        <item quantity="other">Glows always draw at most %1$d frames a second</item>
+    </plurals>
 
     <!-- Palette editor -->
     <string name="palette_add">Add color</string>

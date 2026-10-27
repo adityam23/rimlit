@@ -23,6 +23,7 @@ import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
+import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
@@ -44,15 +45,16 @@ private const val CRISP_EDGE_PX = 0.5f
 
 /**
  * Pure edge-glow renderer shared by the overlay, the lock-screen activity and in-app previews.
- * No side effects and no settings access: everything comes from [spec].
+ * No side effects and no settings access: everything comes from [spec], played as [playback] says.
  *
  * With [preview] the outline is a scaled stand-in for the display (proportional corners, simulated
  * camera hole) instead of the real window's corners and cutout.
  */
 @Composable
-fun EdgeGlow(spec: GlowSpec, modifier: Modifier = Modifier, preview: Boolean = false) {
+fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, preview: Boolean = false) {
     val view = LocalView.current
-    val seconds = rememberFrameSeconds()
+    // A still glow needs no clock at all: it draws once.
+    val seconds = rememberFrameSeconds(running = !playback.still, maxFps = playback.maxFps)
     val layouts = remember { GlowLayoutCache() }
     Spacer(
         modifier.drawWithCache {
@@ -74,7 +76,7 @@ fun EdgeGlow(spec: GlowSpec, modifier: Modifier = Modifier, preview: Boolean = f
                     bloomPx = if (spec.style == GlowStyle.BASIC) 0f else glowPx,
                 ),
             )
-            val painter = GlowPainter(spec, layout, thicknessPx, glowPx)
+            val painter = GlowPainter(spec, playback, layout, thicknessPx, glowPx)
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value
@@ -84,16 +86,33 @@ fun EdgeGlow(spec: GlowSpec, modifier: Modifier = Modifier, preview: Boolean = f
     )
 }
 
-/** Seconds since first frame, advanced every frame. Read it only in draw to avoid recomposition. */
+/**
+ * Seconds since the first frame, while [running]; advanced at most [maxFps] times a second (`null`: every frame).
+ * Read it only in draw to avoid recomposition. Under a cap the clock sleeps between frames, so the app isn't woken
+ * on the vsyncs it skips.
+ */
 @Composable
-private fun rememberFrameSeconds(): State<Float> {
+private fun rememberFrameSeconds(running: Boolean, maxFps: Int?): State<Float> {
     val seconds = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        val start = withFrameNanos { it }
-        while (true) withFrameNanos { seconds.floatValue = (it - start) / 1_000_000_000f }
+    LaunchedEffect(running, maxFps) {
+        if (!running) return@LaunchedEffect
+        // A little under the cap's interval, so vsync jitter doesn't push a frame a whole vsync late.
+        val pauseMs = maxFps?.let { (MILLIS_PER_SECOND / it * (1 - FRAME_JITTER)).toLong() }
+        // Carries on from where it was: a changed cap restarts this effect, not the animation.
+        val start = withFrameNanos { it } - (seconds.floatValue * NANOS_PER_SECOND).toLong()
+        while (true) {
+            if (pauseMs != null) delay(pauseMs)
+            withFrameNanos { now -> seconds.floatValue = (now - start) / NANOS_PER_SECOND }
+        }
     }
     return seconds
 }
+
+private const val NANOS_PER_SECOND = 1_000_000_000f
+private const val MILLIS_PER_SECOND = 1_000f
+
+/** Share of a capped frame interval the clock wakes early by, so the frame after it isn't a vsync late. */
+private const val FRAME_JITTER = 0.12f
 
 /**
  * Holds the paints and gradient buffers for one spec + layout. A frame allocates only shaders: no blurs
@@ -102,6 +121,7 @@ private fun rememberFrameSeconds(): State<Float> {
  */
 private class GlowPainter(
     private val spec: GlowSpec,
+    private val playback: Playback,
     private val layout: GlowLayout,
     thicknessPx: Float,
     private val glowPx: Float,
@@ -123,11 +143,17 @@ private class GlowPainter(
     /** Multicolor palettes flow around the outline over time; `null` for a solid color. */
     private val flow = if (solidColor == null) PaletteFlow(geometry, spec.palette) else null
 
-    private val blade = BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
+    /** Built on the first blade frame: a GLOW, BASIC or still BLADE glow never needs its gradient buffers. */
+    private val blade by lazy(LazyThreadSafetyMode.NONE) {
+        BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
+    }
+
+    /** A still blade can't race, so it glows: the whole outline lit, with its halo. */
+    private val style = if (playback.still && spec.style == GlowStyle.BLADE) GlowStyle.GLOW else spec.style
 
     fun draw(canvas: Canvas, t: Float) {
         val palette = paletteShader(t)
-        when (spec.style) {
+        when (style) {
             GlowStyle.BASIC -> drawOutline(canvas, palette, pulse(t))
 
             GlowStyle.GLOW -> {
@@ -147,9 +173,12 @@ private class GlowPainter(
 
     private fun paletteShader(t: Float): Shader? = flow?.shader(phase = t * FLOW_LOOPS_PER_SECOND * spec.speed)
 
-    /** Smooth breathing in [0.6, 1]. */
-    private fun pulse(t: Float): Float =
+    /** Smooth breathing in [0.6, 1]; full and steady when still. */
+    private fun pulse(t: Float): Float = if (playback.still) {
+        1f
+    } else {
         0.6f + 0.4f * (0.5f - 0.5f * cos(2f * PI.toFloat() * PULSE_HZ * spec.speed * t))
+    }
 
     /** The blade's [fade] colored by [palette]; a solid color is already baked into the fade. */
     private fun comet(fade: Shader, palette: Shader?): Shader =
@@ -167,6 +196,6 @@ private class GlowPainter(
     /** Colors this paint with [shader] (`null` keeps the solid color set at construction), at [alpha] × brightness. */
     private fun Paint.tint(shader: Shader?, alpha: Float): Paint = apply {
         this.shader = shader
-        this.alpha = (255 * alpha * spec.brightness).toInt().coerceIn(0, 255)
+        this.alpha = (255 * alpha * playback.brightness).toInt().coerceIn(0, 255)
     }
 }

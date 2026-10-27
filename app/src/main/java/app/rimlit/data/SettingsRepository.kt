@@ -52,7 +52,9 @@ private object Keys {
     val GLOW_WIDTH_DP = floatPreferencesKey("glow_width_dp")
     val SPEED = floatPreferencesKey("speed")
     val BRIGHTNESS = floatPreferencesKey("brightness")
+    val SCREEN_OFF_BRIGHTNESS = floatPreferencesKey("screen_off_brightness")
     val DURATION_MS = longPreferencesKey("duration_ms")
+    val BATTERY_SAVER = stringPreferencesKey("battery_saver")
     val SHOW_WHEN_SCREEN_OFF = booleanPreferencesKey("show_when_screen_off")
     val SHOW_ON_LOCK_SCREEN = booleanPreferencesKey("show_on_lock_screen")
     val SHOW_WHEN_UNLOCKED = booleanPreferencesKey("show_when_unlocked")
@@ -112,7 +114,11 @@ private fun Preferences.toSettings() = GlowSettings(
     glowWidthDp = clamped(Keys.GLOW_WIDTH_DP, defaults.glowWidthDp, Ranges.glowWidthDp),
     speed = clamped(Keys.SPEED, defaults.speed, Ranges.speed),
     brightness = clamped(Keys.BRIGHTNESS, defaults.brightness, Ranges.brightness),
+    // Absent is the default, "same as on screen" (null): write removes the key for it.
+    screenOffBrightness = (this[Keys.SCREEN_OFF_BRIGHTNESS] ?: defaults.screenOffBrightness)
+        ?.coerceIn(Ranges.brightness),
     durationMs = clamped(Keys.DURATION_MS, defaults.durationMs, Ranges.durationMs),
+    batterySaver = this[Keys.BATTERY_SAVER].toEnumOr(defaults.batterySaver),
     showWhenScreenOff = lockedToggle(Keys.SHOW_WHEN_SCREEN_OFF, defaults.showWhenScreenOff),
     showOnLockScreen = lockedToggle(Keys.SHOW_ON_LOCK_SCREEN, defaults.showOnLockScreen),
     showWhenUnlocked = valueOr(Keys.SHOW_WHEN_UNLOCKED, defaults.showWhenUnlocked),
@@ -149,7 +155,14 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.GLOW_WIDTH_DP] = settings.glowWidthDp
     this[Keys.SPEED] = settings.speed
     this[Keys.BRIGHTNESS] = settings.brightness
+    val screenOffBrightness = settings.screenOffBrightness
+    if (screenOffBrightness != null) {
+        this[Keys.SCREEN_OFF_BRIGHTNESS] = screenOffBrightness
+    } else {
+        remove(Keys.SCREEN_OFF_BRIGHTNESS)
+    }
     this[Keys.DURATION_MS] = settings.durationMs
+    this[Keys.BATTERY_SAVER] = settings.batterySaver.name
     this[Keys.SHOW_WHEN_SCREEN_OFF] = settings.showWhenScreenOff
     this[Keys.SHOW_ON_LOCK_SCREEN] = settings.showOnLockScreen
     this[Keys.SHOW_WHEN_UNLOCKED] = settings.showWhenUnlocked
