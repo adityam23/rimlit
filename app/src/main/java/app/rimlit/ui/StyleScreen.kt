@@ -163,7 +163,8 @@ private fun LazyListScope.styleSection(
                 ) {
                     EdgeGlow(
                         spec = spec.copy(style = style, region = EdgeRegion.FULL_SCREEN, thicknessDp = 2f),
-                        playback = playback,
+                        // Always moving, so each style shows what it is; a still Blade would look like Glow.
+                        playback = playback.copy(still = false),
                         preview = true,
                         modifier = Modifier.fillMaxSize(),
                     )
