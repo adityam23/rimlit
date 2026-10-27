@@ -143,7 +143,10 @@ private class GlowPainter(
     /** Multicolor palettes flow around the outline over time; `null` for a solid color. */
     private val flow = if (solidColor == null) PaletteFlow(geometry, spec.palette) else null
 
-    private val blade = BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
+    /** Built on the first blade frame: a GLOW, BASIC or still BLADE glow never needs its gradient buffers. */
+    private val blade by lazy(LazyThreadSafetyMode.NONE) {
+        BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
+    }
 
     /** A still blade can't race, so it glows: the whole outline lit, with its halo. */
     private val style = if (playback.still && spec.style == GlowStyle.BLADE) GlowStyle.GLOW else spec.style
