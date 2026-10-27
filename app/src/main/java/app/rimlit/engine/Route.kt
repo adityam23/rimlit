@@ -20,7 +20,7 @@ internal fun GlowState.route(source: GlowSource, settings: GlowSettings, lockScr
     // Previews ignore the show toggles: the user is asking to see that surface. Nothing draws on an overlay in the
     // dark: it would show nothing, and its timers stop in deep sleep.
     source is GlowSource.Preview && source.target == PreviewTarget.ON_SCREEN ->
-        if (environment.screenOn) Route.To(onScreenSurface() ?: Surface.APP_OVERLAY) else Route.Nowhere
+        if (environment.screenOn) Route.To(onScreenOverlay) else Route.Nowhere
 
     source is GlowSource.Preview -> lockScreen(lockScreenUp, ringing = false)
 
@@ -34,12 +34,13 @@ internal fun GlowState.route(source: GlowSource, settings: GlowSettings, lockScr
     else -> Route.Nowhere
 }
 
+/** The overlay on-screen glows and previews are drawn on: the accessibility one whenever its service is up. */
+val GlowState.onScreenOverlay: Surface
+    get() = if (accessibilityOverlay) Surface.ACCESSIBILITY_OVERLAY else Surface.APP_OVERLAY
+
 /** The accessibility overlay also draws above the lock screen; the app overlay only while unlocked. */
-private fun GlowState.onScreenSurface(): Surface? = when {
-    accessibilityOverlay -> Surface.ACCESSIBILITY_OVERLAY
-    !environment.locked -> Surface.APP_OVERLAY
-    else -> null
-}
+private fun GlowState.onScreenSurface(): Surface? =
+    onScreenOverlay.takeIf { accessibilityOverlay || !environment.locked }
 
 /**
  * The opaque lock-screen activity: never for a [ringing] post nor while anything rings (it would cover

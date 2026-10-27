@@ -39,6 +39,7 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
+import app.rimlit.permissions.OverlayFallback
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.RadioCard
@@ -56,6 +57,7 @@ private val PreviewBackground = Color.Black
 @Composable
 fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val saved by viewModel.settings.collectAsStateWithLifecycle()
+    val fallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
 
     // Everything on this screen renders from the in-memory draft so previews react instantly;
     // DataStore is written once per finished edit (tap, or slider release).
@@ -75,6 +77,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
                     spec = spec,
                     onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, spec) },
                     onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, spec) },
+                    fallback = fallback,
                 )
             }
             styleSection(draft, spec, editor)
@@ -275,7 +278,12 @@ private fun LazyListScope.tuningSection(draft: GlowSettings, editor: SettingsDra
 
 /** Phone-shaped live preview, plus buttons to see it full-size. */
 @Composable
-private fun LivePreview(spec: GlowSpec, onPreviewOnScreen: () -> Unit, onPreviewLockScreen: () -> Unit) {
+private fun LivePreview(
+    spec: GlowSpec,
+    onPreviewOnScreen: () -> Unit,
+    onPreviewLockScreen: () -> Unit,
+    fallback: OverlayFallback?,
+) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -290,7 +298,7 @@ private fun LivePreview(spec: GlowSpec, onPreviewOnScreen: () -> Unit, onPreview
             ) {
                 EdgeGlow(spec = spec, preview = true, modifier = Modifier.fillMaxSize())
             }
-            PreviewButtons(onPreviewOnScreen, onPreviewLockScreen, modifier = Modifier.weight(1f))
+            PreviewButtons(onPreviewOnScreen, onPreviewLockScreen, Modifier.weight(1f), fallback)
         }
     }
 }

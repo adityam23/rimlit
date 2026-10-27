@@ -1,30 +1,73 @@
 package app.rimlit.permissions
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import android.view.accessibility.AccessibilityManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
+import app.rimlit.engine.Surface
 import app.rimlit.notify.GlowNotifications
+import app.rimlit.overlay.GlowAccessibilityService
 
-/** Special-access grants the feature depends on; [optional] ones only unlock extra behaviour. */
-enum class PermissionKind(val optional: Boolean = false) {
+/** How much the glow depends on a grant. */
+enum class Need {
+    /** Without it, some glows never show. */
+    REQUIRED,
+
+    /** Glows show without it, but worse (delayed, or with Android's overlay notice). */
+    RECOMMENDED,
+}
+
+/** Special-access grants the feature depends on, and how much ([need]). */
+enum class PermissionKind(val need: Need = Need.REQUIRED) {
     NOTIFICATION_ACCESS,
     OVERLAY,
 
     /** Notifications allowed and the glow channel unblocked: the lock-screen trampoline is a notification. */
     NOTIFICATIONS,
     FULL_SCREEN_INTENT,
-    ACCESSIBILITY(optional = true),
-    BATTERY_OPTIMIZATION,
+
+    /** The accessibility overlay: also above the lock screen, and without Android's overlay notice. */
+    ACCESSIBILITY(Need.RECOMMENDED),
+    BATTERY_OPTIMIZATION(Need.RECOMMENDED),
 }
 
 data class PermissionStatus(val kind: PermissionKind, val granted: Boolean)
+
+/**
+ * Why on-screen glows don't get the accessibility overlay. They fall back to the app overlay
+ * (`TYPE_APPLICATION_OVERLAY`), which makes Android post its own "Rimlit is displaying over other apps" notification
+ * while one is up, or without Display over other apps they can't show at all.
+ */
+enum class OverlayFallback {
+    /** The accessibility service is off. */
+    SERVICE_OFF,
+
+    /** The accessibility service is on in settings, but the system hasn't bound it (killed, or stuck after updates). */
+    SERVICE_NOT_RUNNING,
+
+    /** Neither overlay is available: nothing draws on-screen glows. */
+    NO_OVERLAY,
+}
+
+/**
+ * Why on-screen glows and previews don't get the accessibility overlay now, given the grants in [statuses] and the
+ * [overlay] the engine draws them on ([app.rimlit.engine.onScreenOverlay]); `null` if they do, or if the engine
+ * hasn't started ([overlay] `null`), so nothing is known yet.
+ */
+fun overlayFallback(statuses: List<PermissionStatus>, overlay: Surface?): OverlayFallback? {
+    fun granted(kind: PermissionKind) = statuses.any { it.kind == kind && it.granted }
+    return when {
+        overlay != Surface.APP_OVERLAY -> null
+        !granted(PermissionKind.OVERLAY) -> OverlayFallback.NO_OVERLAY
+        granted(PermissionKind.ACCESSIBILITY) -> OverlayFallback.SERVICE_NOT_RUNNING
+        else -> OverlayFallback.SERVICE_OFF
+    }
+}
 
 /** Whether the user has granted this. */
 fun PermissionKind.isGranted(context: Context): Boolean = when (this) {
@@ -39,10 +82,14 @@ fun PermissionKind.isGranted(context: Context): Boolean = when (this) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
             context.getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() == true
 
-    PermissionKind.ACCESSIBILITY ->
-        context.getSystemService(AccessibilityManager::class.java)
-            ?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-            ?.any { it.resolveInfo.serviceInfo.packageName == context.packageName } == true
+    // On in Accessibility settings, bound or not: the system's own list of enabled services holds only bound ones,
+    // so a service that is on but not running would read as off.
+    PermissionKind.ACCESSIBILITY -> {
+        val service = ComponentName(context, GlowAccessibilityService::class.java)
+        Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            ?.split(':')
+            ?.any { ComponentName.unflattenFromString(it) == service } == true
+    }
 
     PermissionKind.BATTERY_OPTIMIZATION ->
         context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true

@@ -7,13 +7,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessibilityNew
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
@@ -27,12 +28,15 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.permissions.Need
+import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.PermissionStatus
 import app.rimlit.ui.components.SectionTitle
@@ -52,6 +56,7 @@ fun MainScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val fallback by viewModel.glowFallback.collectAsStateWithLifecycle()
 
     SubScreenScaffold(title = stringResource(R.string.app_name), onBack = null, modifier = modifier) { innerPadding ->
         SettingsList(innerPadding) {
@@ -63,6 +68,14 @@ fun MainScreen(
                     subtitle = stringResource(R.string.master_toggle_subtitle),
                     prominent = true,
                 )
+            }
+            // Only while real glows fall back (see MainViewModel.glowFallback).
+            fallback?.let { reason ->
+                item {
+                    NavCard(Icons.Filled.Info, reason.titleRes, reason.description()) {
+                        viewModel.openPermission(PermissionKind.ACCESSIBILITY)
+                    }
+                }
             }
             item { SectionTitle(stringResource(R.string.section_permissions)) }
             items(permissions, key = { it.kind.name }) { status ->
@@ -100,10 +113,14 @@ fun MainScreen(
 }
 
 @Composable
-private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, @StringRes subtitleRes: Int, onClick: () -> Unit) {
+private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, @StringRes subtitleRes: Int, onClick: () -> Unit) =
+    NavCard(icon, titleRes, stringResource(subtitleRes), onClick)
+
+@Composable
+private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, subtitle: String, onClick: () -> Unit) {
     SettingCard(
         title = stringResource(titleRes),
-        subtitle = stringResource(subtitleRes),
+        subtitle = subtitle,
         onClick = onClick,
         leading = { SettingIcon(icon) },
         trailing = { Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -121,14 +138,11 @@ private fun PermissionState(status: PermissionStatus) {
         )
     } else {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val need = status.kind.need
             Text(
-                text = stringResource(if (status.kind.optional) R.string.status_optional else R.string.status_needed),
+                text = stringResource(need.labelRes),
                 style = MaterialTheme.typography.labelLarge,
-                color = if (status.kind.optional) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.error
-                },
+                color = need.color(),
             )
             Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -140,9 +154,39 @@ private fun PermissionKind.icon(): ImageVector = when (this) {
     PermissionKind.OVERLAY -> Icons.Filled.Layers
     PermissionKind.NOTIFICATIONS -> Icons.Filled.NotificationsActive
     PermissionKind.FULL_SCREEN_INTENT -> Icons.Filled.Fullscreen
-    PermissionKind.ACCESSIBILITY -> Icons.Filled.Lock
+    PermissionKind.ACCESSIBILITY -> Icons.Filled.AccessibilityNew
     PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
 }
+
+private val Need.labelRes
+    get() = when (this) {
+        Need.REQUIRED -> R.string.status_needed
+        Need.RECOMMENDED -> R.string.status_recommended
+    }
+
+@Composable
+@ReadOnlyComposable
+private fun Need.color(): Color = when (this) {
+    Need.REQUIRED -> MaterialTheme.colorScheme.error
+    Need.RECOMMENDED -> MaterialTheme.colorScheme.tertiary
+}
+
+private val OverlayFallback.titleRes
+    get() = when (this) {
+        OverlayFallback.SERVICE_OFF, OverlayFallback.SERVICE_NOT_RUNNING -> R.string.fallback_title
+        OverlayFallback.NO_OVERLAY -> R.string.no_overlay_title
+    }
+
+@Composable
+@ReadOnlyComposable
+private fun OverlayFallback.description(): String = stringResource(
+    when (this) {
+        OverlayFallback.SERVICE_OFF -> R.string.fallback_service_off
+        OverlayFallback.SERVICE_NOT_RUNNING -> R.string.fallback_service_not_running
+        OverlayFallback.NO_OVERLAY -> R.string.fallback_no_overlay
+    },
+    stringResource(R.string.accessibility_service_label),
+)
 
 @Composable
 @ReadOnlyComposable
@@ -159,13 +203,17 @@ private fun PermissionKind.title(): String = stringResource(
 
 @Composable
 @ReadOnlyComposable
-private fun PermissionKind.description(): String = stringResource(
-    when (this) {
-        PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_desc
-        PermissionKind.OVERLAY -> R.string.perm_overlay_desc
-        PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_desc
-        PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_desc
-        PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_desc
-        PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_desc
-    },
-)
+private fun PermissionKind.description(): String = when (this) {
+    PermissionKind.NOTIFICATION_ACCESS -> stringResource(R.string.perm_notification_desc)
+
+    PermissionKind.OVERLAY -> stringResource(R.string.perm_overlay_desc)
+
+    PermissionKind.NOTIFICATIONS -> stringResource(R.string.perm_post_notifications_desc)
+
+    PermissionKind.FULL_SCREEN_INTENT -> stringResource(R.string.perm_fsi_desc)
+
+    PermissionKind.ACCESSIBILITY ->
+        stringResource(R.string.perm_accessibility_desc, stringResource(R.string.accessibility_service_label))
+
+    PermissionKind.BATTERY_OPTIMIZATION -> stringResource(R.string.perm_battery_desc)
+}

@@ -55,10 +55,13 @@ const val HAND_OFF_SHARE = 0.25
 
 /** Where a glow is drawn. At most one is live at a time. */
 enum class Surface {
-    /** `TYPE_APPLICATION_OVERLAY` window: hidden by the keyguard, so only while unlocked. */
+    /**
+     * `TYPE_APPLICATION_OVERLAY` window: the fallback while the accessibility service is off. Hidden by the keyguard,
+     * so only while unlocked, and Android posts its "displaying over other apps" notification while one is up.
+     */
     APP_OVERLAY,
 
-    /** The optional accessibility service's overlay window: also above the lock screen. */
+    /** The recommended accessibility service's overlay window: also above the lock screen, and without that notice. */
     ACCESSIBILITY_OVERLAY,
 
     /** `LockScreenGlowActivity`, the black AOD-style screen; woken by a full-screen intent when the screen is off. */
