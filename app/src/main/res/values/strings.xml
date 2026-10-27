@@ -61,6 +61,12 @@
     <string name="color_custom_desc">One color, or a gradient of up to 5</string>
     <string name="color_rainbow_title">Rainbow</string>
     <string name="color_rainbow_desc">Every color, flowing around the edge</string>
+    <string name="auto_colors_section">Auto colors</string>
+    <string name="auto_source_app_icon_title">App icon</string>
+    <string name="auto_source_app_icon_desc">Each app glows in its own color</string>
+    <string name="auto_source_image_title">Notification picture</string>
+    <string name="auto_source_image_desc">A photo or the sender\'s picture, else the app icon</string>
+    <string name="auto_colors_count_label">Colors</string>
 
     <!-- Tuning -->
     <string name="tuning_section">Tuning</string>
@@ -73,6 +79,7 @@
     <string name="value_multiplier">%1$.2f×</string>
     <string name="value_percent">%1$d%%</string>
     <string name="value_seconds">%1$.1f s</string>
+    <string name="value_count">%1$d</string>
 
     <!-- Palette editor -->
     <string name="palette_add">Add color</string>

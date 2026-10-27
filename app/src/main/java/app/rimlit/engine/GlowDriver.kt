@@ -1,5 +1,6 @@
 package app.rimlit.engine
 
+import app.rimlit.model.AutoColors
 import app.rimlit.model.GlowSpec
 
 /**
@@ -20,8 +21,8 @@ interface GlowDriver {
     /** Runs [action] after [delayMs] unless cancelled first. */
     fun schedule(delayMs: Long, action: () -> Unit): Cancellable
 
-    /** Reads [post]'s colours from its notification and hands them to [deliver], unless cancelled first. */
-    fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable
+    /** Reads [post]'s colours as [autoColors] say and hands them to [deliver], unless cancelled first. */
+    fun extract(post: Post, autoColors: AutoColors, deliver: (List<Int>) -> Unit): Cancellable
 
     /** A lock-screen glow was skipped because the screen can't be woken; once per listener connection. */
     fun wakeScreenDenied()

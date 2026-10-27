@@ -8,7 +8,7 @@ enum class EdgeRegion { FULL_SCREEN, CUTOUT }
 
 /** Where the glow colors come from. Per-app palettes override all modes. */
 enum class ColorMode {
-    /** Palette extracted from the notifying app (picture → large icon → app icon). */
+    /** Palette extracted from the notifying app, as [GlowSettings.autoColors] says. */
     AUTO,
 
     /** The user's [GlowSettings.customColors] (one color = solid, more = gradient). */
@@ -18,14 +18,29 @@ enum class ColorMode {
     RAINBOW,
 }
 
+/** The image [ColorMode.AUTO] reads its colors from. */
+enum class AutoColorSource {
+    /** The notifying app's icon: each app glows in its own color. */
+    APP_ICON,
+
+    /** The notification's picture or large icon (a photo, an avatar), falling back to the app icon. */
+    NOTIFICATION_IMAGE,
+}
+
+/** How [ColorMode.AUTO] extracts a palette: from [source], its [count] most vivid distinct hues. */
+data class AutoColors(val source: AutoColorSource = AutoColorSource.APP_ICON, val count: Int = 1)
+
 /** Brand cyan; used as the default custom color and whenever no color can be resolved. */
 const val DEFAULT_GLOW_ARGB: Int = 0xFF00BCD4.toInt()
 
 /** A palette holds 1 (solid) to [MAX_PALETTE_COLORS] (gradient) colors. */
 const val MAX_PALETTE_COLORS = 5
 
-/** Stand-in for the auto palette in previews. */
-private val PreviewAutoPalette = GlowPalette.Colors(listOf(DEFAULT_GLOW_ARGB, 0xFFE040FB.toInt()))
+/** Auto colors extract at most this many hues: an image rarely has more distinct vivid ones. */
+const val MAX_AUTO_COLORS = 3
+
+/** Stand-in for the auto palette in previews; they show its first [AutoColors.count]. */
+private val PreviewAutoColors = listOf(DEFAULT_GLOW_ARGB, 0xFFE040FB.toInt(), 0xFFFFC400.toInt())
 
 /**
  * Persisted user configuration.
@@ -37,6 +52,7 @@ data class GlowSettings(
     val enabled: Boolean = false,
     val glowStyle: GlowStyle = GlowStyle.GLOW,
     val colorMode: ColorMode = ColorMode.AUTO,
+    val autoColors: AutoColors = AutoColors(),
     val customColors: List<Int> = listOf(DEFAULT_GLOW_ARGB),
     val thicknessDp: Float = 4f,
     val glowWidthDp: Float = 24f,
@@ -73,10 +89,12 @@ data class GlowSettings(
     )
 
     /** The spec previews render for these settings: auto colours, with no notifying app to sample, use a stand-in. */
-    fun previewSpec(): GlowSpec = toGlowSpec(paletteFor(packageName = null) ?: PreviewAutoPalette)
+    fun previewSpec(): GlowSpec =
+        toGlowSpec(paletteFor(packageName = null) ?: GlowPalette.Colors(PreviewAutoColors.take(autoColors.count)))
 
     /** Valid ranges, shared by the UI sliders and the repository's sanitising of stored values. */
     object Ranges {
+        val autoColorCount = 1..MAX_AUTO_COLORS
         val thicknessDp = 1f..12f
         val glowWidthDp = 0f..64f
         val speed = 0.25f..3f

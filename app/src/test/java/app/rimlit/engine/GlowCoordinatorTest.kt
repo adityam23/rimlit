@@ -6,6 +6,7 @@ import app.rimlit.engine.Fixtures.LOCK_SCREEN
 import app.rimlit.engine.Fixtures.SCREEN_OFF
 import app.rimlit.engine.Fixtures.UNLOCKED
 import app.rimlit.engine.Fixtures.post
+import app.rimlit.model.AutoColors
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSpec
 import org.junit.Test
@@ -55,7 +56,7 @@ class GlowCoordinatorTest {
             return Cancellable { if (honoursCancel) cancelled[0] = true }
         }
 
-        override fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable {
+        override fun extract(post: Post, autoColors: AutoColors, deliver: (List<Int>) -> Unit): Cancellable {
             val colors = colorsByKey.getValue(post.key)
             if (!deferExtraction) {
                 deliver(colors)

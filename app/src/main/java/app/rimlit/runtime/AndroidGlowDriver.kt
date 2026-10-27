@@ -12,6 +12,7 @@ import app.rimlit.engine.GlowCoordinator
 import app.rimlit.engine.GlowDriver
 import app.rimlit.engine.Post
 import app.rimlit.engine.Surface
+import app.rimlit.model.AutoColors
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.AbandoningLane
 import app.rimlit.notify.GlowNotifications
@@ -88,11 +89,11 @@ class AndroidGlowDriver(
      * notification as it is now, through the connected listener. The colours come back on the main thread; a result
      * that lands after a cancel anyway is dropped by the coordinator.
      */
-    override fun extract(post: Post, deliver: (List<Int>) -> Unit): Cancellable {
+    override fun extract(post: Post, autoColors: AutoColors, deliver: (List<Int>) -> Unit): Cancellable {
         val listener = GlowListenerService.connected
         val job = scope.launch {
             val colors = withContext(extractionDispatcher) {
-                NotificationColorExtractor.extract(context, post.packageName, imageLane) {
+                NotificationColorExtractor.extract(context, post.packageName, autoColors, imageLane) {
                     listener?.notification(post.key)
                 }
             }

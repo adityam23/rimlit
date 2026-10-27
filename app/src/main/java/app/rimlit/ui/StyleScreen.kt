@@ -31,6 +31,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.engine.PreviewTarget
+import app.rimlit.model.AutoColorSource
+import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSettings
@@ -175,8 +177,10 @@ private fun LazyListScope.colorSection(draft: GlowSettings, editor: SettingsDraf
             subtitle = stringResource(mode.descRes),
         )
     }
-    if (draft.colorMode == ColorMode.CUSTOM) {
-        item {
+    when (draft.colorMode) {
+        ColorMode.AUTO -> autoColorsSection(draft.autoColors, editor)
+
+        ColorMode.CUSTOM -> item {
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 PaletteEditor(
                     colors = draft.customColors,
@@ -186,6 +190,32 @@ private fun LazyListScope.colorSection(draft: GlowSettings, editor: SettingsDraf
                 )
             }
         }
+
+        ColorMode.RAINBOW -> Unit
+    }
+}
+
+private fun LazyListScope.autoColorsSection(auto: AutoColors, editor: SettingsDraft) {
+    item { SectionTitle(stringResource(R.string.auto_colors_section)) }
+    items(AutoColorSource.entries, key = { it.name }) { source ->
+        RadioCard(
+            title = stringResource(source.titleRes),
+            selected = auto.source == source,
+            onSelect = { editor.commit { it.copy(autoColors = it.autoColors.copy(source = source)) } },
+            subtitle = stringResource(source.descRes),
+        )
+    }
+    item {
+        val range = Ranges.autoColorCount
+        SettingSlider(
+            label = stringResource(R.string.auto_colors_count_label),
+            value = auto.count.toFloat(),
+            range = range.first.toFloat()..range.last.toFloat(),
+            steps = range.last - range.first - 1,
+            valueText = { stringResource(R.string.value_count, it.roundToInt()) },
+            onPreview = { v -> editor.preview { it.copy(autoColors = it.autoColors.copy(count = v.roundToInt())) } },
+            onCommit = { v -> editor.persist { it.copy(autoColors = it.autoColors.copy(count = v.roundToInt())) } },
+        )
     }
 }
 
@@ -296,6 +326,18 @@ private val ColorMode.titleRes
         ColorMode.AUTO -> R.string.color_auto_title
         ColorMode.CUSTOM -> R.string.color_custom_title
         ColorMode.RAINBOW -> R.string.color_rainbow_title
+    }
+
+private val AutoColorSource.titleRes
+    get() = when (this) {
+        AutoColorSource.APP_ICON -> R.string.auto_source_app_icon_title
+        AutoColorSource.NOTIFICATION_IMAGE -> R.string.auto_source_image_title
+    }
+
+private val AutoColorSource.descRes
+    get() = when (this) {
+        AutoColorSource.APP_ICON -> R.string.auto_source_app_icon_desc
+        AutoColorSource.NOTIFICATION_IMAGE -> R.string.auto_source_image_desc
     }
 
 private val ColorMode.descRes

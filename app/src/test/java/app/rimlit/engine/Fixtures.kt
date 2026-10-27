@@ -1,6 +1,8 @@
 package app.rimlit.engine
 
 import android.app.NotificationManager
+import app.rimlit.model.AutoColorSource
+import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
 
@@ -32,8 +34,8 @@ internal object Fixtures {
         passesDnd = true,
     )
 
-    /** Auto colours, so posts go through pending extraction. */
-    val AUTO = GlowSettings(enabled = true)
+    /** Auto colours, so posts go through pending extraction; not the default ones, so the effect must carry them. */
+    val AUTO = GlowSettings(enabled = true, autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 2))
 
     /** Custom colours, so posts show at once. */
     val CUSTOM = AUTO.copy(colorMode = ColorMode.CUSTOM)

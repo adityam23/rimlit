@@ -1,5 +1,6 @@
 package app.rimlit.engine
 
+import app.rimlit.model.AutoColors
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 
@@ -186,8 +187,11 @@ sealed interface GlowEffect {
 
     data class Disarm(val timer: Timer) : GlowEffect
 
-    /** Extracts [post]'s palette, replacing any in-flight extraction, whose result is then never delivered. */
-    data class ExtractPalette(val post: Post) : GlowEffect
+    /**
+     * Extracts [post]'s palette as [autoColors] (its post-time settings) say, replacing any in-flight extraction,
+     * whose result is then never delivered.
+     */
+    data class ExtractPalette(val post: Post, val autoColors: AutoColors) : GlowEffect
 
     /** Cancels the in-flight extraction; its result is never delivered. */
     data object CancelExtraction : GlowEffect
