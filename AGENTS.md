@@ -20,7 +20,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 ## Key Directories
 
 - `app/src/main/java/app/rimlit/` — `RimlitApp` (owns the coordinator; `Context.glowCoordinator`), `MainActivity`, `MainViewModel` (+ `previewSpec()`), `GlowListenerService` (builds `Post`s and forwards events), `LockScreenGlowActivity` (the AOD lock-screen surface)
-- `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `paletteFor`, `toGlowSpec`), `GlowSpec.kt` (parcelable render input, `GlowPalette`)
+- `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `paletteFor`, `toGlowSpec`), `GlowSpec.kt` (render input, `GlowPalette`)
 - `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Post.kt` (notification facts and the filter), `GlowCoordinator.kt` (serial queue gated on settings, environment sampling), `GlowExecutor.kt` + `SurfaceSlot.kt` + `LatestHandle.kt` (run effects and hold the executor contracts), `GlowDriver.kt` (the platform port)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
 - `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery)
@@ -83,7 +83,7 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 - **JDK 25.** The build targets it (see the KGP bump below); don't add toolchain auto-provisioning.
 - **Gradle 9.8.1**, system install; **no wrapper** — use `gradle`, not `./gradlew`.
 - **AGP 9.4.1 with built-in Kotlin** — do NOT re-add `org.jetbrains.kotlin.android`. Kotlin support is built in; KGP is bumped to 2.4.21 (catalog `kotlin`) in the root `buildscript` block for JDK 25.
-- **Compose compiler** and **Parcelize**: `org.jetbrains.kotlin.plugin.compose` / `org.jetbrains.kotlin.plugin.parcelize`, both on the catalog `kotlin` version (2.4.21).
+- **Compose compiler**: `org.jetbrains.kotlin.plugin.compose`, on the catalog `kotlin` version (2.4.21).
 - **Android SDK**: platform 36 (`sdk.dir` in `local.properties`, gitignored). compileSdk/targetSdk 36, minSdk 29.
 - Dependency resolution: `google()` + `mavenCentral()`, `FAIL_ON_PROJECT_REPOS`. Versions via the catalog, not inline.
 
