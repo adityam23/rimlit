@@ -36,6 +36,7 @@ class GlowCoordinatorTest {
         var deferExtraction = false
         val colorsByKey = mutableMapOf<String, List<Int>>()
         val extractions = mutableListOf<() -> Unit>()
+        val extractedWith = mutableListOf<AutoColors>()
         private val scheduled = mutableListOf<Triple<Long, () -> Unit, BooleanArray>>()
 
         var samples = 0
@@ -57,6 +58,7 @@ class GlowCoordinatorTest {
         }
 
         override fun extract(post: Post, autoColors: AutoColors, deliver: (List<Int>) -> Unit): Cancellable {
+            extractedWith += autoColors
             val colors = colorsByKey.getValue(post.key)
             if (!deferExtraction) {
                 deliver(colors)
@@ -167,6 +169,13 @@ class GlowCoordinatorTest {
         assertEquals("b", glow?.source?.post?.key)
         driver.advance(FADE_IN_MS + CUSTOM.durationMs + FADE_OUT_MS)
         assertNull(glow)
+    }
+
+    @Test
+    fun theDriverExtractsWithThePostsAutoColours() {
+        coordinator.settingsChanged(AUTO)
+        posted("a")
+        assertEquals(listOf(AUTO.autoColors), driver.extractedWith)
     }
 
     @Test
