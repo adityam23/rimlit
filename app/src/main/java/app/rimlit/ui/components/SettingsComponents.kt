@@ -276,7 +276,10 @@ fun PreviewButtons(
         }
         if (onScreenFallsBack) {
             Text(
-                text = stringResource(R.string.preview_fallback_hint),
+                text = stringResource(
+                    R.string.preview_fallback_hint,
+                    stringResource(R.string.accessibility_service_label),
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -71,7 +71,7 @@ fun MainScreen(
             // Only while real glows fall back (see MainViewModel.glowFallback).
             fallback?.let { reason ->
                 item {
-                    NavCard(Icons.Filled.Info, R.string.fallback_title, reason.descriptionRes) {
+                    NavCard(Icons.Filled.Info, R.string.fallback_title, reason.description()) {
                         viewModel.openPermission(PermissionKind.ACCESSIBILITY)
                     }
                 }
@@ -112,10 +112,14 @@ fun MainScreen(
 }
 
 @Composable
-private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, @StringRes subtitleRes: Int, onClick: () -> Unit) {
+private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, @StringRes subtitleRes: Int, onClick: () -> Unit) =
+    NavCard(icon, titleRes, stringResource(subtitleRes), onClick)
+
+@Composable
+private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, subtitle: String, onClick: () -> Unit) {
     SettingCard(
         title = stringResource(titleRes),
-        subtitle = stringResource(subtitleRes),
+        subtitle = subtitle,
         onClick = onClick,
         leading = { SettingIcon(icon) },
         trailing = { Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -161,11 +165,15 @@ private fun PermissionKind.icon(): ImageVector = when (this) {
     PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
 }
 
-private val OverlayFallback.descriptionRes
-    get() = when (this) {
+@Composable
+@ReadOnlyComposable
+private fun OverlayFallback.description(): String = stringResource(
+    when (this) {
         OverlayFallback.SERVICE_OFF -> R.string.fallback_service_off
         OverlayFallback.SERVICE_NOT_RUNNING -> R.string.fallback_service_not_running
-    }
+    },
+    stringResource(R.string.accessibility_service_label),
+)
 
 @Composable
 @ReadOnlyComposable
@@ -182,13 +190,17 @@ private fun PermissionKind.title(): String = stringResource(
 
 @Composable
 @ReadOnlyComposable
-private fun PermissionKind.description(): String = stringResource(
-    when (this) {
-        PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_desc
-        PermissionKind.OVERLAY -> R.string.perm_overlay_desc
-        PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_desc
-        PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_desc
-        PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_desc
-        PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_desc
-    },
-)
+private fun PermissionKind.description(): String = when (this) {
+    PermissionKind.NOTIFICATION_ACCESS -> stringResource(R.string.perm_notification_desc)
+
+    PermissionKind.OVERLAY -> stringResource(R.string.perm_overlay_desc)
+
+    PermissionKind.NOTIFICATIONS -> stringResource(R.string.perm_post_notifications_desc)
+
+    PermissionKind.FULL_SCREEN_INTENT -> stringResource(R.string.perm_fsi_desc)
+
+    PermissionKind.ACCESSIBILITY ->
+        stringResource(R.string.perm_accessibility_desc, stringResource(R.string.accessibility_service_label))
+
+    PermissionKind.BATTERY_OPTIMIZATION -> stringResource(R.string.perm_battery_desc)
+}
