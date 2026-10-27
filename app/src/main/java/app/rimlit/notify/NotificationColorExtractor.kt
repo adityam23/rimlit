@@ -12,11 +12,8 @@ import androidx.core.os.BundleCompat
 import androidx.palette.graphics.Palette
 import app.rimlit.model.DEFAULT_GLOW_ARGB
 import app.rimlit.model.hueOf
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.runInterruptible
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 
 /** Derives a 1–3 color palette from a notification's imagery, falling back to the app icon. */
@@ -35,18 +32,17 @@ object NotificationColorExtractor {
     /**
      * The palette of the imagery of the notification [loadNotification] returns, else of [packageName]'s icon: also
      * when the notification is gone or its image doesn't load within [IMAGE_LOAD_TIMEOUT_MS]. The notification and
-     * its image load interruptibly on [imageLane], since another app's URI can block indefinitely; the app icon and
-     * the palette run on the caller's dispatcher, which must allow blocking. A cancelled caller skips the palette.
+     * its image load on [imageLane] (built with that timeout), since another app's URI can block indefinitely; the
+     * app icon and the palette run on the caller's dispatcher, which must allow blocking. A cancelled caller skips
+     * the palette.
      */
     suspend fun extract(
         context: Context,
         packageName: String,
-        imageLane: CoroutineDispatcher,
+        imageLane: AbandoningLane,
         loadNotification: () -> Notification?,
     ): List<Int> {
-        val image = withTimeoutOrNull(IMAGE_LOAD_TIMEOUT_MS) {
-            runInterruptible(imageLane) { loadNotification()?.let { notificationImage(context, it) } }
-        }
+        val image = imageLane.load { loadNotification()?.let { notificationImage(context, it) } }
         val bitmap = image ?: appIcon(context, packageName) ?: return listOf(DEFAULT_GLOW_ARGB)
         currentCoroutineContext().ensureActive()
         return paletteOf(bitmap)

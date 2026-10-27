@@ -13,6 +13,7 @@ import app.rimlit.engine.GlowDriver
 import app.rimlit.engine.Post
 import app.rimlit.engine.Surface
 import app.rimlit.model.GlowSpec
+import app.rimlit.notify.AbandoningLane
 import app.rimlit.notify.GlowNotifications
 import app.rimlit.notify.NotificationColorExtractor
 import app.rimlit.overlay.EdgeOverlayController
@@ -39,7 +40,7 @@ class AndroidGlowDriver(
 ) : GlowDriver {
 
     /** One notification image loads at a time: a superseded one that hasn't started never runs. */
-    private val imageLane = extractionDispatcher.limitedParallelism(1)
+    private val imageLane = AbandoningLane(extractionDispatcher, NotificationColorExtractor.IMAGE_LOAD_TIMEOUT_MS)
 
     private val appOverlay by lazy { EdgeOverlayController(context, Surface.APP_OVERLAY) }
 
