@@ -85,9 +85,10 @@ class AndroidGlowDriver(
     }
 
     /**
-     * Off the main thread, notification images on one lane: loading a URI or resource icon blocks on I/O. Reads the
-     * notification as it is now, through the connected listener. The colours come back on the main thread; a result
-     * that lands after a cancel anyway is dropped by the coordinator.
+     * Off the main thread, notification images on one lane: loading a URI or resource icon blocks on I/O. Only the
+     * notification-image source reads the notification, as it is now, through the connected listener; the app-icon
+     * source needs neither. The colours come back on the main thread; a result that lands after a cancel anyway is
+     * dropped by the coordinator.
      */
     override fun extract(post: Post, autoColors: AutoColors, deliver: (List<Int>) -> Unit): Cancellable {
         val listener = GlowListenerService.connected
