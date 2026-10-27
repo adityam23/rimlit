@@ -19,4 +19,10 @@ class GlowSettingsTest {
             assertEquals(count, palette.argb.size)
         }
     }
+
+    @Test
+    fun theSpecMatchesTheDisplayCornersUntilTheUserSetsARadius() {
+        assertNull(GlowSettings().previewSpec().cornerRadiusDp)
+        assertEquals(40f, GlowSettings(cornerRadiusDp = 40f).previewSpec().cornerRadiusDp)
+    }
 }

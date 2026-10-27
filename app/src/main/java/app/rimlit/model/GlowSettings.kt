@@ -82,6 +82,8 @@ data class GlowSettings(
     val showWhenUnlocked: Boolean = true,
     val quietHours: QuietHours = QuietHours(),
     val region: EdgeRegion = EdgeRegion.FULL_SCREEN,
+    /** Corner radius of the screen-edge outline; `null` matches the display's own corners. */
+    val cornerRadiusDp: Float? = null,
     val blockedPackages: Set<String> = emptySet(),
     val appPalettes: Map<String, List<Int>> = emptyMap(),
 ) {
@@ -101,6 +103,7 @@ data class GlowSettings(
         style = glowStyle,
         palette = palette,
         region = region,
+        cornerRadiusDp = cornerRadiusDp,
         thicknessDp = thicknessDp,
         glowWidthDp = glowWidthDp,
         speed = speed,
@@ -119,6 +122,7 @@ data class GlowSettings(
         val autoColorCount = 1..MAX_AUTO_COLORS
         val thicknessDp = 1f..12f
         val glowWidthDp = 0f..64f
+        val cornerRadiusDp = 0f..120f
         val speed = 0.25f..3f
         val brightness = 0.2f..1f
         val durationMs = 1_000L..10_000L

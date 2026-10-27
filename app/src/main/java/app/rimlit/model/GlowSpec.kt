@@ -22,6 +22,8 @@ data class GlowSpec(
     val style: GlowStyle,
     val palette: GlowPalette,
     val region: EdgeRegion,
+    /** Corner radius of the screen-edge outline; `null` follows the display's corners. */
+    val cornerRadiusDp: Float?,
     val thicknessDp: Float,
     val glowWidthDp: Float,
     /** Animation rate multiplier (1 = default). */
