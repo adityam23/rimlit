@@ -118,8 +118,12 @@ class GlowMachineScenarioTest {
         val run = run(settings = image).send(posted("a"))
         assertEquals(listOf(GlowEffect.ExtractPalette(post("a"), image.autoColors)), run.effects)
 
-        run.send(GlowEvent.SettingsChanged(AUTO), GlowEvent.PaletteExtracted(EXTRACTED))
-        assertEquals(GlowPalette.Colors(EXTRACTED), run.glow.spec.palette, "a later change doesn't touch it")
+        run.send(GlowEvent.SettingsChanged(AUTO))
+        assertEquals(emptyList(), run.effects, "a later change doesn't restart the extraction")
+        assertEquals(image, run.state.pending?.settings, "nor change the settings it is shown under")
+
+        run.send(GlowEvent.PaletteExtracted(EXTRACTED))
+        assertEquals(GlowPalette.Colors(EXTRACTED), run.glow.spec.palette)
     }
 
     @Test
