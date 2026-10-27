@@ -77,7 +77,9 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     val hasCutout = remember(view) { view.cutoutBounds() != null }
     // Preview what this device will really show: the renderer falls back to the full edge without a cutout.
     val spec = draft.previewSpec().let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
-    val playback = spec.playback(lockScreen = false, rememberDeviceConditions())
+    // While the screen-off brightness slider is dragged, the preview plays as the lock screen would, to show it.
+    var draggingScreenOff by remember { mutableStateOf(false) }
+    val playback = spec.playback(lockScreen = draggingScreenOff, rememberDeviceConditions())
 
     SubScreenScaffold(title = stringResource(R.string.nav_style_title), onBack = onBack, modifier = modifier) {
         SettingsList(it) {
@@ -93,7 +95,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             styleSection(draft, spec, playback, editor)
             regionSection(draft, hasCutout, editor)
             colorSection(draft, editor)
-            tuningSection(draft, editor)
+            tuningSection(draft, editor) { dragging -> draggingScreenOff = dragging }
             batterySaverSection(draft, editor)
             item {
                 OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
@@ -240,7 +242,11 @@ private fun LazyListScope.autoColorsSection(auto: AutoColors, editor: SettingsDr
     }
 }
 
-private fun LazyListScope.tuningSection(draft: GlowSettings, editor: SettingsDraft) {
+private fun LazyListScope.tuningSection(
+    draft: GlowSettings,
+    editor: SettingsDraft,
+    onDraggingScreenOff: (Boolean) -> Unit,
+) {
     item { SectionTitle(stringResource(R.string.tuning_section)) }
     item {
         SettingSlider(
@@ -282,7 +288,7 @@ private fun LazyListScope.tuningSection(draft: GlowSettings, editor: SettingsDra
             onCommit = { v -> editor.persist { it.copy(brightness = v) } },
         )
     }
-    screenOffBrightnessItems(draft, editor)
+    screenOffBrightnessItems(draft, editor, onDraggingScreenOff)
     item {
         SettingSlider(
             label = stringResource(R.string.duration_label),
@@ -295,8 +301,15 @@ private fun LazyListScope.tuningSection(draft: GlowSettings, editor: SettingsDra
     }
 }
 
-/** The lock-screen glow's own brightness: the same as on screen until the user unlinks it. */
-private fun LazyListScope.screenOffBrightnessItems(draft: GlowSettings, editor: SettingsDraft) {
+/**
+ * The lock-screen glow's own brightness: the same as on screen until the user unlinks it. [onDragging] reports its
+ * slider's drag, so the live preview can show that brightness meanwhile.
+ */
+private fun LazyListScope.screenOffBrightnessItems(
+    draft: GlowSettings,
+    editor: SettingsDraft,
+    onDragging: (Boolean) -> Unit,
+) {
     item {
         SwitchCard(
             title = stringResource(R.string.screen_off_brightness_same_title),
@@ -314,8 +327,14 @@ private fun LazyListScope.screenOffBrightnessItems(draft: GlowSettings, editor: 
             value = screenOff,
             range = Ranges.brightness,
             valueText = { stringResource(R.string.value_percent, (it * 100).roundToInt()) },
-            onPreview = { v -> editor.preview { it.copy(screenOffBrightness = v) } },
-            onCommit = { v -> editor.persist { it.copy(screenOffBrightness = v) } },
+            onPreview = { v ->
+                onDragging(true)
+                editor.preview { it.copy(screenOffBrightness = v) }
+            },
+            onCommit = { v ->
+                onDragging(false)
+                editor.persist { it.copy(screenOffBrightness = v) }
+            },
         )
     }
 }
