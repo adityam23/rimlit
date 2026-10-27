@@ -24,4 +24,6 @@ internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (t
     GlowStyle.WAVE -> WaveEffect(brush)
 
     GlowStyle.GLITTER -> GlitterEffect(brush)
+
+    GlowStyle.ECHO -> EchoEffect(brush)
 }

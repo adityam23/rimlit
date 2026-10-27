@@ -1,7 +1,7 @@
 package app.rimlit.model
 
 /** Visual treatment of the edge glow shown when a notification arrives. */
-enum class GlowStyle { BASIC, GLOW, BLADE, WAVE, GLITTER }
+enum class GlowStyle { BASIC, GLOW, BLADE, WAVE, GLITTER, ECHO }
 
 /**
  * Where the glow is drawn: around the screen edge, the camera cutout, or both. Without a camera cutout, the
