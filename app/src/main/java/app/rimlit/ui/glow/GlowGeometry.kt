@@ -38,9 +38,17 @@ internal class GlowGeometry(
 
     /** Angle around [center], in [0, 1), of the outline point at arc [distance] (any real; wraps). */
     fun angleAt(distance: Float): Float {
-        measure.getPosTan((distance % length + length) % length, pos, null)
+        pointAt(distance, pos)
         val angle = atan2(pos[1] - center.y, pos[0] - center.x) / (2 * PI).toFloat()
         return (angle + 1f) % 1f
+    }
+
+    /**
+     * Writes the outline point at arc [distance] (any real; wraps) into [position] as (x, y), and its unit tangent,
+     * clockwise on screen, into [tangent] unless `null`.
+     */
+    fun pointAt(distance: Float, position: FloatArray, tangent: FloatArray? = null) {
+        measure.getPosTan((distance % length + length) % length, position, tangent)
     }
 
     companion object {

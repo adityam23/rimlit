@@ -20,4 +20,6 @@ internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (t
 
     // A still blade can't race, so it glows: the whole outline lit, with its halo.
     GlowStyle.BLADE -> if (brush.still) GlowEffect(brush) else BladeEffect(brush)
+
+    GlowStyle.WAVE -> WaveEffect(brush)
 }

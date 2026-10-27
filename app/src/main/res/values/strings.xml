@@ -63,6 +63,8 @@
     <string name="style_glow_desc">Soft bloom with a bright core</string>
     <string name="style_blade_title">Blade</string>
     <string name="style_blade_desc">A light racing around the edge</string>
+    <string name="style_wave_title">Wave</string>
+    <string name="style_wave_desc">A ripple flowing along the edge</string>
     <string name="color_section">Color</string>
     <string name="color_auto_title">Auto</string>
     <string name="color_auto_desc">Colors from the notifying app</string>
