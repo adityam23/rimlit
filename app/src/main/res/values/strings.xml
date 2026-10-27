@@ -126,8 +126,8 @@
     <string name="show_unlocked_title">Screen on</string>
     <string name="show_unlocked_desc">Glow while you use the phone</string>
     <string name="quiet_section">Quiet hours</string>
-    <string name="quiet_title">Quiet hours</string>
-    <string name="quiet_desc">No glows at the times below, every day. Incoming calls and alarms still glow.</string>
+    <string name="quiet_title">Use quiet hours</string>
+    <string name="quiet_desc">Mute glows at the times below, every day, where you choose. Incoming calls, alarms and the test notification still glow.</string>
     <string name="quiet_start">Starts</string>
     <string name="quiet_end">Ends</string>
     <string name="quiet_scope_all_title">Every glow</string>
