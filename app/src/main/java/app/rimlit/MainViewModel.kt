@@ -22,6 +22,7 @@ import app.rimlit.permissions.PermissionStatus
 import app.rimlit.permissions.Permissions
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -55,10 +56,8 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         _permissions.value = Permissions.statuses(getApplication())
     }
 
-    /** Persists a settings change (atomic read-modify-write). */
-    fun update(transform: (GlowSettings) -> GlowSettings) {
-        viewModelScope.launch { repository.update(transform) }
-    }
+    /** Persists a settings change (atomic read-modify-write); the job completes once it is written. */
+    fun update(transform: (GlowSettings) -> GlowSettings): Job = viewModelScope.launch { repository.update(transform) }
 
     fun openPermission(kind: PermissionKind) {
         Permissions.open(getApplication(), kind)

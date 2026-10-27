@@ -48,6 +48,7 @@ import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.glow.EdgeGlow
 import app.rimlit.ui.glow.cutoutBounds
+import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
 private val PreviewBackground = Color(0xFF000000)
@@ -58,9 +59,10 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
 
     // Everything on this screen renders from the in-memory draft so previews react instantly;
     // DataStore is written once per finished edit (tap, or slider release).
-    var draft by remember { mutableStateOf(saved) }
-    LaunchedEffect(saved) { draft = saved }
-    val editor = DraftEditor(preview = { draft = it(draft) }, persist = viewModel::update)
+    val settingsDraft = remember { SettingsDraft(saved, viewModel::update) }
+    LaunchedEffect(saved) { settingsDraft.follow(saved) }
+    val draft = settingsDraft.value
+    val editor = settingsDraft.editor
 
     val view = LocalView.current
     val hasCutout = remember(view) { view.cutoutBounds() != null }
@@ -96,6 +98,36 @@ private class DraftEditor(val preview: (SettingsEdit) -> Unit, val persist: (Set
     fun commit(edit: SettingsEdit) {
         preview(edit)
         persist(edit)
+    }
+}
+
+/**
+ * The screen's in-memory settings. They follow the saved settings only while none of the screen's own edits is
+ * unsaved (a write in flight, or a drag not committed yet): the emission of an earlier write would otherwise revert
+ * newer edits. Skipping an emission is safe, since once the writes land the draft already holds what they saved, and
+ * any later emission is followed again. Main thread only.
+ */
+private class SettingsDraft(initial: GlowSettings, save: (SettingsEdit) -> Job) {
+    var value by mutableStateOf(initial)
+        private set
+
+    private var writes = 0
+    private var dragging = false
+
+    val editor = DraftEditor(
+        preview = { edit ->
+            dragging = true
+            value = edit(value)
+        },
+        persist = { edit ->
+            dragging = false
+            writes++
+            save(edit).invokeOnCompletion { writes-- }
+        },
+    )
+
+    fun follow(saved: GlowSettings) {
+        if (writes == 0 && !dragging) value = saved
     }
 }
 
