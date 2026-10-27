@@ -361,6 +361,10 @@ class GlowMachineScenarioTest {
         val preview = run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT))
             .send(GlowEvent.Preview(PreviewTarget.ON_SCREEN, PREVIEW_SPEC))
         assertEquals(Surface.APP_OVERLAY, preview.glow.surface, "previews ignore quiet hours")
+
+        val test = run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT))
+            .send(GlowEvent.Posted(post("b", own = true, test = true)))
+        assertEquals(Surface.APP_OVERLAY, test.glow.surface, "so does the test notification the user asked for")
     }
 
     @Test

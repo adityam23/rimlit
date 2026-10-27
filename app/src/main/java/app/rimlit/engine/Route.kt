@@ -36,9 +36,14 @@ internal fun GlowState.route(source: GlowSource, settings: GlowSettings, lockScr
     else -> Route.Nowhere
 }
 
-/** Quiet hours mute this glow now; a ringing call or alarm always goes through, as with Do Not Disturb. */
-private fun GlowState.quiet(source: GlowSource, settings: GlowSettings, lockScreen: Boolean): Boolean =
-    source.post?.isRinging != true && settings.quietHours.mutes(environment.minuteOfDay, lockScreen)
+/**
+ * Quiet hours mute this glow now. A ringing call or alarm always goes through, as with Do Not Disturb, and so does
+ * Rimlit's own test notification, as it does with the master toggle off: the user asked to see it.
+ */
+private fun GlowState.quiet(source: GlowSource, settings: GlowSettings, lockScreen: Boolean): Boolean {
+    val exempt = source.post?.let { it.isRinging || it.isTest } == true
+    return !exempt && settings.quietHours.mutes(environment.minuteOfDay, lockScreen)
+}
 
 /** The overlay on-screen glows and previews are drawn on: the accessibility one whenever its service is up. */
 val GlowState.onScreenOverlay: Surface

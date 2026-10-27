@@ -154,7 +154,7 @@ class GlowMachineModelCheckTest {
 
     /**
      * A notification glow is only placed (opened, or re-targeted to a new post) where the settings it is placed under
-     * want it: the surface's show toggle is on, and quiet hours don't mute it unless it rings.
+     * want it: the surface's show toggle is on, and quiet hours don't mute it unless it rings or is the test.
      */
     private fun placementViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
         val glow = step.state.glow ?: return null
@@ -171,7 +171,7 @@ class GlowMachineModelCheckTest {
         }
         return when {
             !toggle -> "placed on ${glow.surface} with its show toggle off"
-            !post.isRinging && settings.quietHours.mutes(environment.minuteOfDay, lockScreen) ->
+            !post.isRinging && !post.isTest && settings.quietHours.mutes(environment.minuteOfDay, lockScreen) ->
                 "placed on ${glow.surface} in quiet hours"
             else -> null
         }
