@@ -66,7 +66,7 @@ class GlowCoordinatorTest {
             return Cancellable { if (honoursCancel) cancelled[0] = true }
         }
 
-        override fun fullScreenIntentDenied() = Unit
+        override fun wakeScreenDenied() = Unit
 
         /** Runs every timer due within [ms], in order. */
         fun advance(ms: Long) {

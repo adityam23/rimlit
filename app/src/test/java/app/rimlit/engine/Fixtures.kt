@@ -3,7 +3,6 @@ package app.rimlit.engine
 import android.app.NotificationManager
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
-import app.rimlit.previewSpec
 
 /** Small, representative inputs shared by the model check and the scenario tests. Never trim them to save time. */
 internal object Fixtures {
@@ -26,7 +25,8 @@ internal object Fixtures {
         isTest = test,
         hasFullScreenIntent = fullScreenIntent,
         isOngoing = ongoing,
-        isGroupSummary = false,
+        group = GroupRole.NONE,
+        groupAlert = GroupAlert.ALL,
         onlyAlertOnce = onlyAlertOnce,
         importance = importance,
         passesDnd = true,
@@ -74,9 +74,9 @@ internal object Fixtures {
         }
     }
 
-    val UNLOCKED = Environment(screenOn = true, locked = false, fullScreenIntentGranted = true)
-    val LOCK_SCREEN = Environment(screenOn = true, locked = true, fullScreenIntentGranted = true)
-    val SCREEN_OFF = Environment(screenOn = false, locked = true, fullScreenIntentGranted = true)
+    val UNLOCKED = Environment(screenOn = true, locked = false, canWakeScreen = true)
+    val LOCK_SCREEN = Environment(screenOn = true, locked = true, canWakeScreen = true)
+    val SCREEN_OFF = Environment(screenOn = false, locked = true, canWakeScreen = true)
 
     fun initial(settings: GlowSettings = AUTO, environment: Environment = UNLOCKED, accessibility: Boolean = false) =
         GlowState(settings = settings, environment = environment, accessibilityOverlay = accessibility)

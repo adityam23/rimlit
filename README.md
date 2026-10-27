@@ -23,6 +23,7 @@ Open Rimlit, turn on **Edge lighting**, and grant the permissions listed on the 
 
 - **Notification access** — to notice when notifications arrive. Rimlit only looks at which app posted it and its colors; nothing is stored or sent anywhere.
 - **Display over other apps** — to draw the glow while you use the phone.
+- **Notifications** — Rimlit wakes the screen with a silent notification of its own, so keep its notifications and its "Edge lighting" category on.
 - **Full-screen notifications** — to wake the screen and show the glow when it is off.
 - **Lock screen glow** (optional) — an accessibility service that lets Rimlit draw the glow above the lock screen while it is showing. It only owns the glow window: it receives no accessibility events and cannot read or control anything on screen. On Android 13 and newer you may first need to tap **Allow restricted settings** in Rimlit's App info menu.
 - **Unrestricted battery** (recommended) — so the system doesn't delay the glow. Some phones (Xiaomi, Huawei, OnePlus) also need autostart enabled in their own battery settings.
@@ -36,7 +37,7 @@ Rimlit has no internet permission at all, so it cannot send anything off your de
 You need JDK 25, Gradle 9.8 and the Android SDK (platform 36). The project intentionally has no Gradle wrapper, so use your installed `gradle`:
 
 ```bash
-gradle :app:assembleDebug :app:lintDebug :app:detektMain
+gradle :app:testDebugUnitTest :app:assembleDebug :app:lintDebug :app:detektMain
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 

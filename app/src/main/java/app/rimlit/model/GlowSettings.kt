@@ -24,6 +24,9 @@ const val DEFAULT_GLOW_ARGB: Int = 0xFF00BCD4.toInt()
 /** A palette holds 1 (solid) to [MAX_PALETTE_COLORS] (gradient) colors. */
 const val MAX_PALETTE_COLORS = 5
 
+/** Stand-in for the auto palette in previews. */
+private val PreviewAutoPalette = GlowPalette.Colors(listOf(DEFAULT_GLOW_ARGB, 0xFFE040FB.toInt()))
+
 /**
  * Persisted user configuration.
  *
@@ -68,6 +71,9 @@ data class GlowSettings(
         brightness = brightness,
         durationMs = durationMs,
     )
+
+    /** The spec previews render for these settings: auto colours, with no notifying app to sample, use a stand-in. */
+    fun previewSpec(): GlowSpec = toGlowSpec(paletteFor(packageName = null) ?: PreviewAutoPalette)
 
     /** Valid ranges, shared by the UI sliders and the repository's sanitising of stored values. */
     object Ranges {

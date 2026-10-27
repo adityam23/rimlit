@@ -49,7 +49,7 @@ internal class StateCodec {
         put(glows.id(state.glow), glows.bits)
         put(state.armed.fold(0) { mask, timer -> mask or (1 shl timer.ordinal) }, Timer.entries.size)
         put(if (state.accessibilityOverlay) 1 else 0, 1)
-        put(if (state.fullScreenIntentReported) 1 else 0, 1)
+        put(if (state.wakeScreenDeniedReported) 1 else 0, 1)
         return code
     }
 
@@ -64,7 +64,7 @@ internal class StateCodec {
         val glow = glows.valueOrNull(take(glows.bits))
         val armed = timerSets[take(Timer.entries.size)]
         val accessibilityOverlay = take(1) == 1
-        val fullScreenIntentReported = take(1) == 1
+        val wakeScreenDeniedReported = take(1) == 1
         return GlowState(
             settings = settings,
             environment = environment,
@@ -74,7 +74,7 @@ internal class StateCodec {
             pending = pending,
             glow = glow,
             armed = armed,
-            fullScreenIntentReported = fullScreenIntentReported,
+            wakeScreenDeniedReported = wakeScreenDeniedReported,
         )
     }
 
@@ -102,7 +102,7 @@ internal class StateCodec {
     private companion object {
         /**
          * settings, environment, accessibilityOverlay, activeKeys, ringingKeys, pending, glow, armed,
-         * fullScreenIntentReported.
+         * wakeScreenDeniedReported.
          */
         const val ENCODED_FIELDS = 9
     }

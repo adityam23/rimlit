@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,19 +37,19 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
-import app.rimlit.previewSpec
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.PreviewButtons
+import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
-import app.rimlit.ui.components.SettingCard
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.glow.EdgeGlow
 import app.rimlit.ui.glow.cutoutBounds
+import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
-private val PreviewBackground = Color(0xFF000000)
+private val PreviewBackground = Color.Black
 
 @Composable
 fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -58,9 +57,9 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
 
     // Everything on this screen renders from the in-memory draft so previews react instantly;
     // DataStore is written once per finished edit (tap, or slider release).
-    var draft by remember { mutableStateOf(saved) }
-    LaunchedEffect(saved) { draft = saved }
-    val editor = DraftEditor(preview = { draft = it(draft) }, persist = viewModel::update)
+    val editor = remember { SettingsDraft(saved, viewModel::update) }
+    LaunchedEffect(saved) { editor.follow(saved) }
+    val draft = editor.value
 
     val view = LocalView.current
     val hasCutout = remember(view) { view.cutoutBounds() != null }
@@ -82,7 +81,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             tuningSection(draft, editor)
             item {
                 OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.preview_button))
+                    Text(stringResource(R.string.test_notification_button))
                 }
             }
         }
@@ -91,22 +90,49 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
 
 private typealias SettingsEdit = (GlowSettings) -> GlowSettings
 
-/** Changes to the screen's draft: [preview] only re-renders, [persist] only writes, [commit] does both. */
-private class DraftEditor(val preview: (SettingsEdit) -> Unit, val persist: (SettingsEdit) -> Unit) {
+/**
+ * The screen's in-memory settings, changed by [preview] (re-renders only, mid-drag), [persist] (writes only, once the
+ * drag ends) or [commit] (both, for a tap). They follow the saved settings only while none of the screen's own edits
+ * is unsaved (a write in flight, or a drag not committed yet): the emission of an earlier write would otherwise
+ * revert newer edits. Skipping an emission is safe, since once the writes land the draft already holds what they
+ * saved, and any later emission is followed again. Main thread only.
+ */
+private class SettingsDraft(initial: GlowSettings, private val save: (SettingsEdit) -> Job) {
+    var value by mutableStateOf(initial)
+        private set
+
+    private var writes = 0
+    private var dragging = false
+
+    fun preview(edit: SettingsEdit) {
+        dragging = true
+        value = edit(value)
+    }
+
+    fun persist(edit: SettingsEdit) {
+        dragging = false
+        writes++
+        save(edit).invokeOnCompletion { writes-- }
+    }
+
     fun commit(edit: SettingsEdit) {
-        preview(edit)
+        value = edit(value)
         persist(edit)
+    }
+
+    fun follow(saved: GlowSettings) {
+        if (writes == 0 && !dragging) value = saved
     }
 }
 
-private fun LazyListScope.styleSection(draft: GlowSettings, spec: GlowSpec, editor: DraftEditor) {
+private fun LazyListScope.styleSection(draft: GlowSettings, spec: GlowSpec, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.style_section)) }
     items(GlowStyle.entries, key = { it.name }) { style ->
-        val select = { editor.commit { it.copy(glowStyle = style) } }
-        SettingCard(
+        RadioCard(
             title = stringResource(style.titleRes),
+            selected = draft.glowStyle == style,
+            onSelect = { editor.commit { it.copy(glowStyle = style) } },
             subtitle = stringResource(style.descRes),
-            onClick = select,
             leading = {
                 Box(
                     modifier = Modifier
@@ -121,35 +147,32 @@ private fun LazyListScope.styleSection(draft: GlowSettings, spec: GlowSpec, edit
                     )
                 }
             },
-            trailing = { RadioButton(selected = draft.glowStyle == style, onClick = select) },
         )
     }
 }
 
-private fun LazyListScope.regionSection(draft: GlowSettings, hasCutout: Boolean, editor: DraftEditor) {
+private fun LazyListScope.regionSection(draft: GlowSettings, hasCutout: Boolean, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.region_section)) }
     items(EdgeRegion.entries, key = { it.name }) { region ->
         val available = region != EdgeRegion.CUTOUT || hasCutout
-        val select = { editor.commit { it.copy(region = region) } }
-        SettingCard(
+        RadioCard(
             title = stringResource(region.titleRes),
+            selected = draft.region == region,
+            onSelect = { editor.commit { it.copy(region = region) } },
             subtitle = stringResource(if (available) region.descRes else R.string.region_cutout_unavailable),
             enabled = available,
-            onClick = select,
-            trailing = { RadioButton(selected = draft.region == region, enabled = available, onClick = select) },
         )
     }
 }
 
-private fun LazyListScope.colorSection(draft: GlowSettings, editor: DraftEditor) {
+private fun LazyListScope.colorSection(draft: GlowSettings, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.color_section)) }
     items(ColorMode.entries, key = { it.name }) { mode ->
-        val select = { editor.commit { it.copy(colorMode = mode) } }
-        SettingCard(
+        RadioCard(
             title = stringResource(mode.titleRes),
+            selected = draft.colorMode == mode,
+            onSelect = { editor.commit { it.copy(colorMode = mode) } },
             subtitle = stringResource(mode.descRes),
-            onClick = select,
-            trailing = { RadioButton(selected = draft.colorMode == mode, onClick = select) },
         )
     }
     if (draft.colorMode == ColorMode.CUSTOM) {
@@ -166,7 +189,7 @@ private fun LazyListScope.colorSection(draft: GlowSettings, editor: DraftEditor)
     }
 }
 
-private fun LazyListScope.tuningSection(draft: GlowSettings, editor: DraftEditor) {
+private fun LazyListScope.tuningSection(draft: GlowSettings, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.tuning_section)) }
     item {
         SettingSlider(
@@ -210,7 +233,7 @@ private fun LazyListScope.tuningSection(draft: GlowSettings, editor: DraftEditor
     }
     item {
         SettingSlider(
-            label = stringResource(R.string.duration_section),
+            label = stringResource(R.string.duration_label),
             value = draft.durationMs.toFloat(),
             range = Ranges.durationMs.first.toFloat()..Ranges.durationMs.last.toFloat(),
             valueText = { stringResource(R.string.value_seconds, it / 1000f) },

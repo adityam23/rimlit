@@ -8,8 +8,8 @@ internal sealed interface Route {
 
     data object Nowhere : Route
 
-    /** Only the lock screen would do, but without the grant (Android 14+) the trampoline can't wake the screen. */
-    data object NeedsFullScreenIntent : Route
+    /** Only the lock screen would do, but the trampoline can't wake the screen (see [Environment.canWakeScreen]). */
+    data object NeedsWakeAccess : Route
 }
 
 /**
@@ -17,9 +17,10 @@ internal sealed interface Route {
  * lock-screen activity is in front (covering the keyguard), so notifications re-target it instead of an overlay.
  */
 internal fun GlowState.route(source: GlowSource, settings: GlowSettings, lockScreenUp: Boolean): Route = when {
-    // Previews ignore the show toggles: the user is asking to see that surface.
+    // Previews ignore the show toggles: the user is asking to see that surface. Nothing draws on an overlay in the
+    // dark: it would show nothing, and its timers stop in deep sleep.
     source is GlowSource.Preview && source.target == PreviewTarget.ON_SCREEN ->
-        Route.To(onScreenSurface() ?: Surface.APP_OVERLAY)
+        if (environment.screenOn) Route.To(onScreenSurface() ?: Surface.APP_OVERLAY) else Route.Nowhere
 
     source is GlowSource.Preview -> lockScreen(lockScreenUp, ringing = false)
 
@@ -46,6 +47,6 @@ private fun GlowState.onScreenSurface(): Surface? = when {
  */
 private fun GlowState.lockScreen(lockScreenUp: Boolean, ringing: Boolean): Route = when {
     ringing || ringingKeys.isNotEmpty() -> Route.Nowhere
-    !lockScreenUp && !environment.screenOn && !environment.fullScreenIntentGranted -> Route.NeedsFullScreenIntent
+    !lockScreenUp && !environment.screenOn && !environment.canWakeScreen -> Route.NeedsWakeAccess
     else -> Route.To(Surface.LOCK_SCREEN)
 }

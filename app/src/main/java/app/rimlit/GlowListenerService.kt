@@ -3,7 +3,10 @@ package app.rimlit
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import app.rimlit.engine.GlowEvent
+import app.rimlit.engine.GroupAlert
+import app.rimlit.engine.GroupRole
 import app.rimlit.engine.Post
 import app.rimlit.notify.GlowNotifications
 
@@ -38,8 +41,16 @@ class GlowListenerService : NotificationListenerService() {
         if (connected === this) connected = null
     }
 
-    /** The notification posted under [key] now; `null` if it is gone or the listener was unbound. Any thread. */
-    fun notification(key: String): Notification? = getActiveNotifications(arrayOf(key))?.firstOrNull()?.notification
+    /**
+     * The notification posted under [key] now; `null` if it is gone or the listener was unbound, including when
+     * access was revoked before it noticed (the system then rejects the call). Any thread.
+     */
+    fun notification(key: String): Notification? = try {
+        getActiveNotifications(arrayOf(key))?.firstOrNull()?.notification
+    } catch (e: SecurityException) {
+        Log.w(TAG, "Notification access is gone; reading $key failed", e)
+        null
+    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?, rankingMap: RankingMap?) {
         sbn ?: return
@@ -64,7 +75,16 @@ class GlowListenerService : NotificationListenerService() {
             isTest = GlowNotifications.isTest(this@GlowListenerService, this),
             hasFullScreenIntent = notification.fullScreenIntent != null,
             isOngoing = isOngoing,
-            isGroupSummary = flags and Notification.FLAG_GROUP_SUMMARY != 0,
+            group = when {
+                notification.group == null -> GroupRole.NONE
+                flags and Notification.FLAG_GROUP_SUMMARY != 0 -> GroupRole.SUMMARY
+                else -> GroupRole.CHILD
+            },
+            groupAlert = when (notification.groupAlertBehavior) {
+                Notification.GROUP_ALERT_SUMMARY -> GroupAlert.SUMMARY
+                Notification.GROUP_ALERT_CHILDREN -> GroupAlert.CHILDREN
+                else -> GroupAlert.ALL
+            },
             onlyAlertOnce = flags and Notification.FLAG_ONLY_ALERT_ONCE != 0,
             importance = ranking?.importance,
             passesDnd = ranking?.matchesInterruptionFilter() ?: true,
@@ -72,6 +92,8 @@ class GlowListenerService : NotificationListenerService() {
     }
 
     companion object {
+        private const val TAG = "GlowListenerService"
+
         /** Set only between connect and disconnect/destroy, so it never outlives the service. Main thread only. */
         var connected: GlowListenerService? = null
             private set

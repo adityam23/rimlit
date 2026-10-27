@@ -30,7 +30,7 @@ internal class Transition(private var state: GlowState) {
 
             is GlowEvent.ListenerConnected -> {
                 keys(event.activeKeys, event.ringingKeys)
-                if (state.fullScreenIntentReported) state = state.copy(fullScreenIntentReported = false)
+                if (state.wakeScreenDeniedReported) state = state.copy(wakeScreenDeniedReported = false)
                 if (event.ringingKeys.isNotEmpty()) protectRingingScreen()
             }
 
@@ -132,11 +132,11 @@ internal class Transition(private var state: GlowState) {
         show(source, spec, surface)
     }
 
-    /** [route]'s surface, or `null` for nowhere (reporting a missing full-screen-intent grant once per connection). */
+    /** [route]'s surface, or `null` for nowhere (reporting once per connection that the screen can't be woken). */
     private fun routed(route: Route): Surface? {
-        if (route is Route.NeedsFullScreenIntent && !state.fullScreenIntentReported) {
-            state = state.copy(fullScreenIntentReported = true)
-            effects += GlowEffect.FullScreenIntentDenied
+        if (route is Route.NeedsWakeAccess && !state.wakeScreenDeniedReported) {
+            state = state.copy(wakeScreenDeniedReported = true)
+            effects += GlowEffect.WakeScreenDenied
         }
         return (route as? Route.To)?.surface
     }
@@ -204,18 +204,21 @@ internal class Transition(private var state: GlowState) {
         if (new == old) return
         state = state.copy(environment = new)
         val current = glow ?: return
-        val screenTurnedOff = old.screenOn && !new.screenOn
         when {
-            // The AOD moment is over (the activity's onStop follows): it is never re-targeted with the screen off.
-            screenTurnedOff && current.surface == Surface.LOCK_SCREEN -> end()
-
-            // A recent on-screen glow the user may have missed by turning the screen off.
-            screenTurnedOff && Timer.HAND_OFF_WINDOW in state.armed -> reRoute(current)
+            old.screenOn && !new.screenOn -> if (!handedOffInTheDark(current)) end()
 
             old.locked && !new.locked && new.screenOn && current.surface == Surface.LOCK_SCREEN ->
                 if (current.phase == Phase.FADING_OUT || !reRoute(current)) end()
         }
     }
+
+    /**
+     * The screen turned off: only a recent on-screen glow the user may have missed survives, handed off to the lock
+     * screen. A lock-screen glow's AOD moment is over (the activity's onStop follows), and with the screen off `route`
+     * places nothing on an overlay, so any other glow ends.
+     */
+    private fun handedOffInTheDark(current: Glow): Boolean =
+        current.surface != Surface.LOCK_SCREEN && Timer.HAND_OFF_WINDOW in state.armed && reRoute(current)
 
     /**
      * Places the glow again after a screen or lock change, handing it off if it now belongs elsewhere. The surface it

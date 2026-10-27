@@ -13,6 +13,8 @@
     <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps.</string>
     <string name="perm_overlay_title">Display over other apps</string>
     <string name="perm_overlay_desc">Lets Rimlit glow while the screen is on.</string>
+    <string name="perm_post_notifications_title">Notifications</string>
+    <string name="perm_post_notifications_desc">Lets Rimlit post the silent notification that wakes the screen into the glow. Keep Rimlit\'s notifications and its \"Edge lighting\" category on, at high importance.</string>
     <string name="perm_fsi_title">Full-screen notifications</string>
     <string name="perm_fsi_desc">Lets Rimlit wake the screen to glow while it is off. Android 14 and newer hide this behind a separate grant.</string>
     <string name="perm_accessibility_title">Lock screen glow</string>
@@ -25,10 +27,9 @@
     <string name="status_optional">Optional</string>
 
     <string name="info_text">Rimlit lights up the screen border whenever any app posts a notification. With the screen off it wakes into a black, always-on-display style glow; while the screen is on it draws an overlay, including above the lock screen when the optional lock screen glow is enabled. Some OEMs (Xiaomi, Huawei, OnePlus) additionally require enabling autostart in their own battery settings.</string>
-    <!-- Notification channel & lock-screen glow notification -->
+    <!-- Notification channel of the lock-screen glow notification (titled app_name) -->
     <string name="notification_channel_name">Edge lighting</string>
     <string name="notification_channel_desc">Glow shown on the lock screen when a notification arrives</string>
-    <string name="notification_glow_title">Rimlit</string>
 
     <!-- Home screen settings navigation -->
     <string name="section_settings">Settings</string>
@@ -58,7 +59,6 @@
     <string name="color_auto_desc">Colors from the notifying app</string>
     <string name="color_custom_title">Custom</string>
     <string name="color_custom_desc">One color, or a gradient of up to 5</string>
-    <string name="duration_section">Duration</string>
     <string name="color_rainbow_title">Rainbow</string>
     <string name="color_rainbow_desc">Every color, flowing around the edge</string>
 
@@ -68,6 +68,7 @@
     <string name="glow_width_label">Glow width</string>
     <string name="speed_label">Speed</string>
     <string name="brightness_label">Brightness</string>
+    <string name="duration_label">Duration</string>
     <string name="value_dp">%1$d dp</string>
     <string name="value_multiplier">%1$.2f×</string>
     <string name="value_percent">%1$d%%</string>
@@ -91,9 +92,9 @@
     <string name="region_cutout_title">Around camera cutout</string>
     <string name="region_cutout_desc">Glow rings the front camera</string>
     <string name="region_cutout_unavailable">This device has no camera cutout</string>
-    <string name="preview_button">Send test notification</string>
 
-    <!-- Test notification channel (style preview) -->
+    <!-- Test notification (Style screen) -->
+    <string name="test_notification_button">Send test notification</string>
     <string name="test_notification_channel_name">Test notification</string>
     <string name="test_notification_channel_desc">Notifications used to preview the glow</string>
     <string name="test_notification_title">Rimlit test</string>

@@ -9,6 +9,8 @@ import android.content.Intent
 import android.service.notification.StatusBarNotification
 import androidx.annotation.StringRes
 import app.rimlit.R
+import app.rimlit.engine.FADE_IN_MS
+import app.rimlit.engine.OPEN_TIMEOUT_MS
 
 /** Rimlit's own notifications: the full-screen-intent trampoline that wakes the screen, and the test notification. */
 object GlowNotifications {
@@ -17,6 +19,9 @@ object GlowNotifications {
     private const val TEST_CHANNEL_ID = "glow_test"
     private const val GLOW_NOTIFICATION_ID = 1
     private const val TEST_NOTIFICATION_ID = 100
+
+    /** The longest a post can take to start holding: its image loads, its surface opens, it fades in. */
+    private const val GLOW_RUN_UP_MS = NotificationColorExtractor.IMAGE_LOAD_TIMEOUT_MS + OPEN_TIMEOUT_MS + FADE_IN_MS
 
     /** Creates (or refreshes the names of) both channels; safe to call repeatedly. */
     fun createChannels(context: Context) {
@@ -41,11 +46,27 @@ object GlowNotifications {
         )
     }
 
+    /**
+     * The trampoline can be posted and launch its full-screen intent: notifications are allowed for Rimlit and the
+     * glow channel is still high importance (SystemUI launches full-screen intents only from those). A channel not
+     * created yet counts, since it is created at high importance.
+     */
+    fun canPostLockScreenWake(context: Context): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val high = NotificationManager.IMPORTANCE_HIGH
+        val importance = manager.getNotificationChannel(GLOW_CHANNEL_ID)?.importance ?: high
+        return manager.areNotificationsEnabled() && importance >= high
+    }
+
     /** Rimlit's own test notification. The package must match too: another app could reuse the channel id. */
     fun isTest(context: Context, sbn: StatusBarNotification): Boolean =
         sbn.packageName == context.packageName && sbn.notification.channelId == TEST_CHANNEL_ID
 
-    /** Posts a test notification that goes through the real listener pipeline and times out after [durationMs]. */
+    /**
+     * Posts a test notification that goes through the real listener pipeline. Its glow holds for [durationMs] once
+     * shown, so the notification outlives the longest run-up (extraction, opening, fade-in) before timing out: its
+     * removal would otherwise cut the hold short.
+     */
     fun postTest(context: Context, durationMs: Long) {
         createChannels(context)
         val notification = Notification.Builder(context, TEST_CHANNEL_ID)
@@ -53,7 +74,7 @@ object GlowNotifications {
             .setContentTitle(context.getString(R.string.test_notification_title))
             .setContentText(context.getString(R.string.test_notification_desc))
             .setAutoCancel(true)
-            .setTimeoutAfter(durationMs)
+            .setTimeoutAfter(durationMs + GLOW_RUN_UP_MS)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(TEST_NOTIFICATION_ID, notification)
     }
@@ -68,7 +89,7 @@ object GlowNotifications {
         )
         val notification = Notification.Builder(context, GLOW_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.notification_glow_title))
+            .setContentTitle(context.getString(R.string.app_name))
             .setFullScreenIntent(pendingIntent, true)
             // Only a trampoline to wake the screen: never bridge it to a watch, where it would mask the real one.
             .setLocalOnly(true)

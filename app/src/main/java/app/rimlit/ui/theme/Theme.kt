@@ -27,14 +27,12 @@ private val DarkColors = darkColorScheme(
     surfaceContainer = DarkSurfaceVariant,
 )
 
+/** Material 3 following the system's dark mode, with dynamic colour on Android 12+. */
 @Composable
-fun AppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit,
-) {
+fun AppTheme(content: @Composable () -> Unit) {
+    val darkTheme = isSystemInDarkTheme()
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
@@ -44,9 +42,5 @@ fun AppTheme(
         else -> LightColors
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content,
-    )
+    MaterialTheme(colorScheme = colorScheme, content = content)
 }

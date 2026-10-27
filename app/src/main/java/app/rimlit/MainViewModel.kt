@@ -12,8 +12,6 @@ import app.rimlit.data.AppListRepository
 import app.rimlit.data.SettingsRepository
 import app.rimlit.engine.GlowEvent
 import app.rimlit.engine.PreviewTarget
-import app.rimlit.model.DEFAULT_GLOW_ARGB
-import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.GlowNotifications
@@ -22,6 +20,7 @@ import app.rimlit.permissions.PermissionStatus
 import app.rimlit.permissions.Permissions
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -55,10 +54,8 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         _permissions.value = Permissions.statuses(getApplication())
     }
 
-    /** Persists a settings change (atomic read-modify-write). */
-    fun update(transform: (GlowSettings) -> GlowSettings) {
-        viewModelScope.launch { repository.update(transform) }
-    }
+    /** Persists a settings change (atomic read-modify-write); the job completes once it is written. */
+    fun update(transform: (GlowSettings) -> GlowSettings): Job = viewModelScope.launch { repository.update(transform) }
 
     fun openPermission(kind: PermissionKind) {
         Permissions.open(getApplication(), kind)
@@ -78,9 +75,6 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     }
 
     companion object {
-        /** Stand-in for the auto palette in previews, where there is no notifying app to sample. */
-        val PREVIEW_AUTO_PALETTE = listOf(DEFAULT_GLOW_ARGB, 0xFFE040FB.toInt())
-
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] ?: error("Application not available")
@@ -89,7 +83,3 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         }
     }
 }
-
-/** The spec previews render for these settings (auto colors use [MainViewModel.PREVIEW_AUTO_PALETTE]). */
-fun GlowSettings.previewSpec(): GlowSpec =
-    toGlowSpec(paletteFor(packageName = null) ?: GlowPalette.Colors(MainViewModel.PREVIEW_AUTO_PALETTE))

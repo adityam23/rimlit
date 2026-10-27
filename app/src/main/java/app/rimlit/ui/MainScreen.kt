@@ -15,12 +15,12 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -40,6 +40,7 @@ import app.rimlit.ui.components.SettingCard
 import app.rimlit.ui.components.SettingIcon
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
+import app.rimlit.ui.components.SwitchCard
 
 @Composable
 fun MainScreen(
@@ -55,16 +56,12 @@ fun MainScreen(
     SubScreenScaffold(title = stringResource(R.string.app_name), onBack = null, modifier = modifier) { innerPadding ->
         SettingsList(innerPadding) {
             item {
-                SettingCard(
+                SwitchCard(
                     title = stringResource(R.string.master_toggle_title),
+                    checked = settings.enabled,
+                    onCheckedChange = { enabled -> viewModel.update { it.copy(enabled = enabled) } },
                     subtitle = stringResource(R.string.master_toggle_subtitle),
                     prominent = true,
-                    trailing = {
-                        Switch(
-                            checked = settings.enabled,
-                            onCheckedChange = { enabled -> viewModel.update { it.copy(enabled = enabled) } },
-                        )
-                    },
                 )
             }
             item { SectionTitle(stringResource(R.string.section_permissions)) }
@@ -141,6 +138,7 @@ private fun PermissionState(status: PermissionStatus) {
 private fun PermissionKind.icon(): ImageVector = when (this) {
     PermissionKind.NOTIFICATION_ACCESS -> Icons.Filled.Notifications
     PermissionKind.OVERLAY -> Icons.Filled.Layers
+    PermissionKind.NOTIFICATIONS -> Icons.Filled.NotificationsActive
     PermissionKind.FULL_SCREEN_INTENT -> Icons.Filled.Fullscreen
     PermissionKind.ACCESSIBILITY -> Icons.Filled.Lock
     PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
@@ -152,6 +150,7 @@ private fun PermissionKind.title(): String = stringResource(
     when (this) {
         PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_title
         PermissionKind.OVERLAY -> R.string.perm_overlay_title
+        PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_title
         PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_title
         PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_title
         PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_title
@@ -164,6 +163,7 @@ private fun PermissionKind.description(): String = stringResource(
     when (this) {
         PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_desc
         PermissionKind.OVERLAY -> R.string.perm_overlay_desc
+        PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_desc
         PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_desc
         PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_desc
         PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_desc

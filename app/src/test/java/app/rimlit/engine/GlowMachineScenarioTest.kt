@@ -161,17 +161,20 @@ class GlowMachineScenarioTest {
     }
 
     @Test
-    fun screenOffLaterInTheHoldLetsTheGlowFadeInTheDark() {
+    fun screenOffLaterInTheHoldEndsTheGlow() {
+        // Its timers would stop in deep sleep, and the frozen glow would reappear on the next wake.
         val run = holding().fire(Timer.HAND_OFF_WINDOW).environment(SCREEN_OFF)
-        assertTrue(run.effects.isEmpty())
-        assertEquals(Surface.APP_OVERLAY, run.glow.surface)
+        assertEquals(listOf(GlowEffect.Close(Surface.APP_OVERLAY)), run.effects.surfaceEffects())
+        assertNull(run.state.glow)
+        assertTrue(run.state.armed.isEmpty())
     }
 
     @Test
-    fun previewsNeverHandOff() {
+    fun previewsNeverHandOffAndEndWithTheScreen() {
         val run = run().send(GlowEvent.Preview(PreviewTarget.ON_SCREEN, PREVIEW_SPEC), opened(Surface.APP_OVERLAY))
             .environment(SCREEN_OFF)
-        assertTrue(run.effects.surfaceEffects().isEmpty())
+        assertEquals(listOf(GlowEffect.Close(Surface.APP_OVERLAY)), run.effects.surfaceEffects())
+        assertNull(run.state.glow)
     }
 
     @Test
@@ -271,24 +274,24 @@ class GlowMachineScenarioTest {
     }
 
     @Test
-    fun withoutFullScreenIntentAccessALockScreenGlowIsSkippedAndReported() {
-        val denied = SCREEN_OFF.copy(fullScreenIntentGranted = false)
+    fun withoutWakeAccessALockScreenGlowIsSkippedAndReported() {
+        val denied = SCREEN_OFF.copy(canWakeScreen = false)
         val post = run(environment = denied).send(posted("a"))
         assertNull(post.state.glow)
-        assertEquals(listOf(GlowEffect.FullScreenIntentDenied), post.effects)
+        assertEquals(listOf(GlowEffect.WakeScreenDenied), post.effects)
 
         val preview = run(environment = denied).send(GlowEvent.Preview(PreviewTarget.LOCK_SCREEN, PREVIEW_SPEC))
-        assertEquals(listOf(GlowEffect.FullScreenIntentDenied), preview.effects)
+        assertEquals(listOf(GlowEffect.WakeScreenDenied), preview.effects)
     }
 
     @Test
-    fun theMissingGrantIsReportedOncePerListenerConnection() {
-        val run = run(environment = SCREEN_OFF.copy(fullScreenIntentGranted = false)).send(posted("a"))
-        assertEquals(listOf(GlowEffect.FullScreenIntentDenied), run.effects)
+    fun missingWakeAccessIsReportedOncePerListenerConnection() {
+        val run = run(environment = SCREEN_OFF.copy(canWakeScreen = false)).send(posted("a"))
+        assertEquals(listOf(GlowEffect.WakeScreenDenied), run.effects)
         assertTrue(run.send(posted("b")).effects.isEmpty(), "skipped again, not reported again")
 
         run.send(GlowEvent.ListenerConnected(emptySet(), emptySet()), posted("c"))
-        assertEquals(listOf(GlowEffect.FullScreenIntentDenied), run.effects)
+        assertEquals(listOf(GlowEffect.WakeScreenDenied), run.effects)
     }
 
     @Test
