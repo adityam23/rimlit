@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray
 internal class StateCodec {
 
     private val settings = Interner<GlowSettings>(bits = 4)
-    private val environments = Interner<Environment>(bits = 4)
+    private val environments = Interner<Environment>(bits = 5)
     private val keySets = Interner<Set<String>>(bits = 4)
 
     /** Every armed-timer set by its bit mask, so decoding shares them. */

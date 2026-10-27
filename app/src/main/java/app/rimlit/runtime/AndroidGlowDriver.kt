@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalTime
 
 /**
  * The machine's platform side: system state, overlay windows, the lock-screen activity, main-thread timers and
@@ -49,6 +50,7 @@ class AndroidGlowDriver(
         screenOn = context.getSystemService(PowerManager::class.java)?.isInteractive == true,
         locked = context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true,
         canWakeScreen = WAKE_ACCESS.all { it.isGranted(context) },
+        minuteOfDay = LocalTime.now().let { it.hour * 60 + it.minute },
     )
 
     override fun open(surface: Surface, wakeScreen: Boolean, spec: GlowSpec): Cancellable = when (surface) {

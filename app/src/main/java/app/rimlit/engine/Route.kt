@@ -17,22 +17,28 @@ internal sealed interface Route {
  * lock-screen activity is in front (covering the keyguard), so notifications re-target it instead of an overlay.
  */
 internal fun GlowState.route(source: GlowSource, settings: GlowSettings, lockScreenUp: Boolean): Route = when {
-    // Previews ignore the show toggles: the user is asking to see that surface. Nothing draws on an overlay in the
-    // dark: it would show nothing, and its timers stop in deep sleep.
+    // Previews ignore the show toggles and quiet hours: the user is asking to see that surface. Nothing draws on an
+    // overlay in the dark: it would show nothing, and its timers stop in deep sleep.
     source is GlowSource.Preview && source.target == PreviewTarget.ON_SCREEN ->
         if (environment.screenOn) Route.To(onScreenOverlay) else Route.Nowhere
 
     source is GlowSource.Preview -> lockScreen(lockScreenUp, ringing = false)
 
     environment.screenOn && !lockScreenUp -> {
-        val wanted = if (environment.locked) settings.showWhenLocked else settings.showWhenUnlocked
-        onScreenSurface()?.takeIf { wanted }?.let(Route::To) ?: Route.Nowhere
+        val wanted = if (environment.locked) settings.showOnLockScreen else settings.showWhenUnlocked
+        onScreenSurface()?.takeIf { wanted && !quiet(source, settings, lockScreen = false) }?.let(Route::To)
+            ?: Route.Nowhere
     }
 
-    settings.showWhenLocked -> lockScreen(lockScreenUp, ringing = source.post?.isRinging == true)
+    settings.showWhenScreenOff && !quiet(source, settings, lockScreen = true) ->
+        lockScreen(lockScreenUp, ringing = source.post?.isRinging == true)
 
     else -> Route.Nowhere
 }
+
+/** Quiet hours mute this glow now; a ringing call or alarm always goes through, as with Do Not Disturb. */
+private fun GlowState.quiet(source: GlowSource, settings: GlowSettings, lockScreen: Boolean): Boolean =
+    source.post?.isRinging != true && settings.quietHours.mutes(environment.minuteOfDay, lockScreen)
 
 /** The overlay on-screen glows and previews are drawn on: the accessibility one whenever its service is up. */
 val GlowState.onScreenOverlay: Surface

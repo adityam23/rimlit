@@ -47,7 +47,7 @@
     <string name="nav_style_title">Style</string>
     <string name="nav_style_subtitle">Glow style, colors, and tuning</string>
     <string name="nav_behavior_title">Behavior</string>
-    <string name="nav_behavior_subtitle">Lock screen and on-screen behavior</string>
+    <string name="nav_behavior_subtitle">Where it glows, and quiet hours</string>
     <string name="back">Back</string>
 
     <!-- Apps (blocklist) screen -->
@@ -117,11 +117,22 @@
     <string name="test_notification_desc">This is what your glow looks like</string>
 
     <!-- Behavior screen -->
-    <string name="behavior_section">Behavior</string>
-    <string name="show_locked_title">Lock screen</string>
-    <string name="show_locked_desc">Glow when the screen is locked</string>
+    <string name="behavior_section">Where it glows</string>
+    <string name="show_screen_off_title">Screen off</string>
+    <string name="show_screen_off_desc">Wake the screen into a black, always-on-display style glow</string>
+    <string name="show_lock_screen_title">Lock screen</string>
+    <string name="show_lock_screen_desc">Glow above the lock screen while it is showing (needs the accessibility glow)</string>
     <string name="show_unlocked_title">Screen on</string>
-    <string name="show_unlocked_desc">Glow while the screen is on</string>
+    <string name="show_unlocked_desc">Glow while you use the phone</string>
+    <string name="quiet_section">Quiet hours</string>
+    <string name="quiet_title">Quiet hours</string>
+    <string name="quiet_desc">No glows at the times below, every day. Incoming calls and alarms still glow.</string>
+    <string name="quiet_start">Starts</string>
+    <string name="quiet_end">Ends</string>
+    <string name="quiet_scope_all_title">Every glow</string>
+    <string name="quiet_scope_all_desc">Nothing glows during quiet hours</string>
+    <string name="quiet_scope_screen_off_title">Only with the screen off</string>
+    <string name="quiet_scope_screen_off_desc">The screen stays dark; glows still show while you use the phone</string>
     <string name="preview_section">Preview</string>
     <string name="preview_locked">Preview lock screen</string>
     <string name="preview_unlocked">Preview on-screen</string>

@@ -4,14 +4,20 @@ import app.rimlit.engine.Fixtures.AUTO
 import app.rimlit.engine.Fixtures.CUSTOM
 import app.rimlit.engine.Fixtures.EXTRACTED
 import app.rimlit.engine.Fixtures.LOCK_SCREEN
+import app.rimlit.engine.Fixtures.NIGHT
+import app.rimlit.engine.Fixtures.OTHER_APP
 import app.rimlit.engine.Fixtures.PREVIEW_SPEC
 import app.rimlit.engine.Fixtures.SCREEN_OFF
 import app.rimlit.engine.Fixtures.UNLOCKED
 import app.rimlit.engine.Fixtures.post
+import app.rimlit.engine.Fixtures.quiet
 import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
+import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
+import app.rimlit.model.GlowStyle
+import app.rimlit.model.QuietScope
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -316,6 +322,94 @@ class GlowMachineScenarioTest {
         val run = run(environment = SCREEN_OFF).send(posted("a")).fire(Timer.OPEN)
         assertNull(run.state.glow)
         assertTrue(GlowEffect.Close(Surface.LOCK_SCREEN) in run.effects, "closing also cancels the trampoline")
+    }
+
+    @Test
+    fun eachPlaceHasItsOwnToggle() {
+        val noScreenOff = CUSTOM.copy(showWhenScreenOff = false)
+        assertNull(run(noScreenOff, SCREEN_OFF).send(posted("a")).state.glow)
+        assertEquals(
+            Surface.ACCESSIBILITY_OVERLAY,
+            run(noScreenOff, LOCK_SCREEN, accessibility = true).send(posted("a")).glow.surface,
+            "the lock screen showing is a separate place",
+        )
+
+        val noLockScreen = CUSTOM.copy(showOnLockScreen = false)
+        assertNull(run(noLockScreen, LOCK_SCREEN, accessibility = true).send(posted("a")).state.glow)
+        assertEquals(Surface.LOCK_SCREEN, run(noLockScreen, SCREEN_OFF).send(posted("a")).glow.surface)
+
+        assertNull(run(CUSTOM.copy(showWhenUnlocked = false)).send(posted("a")).state.glow)
+    }
+
+    @Test
+    fun screenOffWithoutItsToggleEndsAnOnScreenGlowInsteadOfHandingItOff() {
+        val run = run(CUSTOM.copy(showWhenScreenOff = false)).send(posted("a"), opened(Surface.APP_OVERLAY))
+            .environment(SCREEN_OFF)
+        assertNull(run.state.glow)
+    }
+
+    @Test
+    fun quietHoursMuteEveryGlowButARingingOne() {
+        val quiet = quiet(QuietScope.ALL).copy(colorMode = ColorMode.CUSTOM)
+        assertNull(run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT)).send(posted("a")).state.glow)
+        assertNull(run(quiet, SCREEN_OFF.copy(minuteOfDay = NIGHT)).send(posted("a")).state.glow)
+        assertEquals(Surface.APP_OVERLAY, run(quiet, UNLOCKED).send(posted("a")).glow.surface, "outside quiet hours")
+
+        val call = run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT)).send(posted("a", ringing = true))
+        assertEquals(Surface.APP_OVERLAY, call.glow.surface, "calls and alarms go through")
+
+        val preview = run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT))
+            .send(GlowEvent.Preview(PreviewTarget.ON_SCREEN, PREVIEW_SPEC))
+        assertEquals(Surface.APP_OVERLAY, preview.glow.surface, "previews ignore quiet hours")
+    }
+
+    @Test
+    fun screenOffQuietHoursMuteOnlyTheLockScreenGlow() {
+        val quiet = quiet(QuietScope.SCREEN_OFF).copy(colorMode = ColorMode.CUSTOM)
+        assertNull(run(quiet, SCREEN_OFF.copy(minuteOfDay = NIGHT)).send(posted("a")).state.glow)
+        assertEquals(Surface.APP_OVERLAY, run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT)).send(posted("a")).glow.surface)
+
+        // A glow the user may have missed isn't handed off to wake the screen in quiet hours.
+        val handOff = run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT)).send(posted("a"), opened(Surface.APP_OVERLAY))
+            .environment(SCREEN_OFF.copy(minuteOfDay = NIGHT))
+        assertNull(handOff.state.glow)
+    }
+
+    @Test
+    fun theClockIsReadOnlyWhenAGlowIsPlaced() {
+        // A glow up when quiet hours start finishes normally: it is at most a hold long.
+        val run = run(quiet(QuietScope.ALL).copy(colorMode = ColorMode.CUSTOM)).send(posted("a"), opened(Surface.APP_OVERLAY))
+            .environment(UNLOCKED.copy(minuteOfDay = NIGHT))
+        assertEquals(Phase.FADING_IN, run.glow.phase)
+        assertTrue(run.effects.isEmpty())
+    }
+
+    @Test
+    fun turningTheGlowOffOrBlockingTheAppEndsItsGlow() {
+        val off = holding("a").send(GlowEvent.SettingsChanged(CUSTOM.copy(enabled = false)))
+        assertEquals(Phase.FADING_OUT, off.glow.phase)
+
+        val blocked = holding("a").send(GlowEvent.SettingsChanged(CUSTOM.copy(blockedPackages = setOf(OTHER_APP))))
+        assertEquals(Phase.FADING_OUT, blocked.glow.phase)
+
+        val pending = run(AUTO).send(posted("a")).send(GlowEvent.SettingsChanged(AUTO.copy(enabled = false)))
+        assertNull(pending.state.pending)
+        assertEquals(listOf(GlowEffect.CancelExtraction), pending.effects)
+    }
+
+    @Test
+    fun otherSettingsChangesLeaveTheGlowAlone() {
+        val restyled = holding("a").send(GlowEvent.SettingsChanged(CUSTOM.copy(glowStyle = GlowStyle.BLADE)))
+        assertEquals(Phase.HOLDING, restyled.glow.phase)
+        assertEquals(CUSTOM.glowStyle, restyled.glow.spec.style, "the glow keeps the look it started with")
+
+        val test = run().send(GlowEvent.Posted(post("t", own = true, test = true)), opened(Surface.APP_OVERLAY))
+            .send(GlowEvent.SettingsChanged(CUSTOM.copy(enabled = false)))
+        assertEquals(Phase.FADING_IN, test.glow.phase, "the test notification bypasses the master toggle")
+
+        val preview = run().send(GlowEvent.Preview(PreviewTarget.ON_SCREEN, PREVIEW_SPEC), opened(Surface.APP_OVERLAY))
+            .send(GlowEvent.SettingsChanged(CUSTOM.copy(enabled = false)))
+        assertEquals(Phase.FADING_IN, preview.glow.phase, "previews have no post to stop wanting")
     }
 
     @Test
