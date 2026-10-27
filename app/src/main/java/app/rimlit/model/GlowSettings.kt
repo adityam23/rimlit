@@ -6,6 +6,15 @@ enum class GlowStyle { BASIC, GLOW, BLADE }
 /** Where the glow is drawn. [CUTOUT] falls back to [FULL_SCREEN] on devices without a camera cutout. */
 enum class EdgeRegion { FULL_SCREEN, CUTOUT }
 
+/** When glows save battery by drawing fewer frames. */
+enum class BatterySaver {
+    OFF,
+
+    /** While the system's battery saver is on. */
+    WITH_SYSTEM,
+    ALWAYS,
+}
+
 /** Where the glow colors come from. Per-app palettes override all modes. */
 enum class ColorMode {
     /** Palette extracted from the notifying app, as [GlowSettings.autoColors] says. */
