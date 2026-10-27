@@ -10,7 +10,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 
 - **Works everywhere:** while you use the phone the glow is drawn over whatever is on screen; when the screen is off it wakes into a black, always-on-display style glow. With the optional lock screen glow it also frames the lock screen itself.
 - **Three styles:** a crisp breathing edge, a soft bloom with a bright core, or a blade of light racing around the screen.
-- **Your colors:** colors picked automatically from the notifying app, a single custom color, a gradient of up to five colors, or a flowing rainbow. Any app can get its own palette.
+- **Your colors:** one to three colors picked automatically from the notifying app's icon (or from the notification's picture, such as the sender's photo), a single custom color, a gradient of up to five colors, or a flowing rainbow. Any app can get its own palette.
 - **Tune it:** thickness, glow width, speed, brightness and duration, with a live preview that updates as you drag.
 - **Fits your screen:** follows your display's real rounded corners, and can ring the camera cutout instead of the whole edge.
 - **Respectful:** honors Do Not Disturb, skips silent and low-priority notifications, and never covers incoming-call or alarm screens. Any app can be excluded.

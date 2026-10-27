@@ -37,7 +37,7 @@ internal class GlowExecutor(
             is GlowEffect.Disarm -> timers.getValue(effect.timer).cancel()
 
             is GlowEffect.ExtractPalette -> extraction.replace { claim ->
-                driver.extract(effect.post) { colors ->
+                driver.extract(effect.post, effect.autoColors) { colors ->
                     report { GlowEvent.PaletteExtracted(colors).takeIf { claim() } }
                 }
             }

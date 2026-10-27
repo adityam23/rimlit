@@ -202,7 +202,7 @@ fun SettingIcon(icon: ImageVector, modifier: Modifier = Modifier) {
 /**
  * Slider that previews instantly and persists once: [onPreview] fires on every drag step (cheap,
  * in-memory), [onCommit] once with the final value on release (one DataStore write). Callers feed
- * previews back into [value].
+ * previews back into [value]. [steps] > 0 snaps to that many values between the ends.
  */
 @Composable
 fun CommitSlider(
@@ -211,11 +211,13 @@ fun CommitSlider(
     onPreview: (Float) -> Unit,
     onCommit: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    steps: Int = 0,
 ) {
     var dragging by remember { mutableFloatStateOf(Float.NaN) }
     Slider(
         value = if (dragging.isNaN()) value else dragging,
         valueRange = valueRange,
+        steps = steps,
         onValueChange = {
             dragging = it
             onPreview(it)
@@ -240,6 +242,7 @@ fun SettingSlider(
     onPreview: (Float) -> Unit,
     onCommit: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    steps: Int = 0,
 ) {
     ElevatedCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -251,7 +254,7 @@ fun SettingSlider(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            CommitSlider(value = value, valueRange = range, onPreview = onPreview, onCommit = onCommit)
+            CommitSlider(value = value, valueRange = range, onPreview = onPreview, onCommit = onCommit, steps = steps)
         }
     }
 }

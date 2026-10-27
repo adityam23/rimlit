@@ -200,6 +200,9 @@ class GlowMachineModelCheckTest {
         return when {
             extracts.any { it.post != new.pending?.post } -> "extracts for a post that isn't pending"
 
+            extracts.any { it.autoColors != new.pending?.settings?.autoColors } ->
+                "extracts with other auto colours than the pending post's settings"
+
             // Revoked notification access starts no new glow.
             event == GlowEvent.ListenerDisconnected && new.pending != null ->
                 "a post is still pending after the listener disconnected"

@@ -9,10 +9,12 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.rimlit.model.AutoColors
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.MAX_PALETTE_COLORS
@@ -42,6 +44,8 @@ private object Keys {
     val ENABLED = booleanPreferencesKey("enabled")
     val GLOW_STYLE = stringPreferencesKey("glow_style")
     val COLOR_MODE = stringPreferencesKey("color_mode")
+    val AUTO_COLOR_SOURCE = stringPreferencesKey("auto_color_source")
+    val AUTO_COLOR_COUNT = intPreferencesKey("auto_color_count")
     val CUSTOM_COLORS = stringPreferencesKey("custom_colors")
     val THICKNESS_DP = floatPreferencesKey("thickness_dp")
     val GLOW_WIDTH_DP = floatPreferencesKey("glow_width_dp")
@@ -85,28 +89,41 @@ private val defaults = GlowSettings()
 
 /** Tolerant decode: unknown or out-of-range stored values fall back to defaults or are clamped. */
 private fun Preferences.toSettings() = GlowSettings(
-    enabled = this[Keys.ENABLED] ?: defaults.enabled,
+    enabled = valueOr(Keys.ENABLED, defaults.enabled),
     glowStyle = this[Keys.GLOW_STYLE].toEnumOr(defaults.glowStyle),
     colorMode = this[Keys.COLOR_MODE].toEnumOr(defaults.colorMode),
+    autoColors = AutoColors(
+        source = this[Keys.AUTO_COLOR_SOURCE].toEnumOr(defaults.autoColors.source),
+        count = clamped(Keys.AUTO_COLOR_COUNT, defaults.autoColors.count, Ranges.autoColorCount),
+    ),
     customColors = this[Keys.CUSTOM_COLORS]?.let(::decodePalette)
         ?: this[Keys.LEGACY_CUSTOM_COLOR]?.let { listOf(it.toInt()) }
         ?: defaults.customColors,
-    thicknessDp = (this[Keys.THICKNESS_DP] ?: defaults.thicknessDp).coerceIn(Ranges.thicknessDp),
-    glowWidthDp = (this[Keys.GLOW_WIDTH_DP] ?: defaults.glowWidthDp).coerceIn(Ranges.glowWidthDp),
-    speed = (this[Keys.SPEED] ?: defaults.speed).coerceIn(Ranges.speed),
-    brightness = (this[Keys.BRIGHTNESS] ?: defaults.brightness).coerceIn(Ranges.brightness),
-    durationMs = (this[Keys.DURATION_MS] ?: defaults.durationMs).coerceIn(Ranges.durationMs),
-    showWhenLocked = this[Keys.SHOW_WHEN_LOCKED] ?: defaults.showWhenLocked,
-    showWhenUnlocked = this[Keys.SHOW_WHEN_UNLOCKED] ?: defaults.showWhenUnlocked,
+    thicknessDp = clamped(Keys.THICKNESS_DP, defaults.thicknessDp, Ranges.thicknessDp),
+    glowWidthDp = clamped(Keys.GLOW_WIDTH_DP, defaults.glowWidthDp, Ranges.glowWidthDp),
+    speed = clamped(Keys.SPEED, defaults.speed, Ranges.speed),
+    brightness = clamped(Keys.BRIGHTNESS, defaults.brightness, Ranges.brightness),
+    durationMs = clamped(Keys.DURATION_MS, defaults.durationMs, Ranges.durationMs),
+    showWhenLocked = valueOr(Keys.SHOW_WHEN_LOCKED, defaults.showWhenLocked),
+    showWhenUnlocked = valueOr(Keys.SHOW_WHEN_UNLOCKED, defaults.showWhenUnlocked),
     region = this[Keys.REGION].toEnumOr(defaults.region),
-    blockedPackages = this[Keys.BLOCKED_PACKAGES] ?: defaults.blockedPackages,
+    blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
     appPalettes = this[Keys.APP_PALETTES]?.let(::decodeAppPalettes) ?: defaults.appPalettes,
 )
+
+/** The stored value of [key], or [default] when it was never written. */
+private fun <T> Preferences.valueOr(key: Preferences.Key<T>, default: T): T = this[key] ?: default
+
+/** The stored value of [key] clamped to [range], or [default] when it was never written. */
+private fun <T : Comparable<T>> Preferences.clamped(key: Preferences.Key<T>, default: T, range: ClosedRange<T>): T =
+    valueOr(key, default).coerceIn(range)
 
 private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.ENABLED] = settings.enabled
     this[Keys.GLOW_STYLE] = settings.glowStyle.name
     this[Keys.COLOR_MODE] = settings.colorMode.name
+    this[Keys.AUTO_COLOR_SOURCE] = settings.autoColors.source.name
+    this[Keys.AUTO_COLOR_COUNT] = settings.autoColors.count
     this[Keys.CUSTOM_COLORS] = encodePalette(settings.customColors)
     this[Keys.THICKNESS_DP] = settings.thicknessDp
     this[Keys.GLOW_WIDTH_DP] = settings.glowWidthDp

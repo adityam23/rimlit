@@ -8,6 +8,9 @@ import app.rimlit.engine.Fixtures.PREVIEW_SPEC
 import app.rimlit.engine.Fixtures.SCREEN_OFF
 import app.rimlit.engine.Fixtures.UNLOCKED
 import app.rimlit.engine.Fixtures.post
+import app.rimlit.model.AutoColorSource
+import app.rimlit.model.AutoColors
+import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -107,6 +110,20 @@ class GlowMachineScenarioTest {
         val on = run().send(posted("a", ringing = true), opened(Surface.APP_OVERLAY))
         on.send(posted("a", ongoing = true)) // answered: re-posted, still ongoing, without its full-screen intent
         assertEquals(Phase.FADING_OUT, on.glow.phase)
+    }
+
+    @Test
+    fun autoColoursAreExtractedAsThePostTimeSettingsSay() {
+        val image = AUTO.copy(autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 3))
+        val run = run(settings = image).send(posted("a"))
+        assertEquals(listOf(GlowEffect.ExtractPalette(post("a"), image.autoColors)), run.effects)
+
+        run.send(GlowEvent.SettingsChanged(AUTO))
+        assertEquals(emptyList(), run.effects, "a later change doesn't restart the extraction")
+        assertEquals(image, run.state.pending?.settings, "nor change the settings it is shown under")
+
+        run.send(GlowEvent.PaletteExtracted(EXTRACTED))
+        assertEquals(GlowPalette.Colors(EXTRACTED), run.glow.spec.palette)
     }
 
     @Test

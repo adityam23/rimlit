@@ -10,18 +10,19 @@ import android.util.Log
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.os.BundleCompat
 import androidx.palette.graphics.Palette
+import app.rimlit.model.AutoColorSource
+import app.rimlit.model.AutoColors
 import app.rimlit.model.DEFAULT_GLOW_ARGB
+import app.rimlit.model.MAX_AUTO_COLORS
 import app.rimlit.model.hueOf
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlin.math.abs
 
-/** Derives a 1–3 color palette from a notification's imagery, falling back to the app icon. */
+/** Derives a palette of up to [MAX_AUTO_COLORS] colors from a notification's imagery or its app's icon. */
 object NotificationColorExtractor {
 
     private const val TAG = "NotificationColorExtractor"
-
-    private const val MAX_COLORS = 3
 
     /** Minimum hue distance (degrees) for a swatch to count as a distinct palette color. */
     private const val MIN_HUE_DISTANCE = 25f
@@ -30,24 +31,29 @@ object NotificationColorExtractor {
     const val IMAGE_LOAD_TIMEOUT_MS = 1_000L
 
     /**
-     * The palette of the imagery of the notification [loadNotification] returns, else of [packageName]'s icon: also
-     * when the notification is gone or its image doesn't load within [IMAGE_LOAD_TIMEOUT_MS]. The notification and
-     * its image load on [imageLane] (built with that timeout), since another app's URI can block indefinitely; the
-     * app icon and the palette run on the caller's dispatcher, which must allow blocking. A cancelled caller skips
-     * the palette.
+     * The [AutoColors.count] colors of [autoColors]'s source: for [AutoColorSource.NOTIFICATION_IMAGE], the imagery of
+     * the notification [loadNotification] returns, else (also when the notification is gone or its image doesn't load
+     * within [IMAGE_LOAD_TIMEOUT_MS]) [packageName]'s icon. The notification and its image load on [imageLane] (built
+     * with that timeout), since another app's URI can block indefinitely; the app icon and the palette run on the
+     * caller's dispatcher, which must allow blocking. A cancelled caller skips the palette.
      */
     suspend fun extract(
         context: Context,
         packageName: String,
+        autoColors: AutoColors,
         imageLane: AbandoningLane,
         loadNotification: () -> Notification?,
     ): List<Int> {
-        val image = imageLane.load { loadNotification()?.let { notificationImage(context, it) } }
+        val image = if (autoColors.source == AutoColorSource.NOTIFICATION_IMAGE) {
+            imageLane.load { loadNotification()?.let { notificationImage(context, it) } }
+        } else {
+            null
+        }
         val bitmap = image
             ?: untrusted("app icon") { appIcon(context, packageName) }
             ?: return listOf(DEFAULT_GLOW_ARGB)
         currentCoroutineContext().ensureActive()
-        return paletteOf(bitmap)
+        return paletteOf(bitmap, autoColors.count)
     }
 
     /**
@@ -82,8 +88,8 @@ object NotificationColorExtractor {
         null
     }
 
-    /** Vivid swatches first (they glow best), keeping only hues distinct from those already picked. */
-    private fun paletteOf(bitmap: Bitmap): List<Int> {
+    /** Up to [count] colors, vivid swatches first (they glow best), keeping only hues distinct from those picked. */
+    private fun paletteOf(bitmap: Bitmap, count: Int): List<Int> {
         val palette = Palette.from(bitmap).generate()
         val candidates = listOfNotNull(
             palette.vibrantSwatch,
@@ -94,7 +100,7 @@ object NotificationColorExtractor {
         ).map { it.rgb }
         val picked = mutableListOf<Int>()
         for (color in candidates) {
-            if (picked.size == MAX_COLORS) break
+            if (picked.size == count) break
             if (picked.none { hueDistance(it, color) < MIN_HUE_DISTANCE }) picked += color
         }
         return picked.ifEmpty { listOf(DEFAULT_GLOW_ARGB) }

@@ -85,7 +85,7 @@ internal class Transition(private var state: GlowState) {
         val palette = settings.paletteFor(post.packageName)
         if (palette == null) {
             state = state.copy(pending = Pending(post, settings))
-            effects += GlowEffect.ExtractPalette(post)
+            effects += GlowEffect.ExtractPalette(post, settings.autoColors)
         } else {
             dropPending()
             show(source, settings.toGlowSpec(palette), target)
