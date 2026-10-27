@@ -114,8 +114,9 @@ private fun Preferences.toSettings() = GlowSettings(
     glowWidthDp = clamped(Keys.GLOW_WIDTH_DP, defaults.glowWidthDp, Ranges.glowWidthDp),
     speed = clamped(Keys.SPEED, defaults.speed, Ranges.speed),
     brightness = clamped(Keys.BRIGHTNESS, defaults.brightness, Ranges.brightness),
-    // Absent means "same as on screen".
-    screenOffBrightness = this[Keys.SCREEN_OFF_BRIGHTNESS]?.coerceIn(Ranges.brightness),
+    // Absent is the default, "same as on screen" (null): write removes the key for it.
+    screenOffBrightness = (this[Keys.SCREEN_OFF_BRIGHTNESS] ?: defaults.screenOffBrightness)
+        ?.coerceIn(Ranges.brightness),
     durationMs = clamped(Keys.DURATION_MS, defaults.durationMs, Ranges.durationMs),
     batterySaver = this[Keys.BATTERY_SAVER].toEnumOr(defaults.batterySaver),
     showWhenScreenOff = lockedToggle(Keys.SHOW_WHEN_SCREEN_OFF, defaults.showWhenScreenOff),
@@ -154,7 +155,12 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.GLOW_WIDTH_DP] = settings.glowWidthDp
     this[Keys.SPEED] = settings.speed
     this[Keys.BRIGHTNESS] = settings.brightness
-    settings.screenOffBrightness?.let { this[Keys.SCREEN_OFF_BRIGHTNESS] = it } ?: remove(Keys.SCREEN_OFF_BRIGHTNESS)
+    val screenOffBrightness = settings.screenOffBrightness
+    if (screenOffBrightness != null) {
+        this[Keys.SCREEN_OFF_BRIGHTNESS] = screenOffBrightness
+    } else {
+        remove(Keys.SCREEN_OFF_BRIGHTNESS)
+    }
     this[Keys.DURATION_MS] = settings.durationMs
     this[Keys.BATTERY_SAVER] = settings.batterySaver.name
     this[Keys.SHOW_WHEN_SCREEN_OFF] = settings.showWhenScreenOff
