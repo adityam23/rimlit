@@ -59,6 +59,8 @@ internal class Transition(private var state: GlowState) {
                 end()
             }
 
+            is GlowEvent.OpenRequested -> openRequested(event.surface)
+
             is GlowEvent.TimerFired -> fired(event.timer)
         }
     }
@@ -187,6 +189,14 @@ internal class Transition(private var state: GlowState) {
         } else {
             setGlow(current.copy(opened = true))
         }
+    }
+
+    /** The user asked to open what [surface] shows: it opens if the policy allows, and the glow ends either way. */
+    private fun openRequested(surface: Surface) {
+        val current = glow
+        check(current?.surface == surface && current.opened) { "Contract: $surface requested an open but isn't up" }
+        state.opensOnRequest(surface)?.let { effects += GlowEffect.OpenNotification(it, surface) }
+        end()
     }
 
     private fun fired(timer: Timer) {

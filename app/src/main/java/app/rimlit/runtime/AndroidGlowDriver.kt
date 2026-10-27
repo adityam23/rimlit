@@ -12,6 +12,7 @@ import app.rimlit.engine.GlowCoordinator
 import app.rimlit.engine.GlowDriver
 import app.rimlit.engine.Post
 import app.rimlit.engine.Surface
+import app.rimlit.engine.SurfaceInstance
 import app.rimlit.model.AutoColors
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.AbandoningLane
@@ -32,7 +33,7 @@ import java.time.temporal.ChronoField
 
 /**
  * The machine's platform side: system state, overlay windows, the lock-screen activity, main-thread timers and
- * background palette extraction.
+ * background palette extraction, and opening a glow's notification.
  */
 class AndroidGlowDriver(
     private val context: Context,
@@ -109,6 +110,20 @@ class AndroidGlowDriver(
     override fun wakeScreenDenied() {
         val missing = WAKE_ACCESS.filterNot { it.isGranted(context) }
         Log.w(TAG, "Can't wake the screen (missing $missing): skipping lock-screen glows until granted")
+    }
+
+    /**
+     * Reads the notification now, on the main thread (one binder call for a user's gesture), so one removed since
+     * neither opens nor asks the user to unlock.
+     */
+    override fun openNotification(post: Post, from: SurfaceInstance) {
+        val notification = GlowListenerService.connected?.notification(post.key)
+        val open = notification?.let { NotificationOpener.opener(context, post.packageName, it) }
+        if (open == null) {
+            Log.i(TAG, "Nothing to open for ${post.key}: gone, or it leads nowhere")
+            return
+        }
+        from.runUnlocked(open)
     }
 
     private companion object {

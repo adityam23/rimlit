@@ -25,6 +25,8 @@ import app.rimlit.model.GlowSpec
  * |                          | surface, still opening: starts fresh once open. Other surface: close, open.      |
  * | SurfaceOpened            | STARTING → FADING_IN; a hand-off keeps its phase and shows instantly.            |
  * | SurfaceGone              | Ended (no fade; nothing left to draw on).                                        |
+ * | OpenRequested            | Ended (no fade), first opening the shown notification if `opensOnRequest` allows |
+ * |                          | it: still posted, another app's, wanted, opening on. Otherwise it only ends.     |
  * | Screen off               | Lock-screen glow: ended. On-screen glow that started within HAND_OFF_SHARE of    |
  * |                          | its hold: re-routed, so it hands off to the lock screen when allowed there.      |
  * |                          | Otherwise ended: its timers stop in deep sleep, so it would reappear on wake.    |
@@ -42,7 +44,8 @@ import app.rimlit.model.GlowSpec
  * remaining hold, instantly. Ending closes the surface (which also cancels the lock-screen trampoline).
  *
  * Executor contracts (violations fail loudly): a timer fires only while armed, never stale; a palette result
- * arrives only for the in-flight extraction; a surface reports only on the instance opened by its latest `Open`.
+ * arrives only for the in-flight extraction; a surface reports only on the instance opened by its latest `Open`, and
+ * requests an open only from the instance it confirmed.
  */
 
 /** How long a glow fades in, then out, around its hold. `GlowHost` animates with the same durations. */
@@ -179,6 +182,12 @@ sealed interface GlowEvent {
      */
     data class SurfaceGone(val surface: Surface) : GlowEvent
 
+    /**
+     * The user asked the surface's confirmed instance to open what it shows (a double tap on the lock screen).
+     * Reported only for that instance, while it is the surface's latest and hasn't been closed since.
+     */
+    data class OpenRequested(val surface: Surface) : GlowEvent
+
     data class TimerFired(val timer: Timer) : GlowEvent
 }
 
@@ -199,6 +208,12 @@ sealed interface GlowEffect {
      * whose result is then never delivered.
      */
     data class ExtractPalette(val post: Post, val autoColors: AutoColors) : GlowEffect
+
+    /**
+     * Opens [post]'s notification (its content intent, else its app) through [from]'s live instance, which unlocks
+     * the device first if it must. Runs before the `Close` of [from] in the same step, so the instance is still up.
+     */
+    data class OpenNotification(val post: Post, val from: Surface) : GlowEffect
 
     /** Cancels the in-flight extraction; its result is never delivered. */
     data object CancelExtraction : GlowEffect

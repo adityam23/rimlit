@@ -45,7 +45,18 @@ internal class GlowExecutor(
             GlowEffect.CancelExtraction -> extraction.cancel()
 
             GlowEffect.WakeScreenDenied -> driver.wakeScreenDenied()
+
+            is GlowEffect.OpenNotification -> {
+                val from = checkNotNull(slots.getValue(effect.from).instance) { "Opens only from a confirmed instance" }
+                driver.openNotification(effect.post, from)
+            }
         }
+    }
+
+    /** [instance] of [surface] asked to open what it shows; dropped unless it is the confirmed one. */
+    fun openRequested(surface: Surface, instance: SurfaceInstance) {
+        val isCurrent = slots.getValue(surface).openRequested(instance) ?: return
+        report { GlowEvent.OpenRequested(surface).takeIf { isCurrent() } }
     }
 
     fun surfaceOpened(surface: Surface, instance: SurfaceInstance) {

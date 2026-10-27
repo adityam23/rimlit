@@ -12,7 +12,9 @@ internal class SurfaceSlot {
     /** An `Open` is outstanding and hasn't been closed or reported gone since. */
     private var requested = false
 
-    private var instance: SurfaceInstance? = null
+    /** The confirmed instance of the latest request, while it is up. */
+    var instance: SurfaceInstance? = null
+        private set
 
     /** Withdraws the latest request (e.g. cancels the lock screen's trampoline); kept until the slot is closed. */
     private var withdraw: Cancellable? = null
@@ -57,6 +59,17 @@ internal class SurfaceSlot {
         requested = false
         instance = null
         return current()
+    }
+
+    /**
+     * [asking] asked to open what it shows. Returns the check for its `OpenRequested` report, or `null` if it isn't
+     * the confirmed instance of the latest request. The check also fails once [asking] has gone meanwhile, so the
+     * open effect always finds it up.
+     */
+    fun openRequested(asking: SurfaceInstance): (() -> Boolean)? {
+        if (!requested || instance !== asking) return null
+        val isCurrent = current()
+        return { isCurrent() && instance === asking }
     }
 
     private fun current(): () -> Boolean {

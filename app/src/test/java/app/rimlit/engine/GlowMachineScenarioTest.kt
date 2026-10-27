@@ -55,7 +55,8 @@ class GlowMachineScenarioTest {
     private fun holding(key: String = "a") = run().send(posted(key), opened(Surface.APP_OVERLAY)).fire(Timer.FADE_IN)
 
     /** A lock-screen glow woken from screen off, opened and holding, with the screen now on and locked. */
-    private fun onLockScreen(settings: GlowSettings = CUSTOM) = run(settings, SCREEN_OFF).send(posted("a"))
+    private fun onLockScreen(settings: GlowSettings = CUSTOM, post: GlowEvent = posted("a")) =
+        run(settings, SCREEN_OFF).send(post)
         .environment(LOCK_SCREEN).send(opened(Surface.LOCK_SCREEN)).fire(Timer.FADE_IN)
 
     private fun List<GlowEffect>.surfaceEffects() = filter { it is GlowEffect.Open || it is GlowEffect.Close }
@@ -417,7 +418,38 @@ class GlowMachineScenarioTest {
     }
 
     @Test
+    fun aDoubleTapOnTheLockScreenOpensTheShownNotificationAndEndsTheGlow() {
+        val run = onLockScreen()
+        assertEquals(post("a"), run.state.opensOnRequest(Surface.LOCK_SCREEN), "the surface listens for a double tap")
+
+        run.send(GlowEvent.OpenRequested(Surface.LOCK_SCREEN))
+        assertNull(run.state.glow)
+        assertEquals(
+            listOf(GlowEffect.OpenNotification(post("a"), Surface.LOCK_SCREEN), GlowEffect.Close(Surface.LOCK_SCREEN)),
+            run.effects.filter { it !is GlowEffect.Disarm },
+            "opens through the activity before closing it",
+        )
+    }
+
+    @Test
+    fun anOpenRequestOnlyEndsTheGlowWhenThereIsNothingToOpen() {
+        val removed = onLockScreen().send(GlowEvent.Removed("a"))
+        val preview = run(environment = LOCK_SCREEN)
+            .send(GlowEvent.Preview(PreviewTarget.LOCK_SCREEN, PREVIEW_SPEC), opened(Surface.LOCK_SCREEN))
+        val test = onLockScreen(post = GlowEvent.Posted(post("t", own = true, test = true)))
+        val off = onLockScreen(CUSTOM.copy(openOnDoubleTap = false))
+        val runs = mapOf("removed" to removed, "preview" to preview, "test notification" to test, "setting off" to off)
+        for ((case, run) in runs) {
+            assertNull(run.state.opensOnRequest(Surface.LOCK_SCREEN), "$case: a tap ends it at once")
+            run.send(GlowEvent.OpenRequested(Surface.LOCK_SCREEN))
+            assertNull(run.state.glow, "$case: ended")
+            assertTrue(run.effects.none { it is GlowEffect.OpenNotification }, "$case: opens nothing")
+        }
+    }
+
+    @Test
     fun executorContractViolationsFailLoudly() {
+        assertFailsWith<IllegalStateException> { run().send(posted("a"), GlowEvent.OpenRequested(Surface.APP_OVERLAY)) }
         assertFailsWith<IllegalStateException> { run().send(GlowEvent.TimerFired(Timer.HOLD)) }
         assertFailsWith<IllegalStateException> { run().send(GlowEvent.PaletteExtracted(EXTRACTED)) }
         assertFailsWith<IllegalStateException> { run().send(posted("a"), opened(Surface.LOCK_SCREEN)) }

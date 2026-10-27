@@ -27,6 +27,8 @@ class GlowCoordinatorTest {
         override fun close() {
             closed = true
         }
+
+        override fun runUnlocked(action: () -> Unit) = action()
     }
 
     /** A virtual clock and recorded surfaces. [honoursCancel] off simulates a timer or extraction that races its cancel. */
@@ -72,6 +74,12 @@ class GlowCoordinatorTest {
         }
 
         override fun wakeScreenDenied() = Unit
+
+        val opened = mutableListOf<Pair<String, SurfaceInstance>>()
+
+        override fun openNotification(post: Post, from: SurfaceInstance) {
+            opened += post.key to from
+        }
 
         /** Runs every timer due within [ms], in order. */
         fun advance(ms: Long) {
@@ -221,6 +229,28 @@ class GlowCoordinatorTest {
 
         coordinator.surfaceGone(Surface.LOCK_SCREEN, second)
         assertNull(glow)
+    }
+
+    @Test
+    fun onlyTheShownInstanceOpensAndItOpensThroughItself() {
+        coordinator.settingsChanged(CUSTOM)
+        driver.environment = SCREEN_OFF
+        posted("a")
+        driver.environment = LOCK_SCREEN
+        val replaced = Instance()
+        val shown = Instance()
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, replaced)
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, shown)
+        coordinator.openRequested(Surface.LOCK_SCREEN, replaced)
+        assertNotNull(glow, "a replaced instance's double tap is dropped")
+
+        coordinator.openRequested(Surface.LOCK_SCREEN, shown)
+        assertEquals(listOf<Pair<String, SurfaceInstance>>("a" to shown), driver.opened)
+        assertNull(glow)
+        assertTrue(shown.closed)
+
+        coordinator.openRequested(Surface.LOCK_SCREEN, shown)
+        assertEquals(1, driver.opened.size, "a closed instance's double tap is dropped")
     }
 
     @Test

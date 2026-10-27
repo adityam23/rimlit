@@ -16,7 +16,8 @@ import kotlin.test.fail
  *
  * External inputs (posts, removals, settings, environment, listener, accessibility, previews) arrive at any time.
  * Executor reports follow their contracts: timers fire only while armed, a palette result only while pending, and a
- * surface reports only on the glow's current surface (opened only while opening). Never trim the alphabet to make
+ * surface reports only on the glow's current surface (opened only while opening, an open request only once opened).
+ * Never trim the alphabet to make
  * the search fit: make the search cheaper instead.
  *
  * Visited states are kept only as exact packed codes ([StateCodec]), and each one's parent and event as indices; a
@@ -102,7 +103,8 @@ class GlowMachineModelCheckTest {
         if (state.pending != null) add(EXTRACTED_EVENT)
         state.armed.mapTo(this) { TIMER_EVENTS.getValue(it) }
         val glow = state.glow ?: return@buildList
-        if (!glow.opened) add(OPENED_EVENTS.getValue(glow.surface))
+        // Only the confirmed instance can be touched.
+        add(if (glow.opened) OPEN_REQUESTED_EVENTS.getValue(glow.surface) else OPENED_EVENTS.getValue(glow.surface))
         add(GONE_EVENTS.getValue(glow.surface))
     }
 
@@ -150,7 +152,35 @@ class GlowMachineModelCheckTest {
     private fun transitionViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? =
         surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: pendingViolation(old, event, step)
             ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
-            ?: placementViolation(old, event, step)
+            ?: placementViolation(old, event, step) ?: openViolation(old, event, step)
+
+    /**
+     * Opening: only on the user's request, only the notification shown on that surface, only while it is still
+     * posted, never Rimlit's own (the test notification included) or a preview, only with opening on and the post
+     * still wanted; and then always. The request ends the glow, opening through the surface before closing it.
+     */
+    private fun openViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
+        val opens = step.effects.filterIsInstance<GlowEffect.OpenNotification>()
+        if (event !is GlowEvent.OpenRequested) return "opens without a request".takeIf { opens.isNotEmpty() }
+        val shown = checkNotNull(old.glow)
+        val post = shown.source.post
+        val opened = opens.singleOrNull()
+        val allowed = post != null && !post.isOwn && post.key in old.activeKeys && old.settings.openOnDoubleTap &&
+            old.settings.wants(post)
+        return when {
+            step.state.glow != null -> "an open request didn't end the glow"
+            opens.size > 1 -> "opens twice"
+            opened == null -> "didn't open the shown notification".takeIf { allowed }
+            opened.post != post || opened.from != shown.surface || !shown.opened -> "opens something not shown: $opened"
+            opened.post.isOwn -> "opens Rimlit's own notification"
+            opened.post.key !in old.activeKeys -> "opens a removed notification"
+            !old.settings.openOnDoubleTap -> "opens with opening off"
+            !old.settings.wants(opened.post) -> "opens a post the settings don't want"
+            step.effects.indexOf(opened) > step.effects.indexOf(GlowEffect.Close(shown.surface)) ->
+                "closes the surface before opening through it"
+            else -> null
+        }
+    }
 
     /**
      * A notification glow is only placed (opened, or re-targeted to a new post) where the settings it is placed under
@@ -357,10 +387,11 @@ class GlowMachineModelCheckTest {
         val TIMER_EVENTS = Timer.entries.associateWith { GlowEvent.TimerFired(it) }
         val OPENED_EVENTS = Surface.entries.associateWith { GlowEvent.SurfaceOpened(it) }
         val GONE_EVENTS = Surface.entries.associateWith { GlowEvent.SurfaceGone(it) }
+        val OPEN_REQUESTED_EVENTS = Surface.entries.associateWith { GlowEvent.OpenRequested(it) }
 
         /** Every event the alphabet can produce, so a trace stores an index instead of the event. */
-        val ALL_EVENTS: List<GlowEvent> =
-            EXTERNAL_EVENTS + EXTRACTED_EVENT + TIMER_EVENTS.values + OPENED_EVENTS.values + GONE_EVENTS.values
+        val ALL_EVENTS: List<GlowEvent> = EXTERNAL_EVENTS + EXTRACTED_EVENT + TIMER_EVENTS.values +
+            OPENED_EVENTS.values + GONE_EVENTS.values + OPEN_REQUESTED_EVENTS.values
         val EVENT_INDEX: Map<GlowEvent, Int> = ALL_EVENTS.withIndex().associate { (index, event) -> event to index }
     }
 }
