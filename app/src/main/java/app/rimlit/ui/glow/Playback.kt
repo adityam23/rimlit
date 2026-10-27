@@ -1,11 +1,22 @@
 package app.rimlit.ui.glow
 
-import android.animation.ValueAnimator
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import app.rimlit.model.BatterySaver
 import app.rimlit.model.GlowSpec
 
@@ -14,14 +25,16 @@ const val BATTERY_SAVER_FPS = 30
 
 /** Device conditions that change how a glow plays. */
 data class DeviceConditions(
-    /** Remove animations (or an animator duration scale of 0) is on. */
+    /** Remove animations (an animator duration scale of 0) is on. */
     val animationsOff: Boolean,
     /** The system's battery saver is on. */
     val powerSave: Boolean,
 ) {
     companion object {
+        // The setting itself rather than ValueAnimator.areAnimatorsEnabled(): when its change is observed, the
+        // process's own copy of the scale may not have caught up yet.
         fun of(context: Context) = DeviceConditions(
-            animationsOff = !ValueAnimator.areAnimatorsEnabled(),
+            animationsOff = Settings.Global.getFloat(context.contentResolver, ANIMATOR_SCALE, 1f) == 0f,
             powerSave = context.getSystemService(PowerManager::class.java)?.isPowerSaveMode == true,
         )
     }
@@ -46,9 +59,35 @@ fun GlowSpec.playback(lockScreen: Boolean, device: DeviceConditions) = Playback(
     },
 )
 
-/** The device conditions when this composition started: a glow lasts seconds, so it isn't followed live. */
+/**
+ * The device conditions, followed live: the Style screen stays open while the user flips battery saver or Remove
+ * animations from Quick Settings.
+ */
 @Composable
 fun rememberDeviceConditions(): DeviceConditions {
     val context = LocalContext.current
-    return remember(context) { DeviceConditions.of(context) }
+    var conditions by remember(context) { mutableStateOf(DeviceConditions.of(context)) }
+    DisposableEffect(context) {
+        val refresh = { conditions = DeviceConditions.of(context) }
+        val powerSave = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) = refresh()
+        }
+        val animatorScale = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) = refresh()
+        }
+        ContextCompat.registerReceiver(
+            context,
+            powerSave,
+            IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        context.contentResolver.registerContentObserver(Settings.Global.getUriFor(ANIMATOR_SCALE), false, animatorScale)
+        onDispose {
+            context.unregisterReceiver(powerSave)
+            context.contentResolver.unregisterContentObserver(animatorScale)
+        }
+    }
+    return conditions
 }
+
+private const val ANIMATOR_SCALE = Settings.Global.ANIMATOR_DURATION_SCALE
