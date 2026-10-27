@@ -2,9 +2,9 @@ package app.rimlit.overlay
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import app.rimlit.engine.GlowEvent
+import app.rimlit.engine.Surface
 import app.rimlit.glowCoordinator
 
 /**
@@ -16,9 +16,7 @@ import app.rimlit.glowCoordinator
  */
 class GlowAccessibilityService : AccessibilityService() {
 
-    private val glowOverlay by lazy {
-        EdgeOverlayController(this, WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
-    }
+    private val glowOverlay by lazy { EdgeOverlayController(this, Surface.ACCESSIBILITY_OVERLAY) }
 
     override fun onServiceConnected() {
         super.onServiceConnected()

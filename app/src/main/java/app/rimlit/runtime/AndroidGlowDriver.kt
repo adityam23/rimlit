@@ -41,7 +41,7 @@ class AndroidGlowDriver(
     /** One notification image loads at a time: a superseded one that hasn't started never runs. */
     private val imageLane = extractionDispatcher.limitedParallelism(1)
 
-    private val appOverlay by lazy { EdgeOverlayController(context) }
+    private val appOverlay by lazy { EdgeOverlayController(context, Surface.APP_OVERLAY) }
 
     override fun environment() = Environment(
         screenOn = context.getSystemService(PowerManager::class.java)?.isInteractive == true,
@@ -69,7 +69,7 @@ class AndroidGlowDriver(
 
     /** An overlay opens at once: its window is the whole request. */
     private fun openOverlay(surface: Surface, overlay: EdgeOverlayController?): Cancellable {
-        val window = overlay?.open(coordinator, surface)
+        val window = overlay?.open()
         if (window != null) coordinator.surfaceOpened(surface, window) else coordinator.surfaceGone(surface, null)
         return NOTHING_TO_WITHDRAW
     }

@@ -20,33 +20,38 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import app.rimlit.engine.GlowCoordinator
 import app.rimlit.engine.Surface
 import app.rimlit.engine.SurfaceInstance
+import app.rimlit.glowCoordinator
 import app.rimlit.ui.glow.GlowHost
 import app.rimlit.ui.glow.drawIntoCutout
 
 /**
- * Opens the overlay window a glow surface draws in, while the screen is on. One window at most. The window draws
+ * Opens the overlay window [surface] draws in, while the screen is on. One window at most. The window draws
  * whatever the machine shows on its surface, so it has no timeline of its own. Main thread only.
  *
- * [windowType] is `TYPE_APPLICATION_OVERLAY` ("Display over other apps"; hidden by the lock screen) by
- * default, or `TYPE_ACCESSIBILITY_OVERLAY` when [context] is a connected [GlowAccessibilityService].
+ * [Surface.APP_OVERLAY] is a `TYPE_APPLICATION_OVERLAY` window ("Display over other apps"; hidden by the lock
+ * screen); [Surface.ACCESSIBILITY_OVERLAY] is a `TYPE_ACCESSIBILITY_OVERLAY` one, so [context] must then be a
+ * connected [GlowAccessibilityService].
  */
-class EdgeOverlayController(
-    private val context: Context,
-    private val windowType: Int = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-) {
+class EdgeOverlayController(private val context: Context, private val surface: Surface) {
+
+    private val windowType = when (surface) {
+        Surface.APP_OVERLAY -> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        Surface.ACCESSIBILITY_OVERLAY -> WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        Surface.LOCK_SCREEN -> throw IllegalArgumentException("The lock screen is an activity, not an overlay")
+    }
 
     private val windowManager = context.getSystemService(WindowManager::class.java)
+
+    /** Read when used: the app creates the coordinator after its driver, which owns the app overlay. */
+    private val coordinator: GlowCoordinator get() = context.glowCoordinator
 
     /** The window currently attached, if any. */
     private var window: Overlay? = null
 
-    /**
-     * Attaches a window drawing [surface]'s frame of [coordinator]'s state; `null` if it couldn't be added
-     * (permission revoked?).
-     */
-    fun open(coordinator: GlowCoordinator, surface: Surface): SurfaceInstance? {
+    /** Attaches a window drawing [surface]'s frame of the machine's state; `null` if it couldn't be added. */
+    fun open(): SurfaceInstance? {
         window?.close()
-        val created = Overlay(coordinator, surface)
+        val created = Overlay()
         runCatching { windowManager.addView(created.view, layoutParams()) }.onFailure {
             Log.w(TAG, "Failed to add overlay (permission revoked?)", it)
             return null
@@ -58,7 +63,7 @@ class EdgeOverlayController(
 
     /** The host is going away: the attached window reports itself gone, which closes it. */
     fun release() {
-        window?.let { it.coordinator.surfaceGone(it.surface, it) }
+        window?.let { coordinator.surfaceGone(surface, it) }
     }
 
     private fun layoutParams() = WindowManager.LayoutParams(
@@ -79,7 +84,7 @@ class EdgeOverlayController(
     }
 
     /** One attached window: its view and lifecycle. Closing it removes it at once, without fading. */
-    private inner class Overlay(val coordinator: GlowCoordinator, val surface: Surface) : SurfaceInstance {
+    private inner class Overlay : SurfaceInstance {
         val owner = OverlayLifecycleOwner()
         val view = ComposeView(context).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
