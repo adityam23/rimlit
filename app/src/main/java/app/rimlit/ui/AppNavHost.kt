@@ -1,6 +1,7 @@
 package app.rimlit.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -14,9 +15,9 @@ private object Routes {
 }
 
 @Composable
-fun AppNavHost(viewModel: MainViewModel) {
+fun AppNavHost(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = Routes.HOME) {
+    NavHost(navController = navController, startDestination = Routes.HOME, modifier = modifier) {
         composable(Routes.HOME) {
             MainScreen(
                 viewModel = viewModel,
