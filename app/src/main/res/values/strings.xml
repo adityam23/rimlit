@@ -122,6 +122,7 @@
     <string name="show_screen_off_desc">Wake the screen into a black, always-on-display style glow</string>
     <string name="show_lock_screen_title">Lock screen</string>
     <string name="show_lock_screen_desc">Glow above the lock screen while it is showing (needs the accessibility glow)</string>
+    <string name="show_lock_screen_needs_service">Won\'t glow until \"%1$s\" is on and running in Accessibility settings: only it can draw above the lock screen</string>
     <string name="show_unlocked_title">Screen on</string>
     <string name="show_unlocked_desc">Glow while you use the phone</string>
     <string name="quiet_section">Quiet hours</string>

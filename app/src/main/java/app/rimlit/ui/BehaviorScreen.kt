@@ -54,7 +54,7 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
         modifier = modifier,
     ) { innerPadding ->
         SettingsList(innerPadding) {
-            whereSection(settings, viewModel::update)
+            whereSection(settings, lockScreenNeedsService = fallback != null, viewModel::update)
             quietHoursSection(settings.quietHours) { edit ->
                 viewModel.update { it.copy(quietHours = edit(it.quietHours)) }
             }
@@ -70,8 +70,15 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
     }
 }
 
-/** The three places a glow can show, each with its own toggle. */
-private fun LazyListScope.whereSection(settings: GlowSettings, update: ((GlowSettings) -> GlowSettings) -> Unit) {
+/**
+ * The three places a glow can show, each with its own toggle. [lockScreenNeedsService]: the accessibility overlay
+ * isn't up, so the lock-screen toggle can't take effect yet, and says so.
+ */
+private fun LazyListScope.whereSection(
+    settings: GlowSettings,
+    lockScreenNeedsService: Boolean,
+    update: ((GlowSettings) -> GlowSettings) -> Unit,
+) {
     item { SectionTitle(stringResource(R.string.behavior_section)) }
     item {
         SwitchCard(
@@ -87,7 +94,14 @@ private fun LazyListScope.whereSection(settings: GlowSettings, update: ((GlowSet
             title = stringResource(R.string.show_lock_screen_title),
             checked = settings.showOnLockScreen,
             onCheckedChange = { show -> update { it.copy(showOnLockScreen = show) } },
-            subtitle = stringResource(R.string.show_lock_screen_desc),
+            subtitle = if (lockScreenNeedsService) {
+                stringResource(
+                    R.string.show_lock_screen_needs_service,
+                    stringResource(R.string.accessibility_service_label),
+                )
+            } else {
+                stringResource(R.string.show_lock_screen_desc)
+            },
             leading = { SettingIcon(Icons.Filled.Lock) },
         )
     }
