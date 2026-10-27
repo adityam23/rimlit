@@ -25,7 +25,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
 - `.../notify/` — `GlowNotifications.kt` (channels, test notification, full-screen-intent trampoline), `NotificationColorExtractor.kt` (1–3 color palette from notification imagery), `AbandoningLane.kt` (one-at-a-time blocking loads under a timeout, abandoning a stuck one)
 - `.../runtime/` — `AndroidGlowDriver.kt` (the `GlowDriver`: system state, surfaces, main-thread timers, palette extraction by key on one `Dispatchers.IO` lane), `ScreenStateReceiver.kt` (screen on/off, unlock)
-- `.../overlay/` — `EdgeOverlayController.kt` (opens the overlay window a surface draws in, app or accessibility type), `GlowAccessibilityService.kt` (optional, inert: hosts the accessibility overlay that draws above the lock screen)
+- `.../overlay/` — `EdgeOverlayController.kt` (opens the overlay window a surface draws in, app or accessibility type), `GlowAccessibilityService.kt` (recommended, inert: hosts the accessibility overlay, which draws above the lock screen and without Android's overlay notice; the app overlay is the fallback)
 - `.../ui/glow/` — `EdgeGlow` (renderer), `GlowHost` (draws a surface's frame, animating its fades), `GlowGeometry`, `GlowLayout`, `BloomMask`, `GlowColors`, `WindowCutout`
 - `.../ui/components/` — `SettingsComponents.kt` (scaffold, list, `SettingCard`, `SwitchCard`, `RadioCard`, `SettingIcon`, `CommitSlider`, `SettingSlider`, `PreviewButtons`), `PaletteEditor.kt` (+ `paletteBrush`)
 - `.../ui/` — `MainScreen`, `StyleScreen`, `AppsScreen`, `BehaviorScreen`, `AppNavHost` (nav); `.../ui/theme/`
