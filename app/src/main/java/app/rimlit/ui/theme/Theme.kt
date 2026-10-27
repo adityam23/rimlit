@@ -44,9 +44,5 @@ fun AppTheme(
         else -> LightColors
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content,
-    )
+    MaterialTheme(colorScheme = colorScheme, content = content)
 }
