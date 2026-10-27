@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -161,6 +163,33 @@ fun SwitchCard(
         leading = leading,
         // Display only: the card handles the toggle, so the switch isn't a second touch or accessibility target.
         trailing = { Switch(checked = checked, onCheckedChange = null) },
+    )
+}
+
+/** A [SettingCard] that is one radio option: tapping anywhere on it selects it, and it reads as one radio button. */
+@Composable
+fun RadioCard(
+    title: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+    leading: (@Composable () -> Unit)? = null,
+) {
+    SettingCard(
+        title = title,
+        modifier = modifier.selectable(
+            selected = selected,
+            enabled = enabled,
+            role = Role.RadioButton,
+            onClick = onSelect,
+        ),
+        subtitle = subtitle,
+        enabled = enabled,
+        leading = leading,
+        // Display only, as in SwitchCard: the card handles the selection.
+        trailing = { RadioButton(selected = selected, onClick = null, enabled = enabled) },
     )
 }
 

@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,8 +39,8 @@ import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.PreviewButtons
+import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
-import app.rimlit.ui.components.SettingCard
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
@@ -129,11 +128,11 @@ private class SettingsDraft(initial: GlowSettings, private val save: (SettingsEd
 private fun LazyListScope.styleSection(draft: GlowSettings, spec: GlowSpec, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.style_section)) }
     items(GlowStyle.entries, key = { it.name }) { style ->
-        val select = { editor.commit { it.copy(glowStyle = style) } }
-        SettingCard(
+        RadioCard(
             title = stringResource(style.titleRes),
+            selected = draft.glowStyle == style,
+            onSelect = { editor.commit { it.copy(glowStyle = style) } },
             subtitle = stringResource(style.descRes),
-            onClick = select,
             leading = {
                 Box(
                     modifier = Modifier
@@ -148,7 +147,6 @@ private fun LazyListScope.styleSection(draft: GlowSettings, spec: GlowSpec, edit
                     )
                 }
             },
-            trailing = { RadioButton(selected = draft.glowStyle == style, onClick = select) },
         )
     }
 }
@@ -157,13 +155,12 @@ private fun LazyListScope.regionSection(draft: GlowSettings, hasCutout: Boolean,
     item { SectionTitle(stringResource(R.string.region_section)) }
     items(EdgeRegion.entries, key = { it.name }) { region ->
         val available = region != EdgeRegion.CUTOUT || hasCutout
-        val select = { editor.commit { it.copy(region = region) } }
-        SettingCard(
+        RadioCard(
             title = stringResource(region.titleRes),
+            selected = draft.region == region,
+            onSelect = { editor.commit { it.copy(region = region) } },
             subtitle = stringResource(if (available) region.descRes else R.string.region_cutout_unavailable),
             enabled = available,
-            onClick = select,
-            trailing = { RadioButton(selected = draft.region == region, enabled = available, onClick = select) },
         )
     }
 }
@@ -171,12 +168,11 @@ private fun LazyListScope.regionSection(draft: GlowSettings, hasCutout: Boolean,
 private fun LazyListScope.colorSection(draft: GlowSettings, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.color_section)) }
     items(ColorMode.entries, key = { it.name }) { mode ->
-        val select = { editor.commit { it.copy(colorMode = mode) } }
-        SettingCard(
+        RadioCard(
             title = stringResource(mode.titleRes),
+            selected = draft.colorMode == mode,
+            onSelect = { editor.commit { it.copy(colorMode = mode) } },
             subtitle = stringResource(mode.descRes),
-            onClick = select,
-            trailing = { RadioButton(selected = draft.colorMode == mode, onClick = select) },
         )
     }
     if (draft.colorMode == ColorMode.CUSTOM) {
