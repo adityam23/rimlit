@@ -1,16 +1,16 @@
 package app.rimlit.permissions
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import android.view.accessibility.AccessibilityManager
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 import app.rimlit.notify.GlowNotifications
+import app.rimlit.overlay.GlowAccessibilityService
 
 /** How much the glow depends on a grant. */
 enum class Need {
@@ -76,10 +76,14 @@ fun PermissionKind.isGranted(context: Context): Boolean = when (this) {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
             context.getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() == true
 
-    PermissionKind.ACCESSIBILITY ->
-        context.getSystemService(AccessibilityManager::class.java)
-            ?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-            ?.any { it.resolveInfo.serviceInfo.packageName == context.packageName } == true
+    // On in Accessibility settings, bound or not: the system's own list of enabled services holds only bound ones,
+    // so a service that is on but not running would read as off.
+    PermissionKind.ACCESSIBILITY -> {
+        val service = ComponentName(context, GlowAccessibilityService::class.java)
+        Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            ?.split(':')
+            ?.any { ComponentName.unflattenFromString(it) == service } == true
+    }
 
     PermissionKind.BATTERY_OPTIMIZATION ->
         context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
