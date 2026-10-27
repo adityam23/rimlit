@@ -1,12 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Themed-icon (Android 13+) variant of the launcher foreground: single-colour outline. -->
+<!--
+  Themed-icon (Android 13+) variant of the launcher foreground, in one colour: the eclipse rim with a faint
+  corona, an empty body (the moon), and the diamond-ring bead and flare.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Corona: outward-only, since the inner half of each stroke would fill the body. -->
+    <path
+        android:pathData="M44,32h20a8,8 0,0 1,8 8v28a8,8 0,0 1,-8 8h-20a8,8 0,0 1,-8 -8v-28a8,8 0,0 1,8 -8z
+            M42,28h24a12,12 0,0 1,12 12v28a12,12 0,0 1,-12 12h-24a12,12 0,0 1,-12 -12v-28a12,12 0,0 1,12 -12z"
+        android:fillAlpha="0.25"
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd" />
     <path
         android:pathData="M44,32h20a8,8 0,0 1,8 8v28a8,8 0,0 1,-8 8h-20a8,8 0,0 1,-8 -8v-28a8,8 0,0 1,8 -8z"
-        android:strokeWidth="4"
-        android:strokeColor="#FFFFFFFF" />
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M56.5,34.34 L69.66,33.4 L82.8,34.34 L69.66,35.28z M69.66,21.2 L70.6,34.34 L69.66,47.5 L68.72,34.34z
+            M69.66,34.34m-2.8,0a2.8,2.8 0,1 1,5.6 0a2.8,2.8 0,1 1,-5.6 0" />
 </vector>
