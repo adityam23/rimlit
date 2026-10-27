@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,7 +40,8 @@ import app.rimlit.ui.components.SettingIcon
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
-import java.util.Calendar
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -170,15 +172,17 @@ private fun TimePickerDialog(minuteOfDay: Int, onConfirm: (Int) -> Unit, onDismi
     )
 }
 
-/** [minuteOfDay] in the user's time format (12- or 24-hour, as the system is set). */
+/**
+ * [minuteOfDay] in the user's time format (12- or 24-hour, as the system is set). A wall-clock time, not today's
+ * instant: a time the clocks skip on the day they change still reads as itself.
+ */
 @Composable
 @ReadOnlyComposable
 private fun timeText(minuteOfDay: Int): String {
-    val time = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, minuteOfDay / 60)
-        set(Calendar.MINUTE, minuteOfDay % 60)
-    }.time
-    return DateFormat.getTimeFormat(LocalContext.current).format(time)
+    val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
+    val pattern = DateFormat.getBestDateTimePattern(locale, if (DateFormat.is24HourFormat(context)) "Hm" else "hm")
+    return DateTimeFormatter.ofPattern(pattern, locale).format(LocalTime.of(minuteOfDay / 60, minuteOfDay % 60))
 }
 
 private val QuietScope.titleRes
