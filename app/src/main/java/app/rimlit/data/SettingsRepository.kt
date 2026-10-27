@@ -16,13 +16,18 @@ import androidx.datastore.preferences.preferencesDataStore
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.MAX_PALETTE_COLORS
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 import java.io.IOException
 import java.util.Locale
 
 private const val TAG = "SettingsRepository"
+
+/** The first retry after a failed read; each later one waits twice as long, up to [MAX_RETRY_DOUBLINGS] times. */
+private const val READ_RETRY_MS = 1_000L
+private const val MAX_RETRY_DOUBLINGS = 6L
 
 private val Context.dataStore by preferencesDataStore(
     name = "settings",
@@ -56,12 +61,17 @@ private object Keys {
 /** Single source of truth for user settings, backed by Preferences DataStore. */
 class SettingsRepository(private val context: Context) {
 
-    /** The stored settings; defaults if the file can't be read (an I/O error ends the flow with them). */
+    /**
+     * The stored settings. On the first I/O error it emits defaults, then keeps retrying with backoff, so the stored
+     * settings come back once a read succeeds instead of the defaults lasting until the process restarts.
+     */
     val settings: Flow<GlowSettings> = context.dataStore.data
-        .catch { e ->
-            if (e !is IOException) throw e
-            Log.w(TAG, "Couldn't read settings; using defaults", e)
-            emit(emptyPreferences())
+        .retryWhen { e, attempt ->
+            if (e !is IOException) return@retryWhen false
+            Log.w(TAG, "Couldn't read settings; retrying", e)
+            if (attempt == 0L) emit(emptyPreferences())
+            delay(READ_RETRY_MS shl attempt.coerceAtMost(MAX_RETRY_DOUBLINGS).toInt())
+            true
         }
         .map { it.toSettings() }
 
