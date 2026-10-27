@@ -89,7 +89,7 @@ object GlowNotifications {
         )
         val notification = Notification.Builder(context, GLOW_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.notification_glow_title))
+            .setContentTitle(context.getString(R.string.app_name))
             .setFullScreenIntent(pendingIntent, true)
             // Only a trampoline to wake the screen: never bridge it to a watch, where it would mask the real one.
             .setLocalOnly(true)

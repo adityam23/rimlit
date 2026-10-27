@@ -83,7 +83,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             tuningSection(draft, editor)
             item {
                 OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.preview_button))
+                    Text(stringResource(R.string.test_notification_button))
                 }
             }
         }
@@ -241,7 +241,7 @@ private fun LazyListScope.tuningSection(draft: GlowSettings, editor: DraftEditor
     }
     item {
         SettingSlider(
-            label = stringResource(R.string.duration_section),
+            label = stringResource(R.string.duration_label),
             value = draft.durationMs.toFloat(),
             range = Ranges.durationMs.first.toFloat()..Ranges.durationMs.last.toFloat(),
             valueText = { stringResource(R.string.value_seconds, it / 1000f) },
