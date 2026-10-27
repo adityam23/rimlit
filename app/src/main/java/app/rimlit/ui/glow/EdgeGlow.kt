@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
-import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
@@ -70,7 +69,7 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                     width = size.width,
                     height = size.height,
                     shape = shape,
-                    ringCutout = spec.region == EdgeRegion.CUTOUT,
+                    region = spec.region,
                     thicknessPx = thicknessPx,
                     cutoutGapPx = 4.dp.toPx(),
                     bloomPx = if (spec.style == GlowStyle.BASIC) 0f else glowPx,
@@ -116,18 +115,16 @@ private const val FRAME_JITTER = 0.12f
 
 /**
  * Holds the paints and gradient buffers for one spec + layout. A frame allocates only shaders: no blurs
- * (the halo is the layout's pre-blurred mask, tinted) and one stroke per layer (the blade is a shader, not
- * segments).
+ * (each halo is its outline's pre-blurred mask, tinted) and one stroke per layer and outline (the blade is a
+ * shader, not segments).
  */
 private class GlowPainter(
     private val spec: GlowSpec,
     private val playback: Playback,
-    private val layout: GlowLayout,
+    layout: GlowLayout,
     thicknessPx: Float,
     private val glowPx: Float,
 ) {
-    private val geometry = layout.geometry
-
     /** The single color of a solid palette; `null` for multicolor palettes, which use a shader. */
     private val solidColor = (spec.palette as? GlowPalette.Colors)?.argb?.singleOrNull()
 
@@ -140,38 +137,14 @@ private class GlowPainter(
 
     private val bloom = Paint(Paint.FILTER_BITMAP_FLAG).apply { solidColor?.let { color = it } }
 
-    /** Multicolor palettes flow around the outline over time; `null` for a solid color. */
-    private val flow = if (solidColor == null) PaletteFlow(geometry, spec.palette) else null
-
-    /** Built on the first blade frame: a GLOW, BASIC or still BLADE glow never needs its gradient buffers. */
-    private val blade by lazy(LazyThreadSafetyMode.NONE) {
-        BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
-    }
-
     /** A still blade can't race, so it glows: the whole outline lit, with its halo. */
     private val style = if (playback.still && spec.style == GlowStyle.BLADE) GlowStyle.GLOW else spec.style
 
+    private val outlines = layout.outlines.map(::OutlinePainter)
+
     fun draw(canvas: Canvas, t: Float) {
-        val palette = paletteShader(t)
-        when (style) {
-            GlowStyle.BASIC -> drawOutline(canvas, palette, pulse(t))
-
-            GlowStyle.GLOW -> {
-                drawBloom(canvas, palette, 0.8f * pulse(t))
-                drawOutline(canvas, palette, pulse(t))
-            }
-
-            GlowStyle.BLADE -> {
-                drawOutline(canvas, palette, 0.18f)
-                val lap = t * BLADE_LAPS_PER_SECOND * spec.speed
-                blade.moveTo(head = (lap - floor(lap)) * geometry.length)
-                drawBloom(canvas, comet(blade.shader(edge = glowPx), palette), 0.8f)
-                drawOutline(canvas, comet(blade.shader(edge = CRISP_EDGE_PX), palette), 1f)
-            }
-        }
+        for (outline in outlines) outline.draw(canvas, t)
     }
-
-    private fun paletteShader(t: Float): Shader? = flow?.shader(phase = t * FLOW_LOOPS_PER_SECOND * spec.speed)
 
     /** Smooth breathing in [0.6, 1]; full and steady when still. */
     private fun pulse(t: Float): Float = if (playback.still) {
@@ -185,17 +158,53 @@ private class GlowPainter(
         // DST_IN keeps the palette's colors where the fade is opaque.
         if (palette == null) fade else ComposeShader(palette, fade, PorterDuff.Mode.DST_IN)
 
-    private fun drawOutline(canvas: Canvas, shader: Shader?, alpha: Float) {
-        canvas.drawPath(geometry.path, core.tint(shader, alpha))
-    }
-
-    private fun drawBloom(canvas: Canvas, shader: Shader?, alpha: Float) {
-        layout.bloom?.draw(canvas, bloom.tint(shader, alpha))
-    }
-
     /** Colors this paint with [shader] (`null` keeps the solid color set at construction), at [alpha] × brightness. */
     private fun Paint.tint(shader: Shader?, alpha: Float): Paint = apply {
         this.shader = shader
         this.alpha = (255 * alpha * playback.brightness).toInt().coerceIn(0, 255)
+    }
+
+    /**
+     * One outline's gradient buffers. Every outline plays on the same clock: its palette flows around it on its
+     * own, and its blade sits at the same fraction of a lap as the others', so blades race in step.
+     */
+    private inner class OutlinePainter(private val outline: GlowOutline) {
+        private val geometry = outline.geometry
+
+        /** Multicolor palettes flow around the outline over time; `null` for a solid color. */
+        private val flow = if (solidColor == null) PaletteFlow(geometry, spec.palette) else null
+
+        /** Built on the first blade frame: a GLOW, BASIC or still BLADE glow never needs its gradient buffers. */
+        private val blade by lazy(LazyThreadSafetyMode.NONE) {
+            BladeFade(geometry, tail = BLADE_TAIL * geometry.length, color = solidColor ?: Color.WHITE)
+        }
+
+        fun draw(canvas: Canvas, t: Float) {
+            val palette = flow?.shader(phase = t * FLOW_LOOPS_PER_SECOND * spec.speed)
+            when (style) {
+                GlowStyle.BASIC -> drawOutline(canvas, palette, pulse(t))
+
+                GlowStyle.GLOW -> {
+                    drawBloom(canvas, palette, 0.8f * pulse(t))
+                    drawOutline(canvas, palette, pulse(t))
+                }
+
+                GlowStyle.BLADE -> {
+                    drawOutline(canvas, palette, 0.18f)
+                    val lap = t * BLADE_LAPS_PER_SECOND * spec.speed
+                    blade.moveTo(head = (lap - floor(lap)) * geometry.length)
+                    drawBloom(canvas, comet(blade.shader(edge = glowPx), palette), 0.8f)
+                    drawOutline(canvas, comet(blade.shader(edge = CRISP_EDGE_PX), palette), 1f)
+                }
+            }
+        }
+
+        private fun drawOutline(canvas: Canvas, shader: Shader?, alpha: Float) {
+            canvas.drawPath(geometry.path, core.tint(shader, alpha))
+        }
+
+        private fun drawBloom(canvas: Canvas, shader: Shader?, alpha: Float) {
+            outline.bloom?.draw(canvas, bloom.tint(shader, alpha))
+        }
     }
 }

@@ -3,8 +3,15 @@ package app.rimlit.model
 /** Visual treatment of the edge glow shown when a notification arrives. */
 enum class GlowStyle { BASIC, GLOW, BLADE }
 
-/** Where the glow is drawn. [CUTOUT] falls back to [FULL_SCREEN] on devices without a camera cutout. */
-enum class EdgeRegion { FULL_SCREEN, CUTOUT }
+/**
+ * Where the glow is drawn: around the screen edge, the camera cutout, or both. Without a camera cutout, the
+ * regions that ring it draw the screen edge only.
+ */
+enum class EdgeRegion(val ringsCutout: Boolean, val tracesEdge: Boolean) {
+    FULL_SCREEN(ringsCutout = false, tracesEdge = true),
+    CUTOUT(ringsCutout = true, tracesEdge = false),
+    CUTOUT_AND_EDGE(ringsCutout = true, tracesEdge = true),
+}
 
 /** When glows save battery by drawing fewer frames. */
 enum class BatterySaver {
