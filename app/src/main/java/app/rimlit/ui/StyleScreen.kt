@@ -50,7 +50,7 @@ import app.rimlit.ui.glow.cutoutBounds
 import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
-private val PreviewBackground = Color(0xFF000000)
+private val PreviewBackground = Color.Black
 
 @Composable
 fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
