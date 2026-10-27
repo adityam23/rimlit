@@ -42,6 +42,8 @@ internal object Fixtures {
 
     val SETTINGS = listOf(
         AUTO,
+        // Other auto colours, so an extraction carrying the live settings instead of the post-time ones is caught.
+        AUTO.copy(autoColors = AutoColors(AutoColorSource.APP_ICON, count = 1)),
         CUSTOM,
         AUTO.copy(enabled = false),
         AUTO.copy(showWhenLocked = false),
