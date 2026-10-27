@@ -179,7 +179,7 @@ private fun LazyListScope.styleSection(
 private fun LazyListScope.regionSection(draft: GlowSettings, hasCutout: Boolean, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.region_section)) }
     items(EdgeRegion.entries, key = { it.name }) { region ->
-        val available = region != EdgeRegion.CUTOUT || hasCutout
+        val available = !region.ringsCutout || hasCutout
         RadioCard(
             title = stringResource(region.titleRes),
             selected = draft.region == region,
@@ -416,12 +416,14 @@ private val EdgeRegion.titleRes
     get() = when (this) {
         EdgeRegion.FULL_SCREEN -> R.string.region_full_title
         EdgeRegion.CUTOUT -> R.string.region_cutout_title
+        EdgeRegion.CUTOUT_AND_EDGE -> R.string.region_both_title
     }
 
 private val EdgeRegion.descRes
     get() = when (this) {
         EdgeRegion.FULL_SCREEN -> R.string.region_full_desc
         EdgeRegion.CUTOUT -> R.string.region_cutout_desc
+        EdgeRegion.CUTOUT_AND_EDGE -> R.string.region_both_desc
     }
 
 private val ColorMode.titleRes
