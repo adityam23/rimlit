@@ -113,7 +113,7 @@ fun PaletteEditor(
 
 /** Compact read-only rendering of a palette (solid fill or gradient). */
 @Composable
-fun GradientBar(colors: List<Int>, modifier: Modifier = Modifier) {
+private fun GradientBar(colors: List<Int>, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
