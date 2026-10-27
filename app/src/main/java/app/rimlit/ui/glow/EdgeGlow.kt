@@ -98,7 +98,8 @@ private fun rememberFrameSeconds(running: Boolean, maxFps: Int?): State<Float> {
         if (!running) return@LaunchedEffect
         // A little under the cap's interval, so vsync jitter doesn't push a frame a whole vsync late.
         val pauseMs = maxFps?.let { (MILLIS_PER_SECOND / it * (1 - FRAME_JITTER)).toLong() }
-        val start = withFrameNanos { it }
+        // Carries on from where it was: a changed cap restarts this effect, not the animation.
+        val start = withFrameNanos { it } - (seconds.floatValue * NANOS_PER_SECOND).toLong()
         while (true) {
             if (pauseMs != null) delay(pauseMs)
             withFrameNanos { now -> seconds.floatValue = (now - start) / NANOS_PER_SECOND }
