@@ -405,6 +405,7 @@ private val GlowStyle.titleRes
         GlowStyle.GLOW -> R.string.style_glow_title
         GlowStyle.BLADE -> R.string.style_blade_title
         GlowStyle.WAVE -> R.string.style_wave_title
+        GlowStyle.GLITTER -> R.string.style_glitter_title
     }
 
 private val GlowStyle.descRes
@@ -413,6 +414,7 @@ private val GlowStyle.descRes
         GlowStyle.GLOW -> R.string.style_glow_desc
         GlowStyle.BLADE -> R.string.style_blade_desc
         GlowStyle.WAVE -> R.string.style_wave_desc
+        GlowStyle.GLITTER -> R.string.style_glitter_desc
     }
 
 private val EdgeRegion.titleRes

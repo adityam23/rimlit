@@ -1,8 +1,10 @@
 package app.rimlit.ui.glow.effects
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RectF
 import android.graphics.Shader
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSpec
@@ -46,7 +48,8 @@ internal class OutlineBrush(
         solidColor?.let { color = it }
     }
 
-    private val bloom = Paint(Paint.FILTER_BITMAP_FLAG).apply { solidColor?.let { color = it } }
+    /** Tints alpha-only masks: the halo, and sprites. */
+    private val mask = Paint(Paint.FILTER_BITMAP_FLAG).apply { solidColor?.let { color = it } }
 
     /** Multicolor palettes flow around the outline over time; `null` for a solid color. */
     private val flow = if (solidColor == null) PaletteFlow(outline.geometry, spec.palette) else null
@@ -71,7 +74,12 @@ internal class OutlineBrush(
 
     /** Draws the outline's pre-blurred halo, if it has one. */
     fun drawBloom(canvas: Canvas, shader: Shader?, alpha: Float) {
-        outline.bloom?.draw(canvas, bloom.tint(shader, alpha))
+        outline.bloom?.draw(canvas, mask.tint(shader, alpha))
+    }
+
+    /** Draws the alpha-only [sprite] stretched over [destination], tinted like the halo. */
+    fun drawSprite(canvas: Canvas, sprite: Bitmap, destination: RectF, shader: Shader?, alpha: Float) {
+        canvas.drawBitmap(sprite, null, destination, mask.tint(shader, alpha))
     }
 
     /** Colors this paint with [shader] (`null` keeps the solid color set at construction), at [alpha] × brightness. */

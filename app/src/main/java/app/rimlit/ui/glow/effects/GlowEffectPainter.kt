@@ -22,4 +22,6 @@ internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (t
     GlowStyle.BLADE -> if (brush.still) GlowEffect(brush) else BladeEffect(brush)
 
     GlowStyle.WAVE -> WaveEffect(brush)
+
+    GlowStyle.GLITTER -> GlitterEffect(brush)
 }
