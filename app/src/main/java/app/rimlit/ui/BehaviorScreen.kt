@@ -11,7 +11,6 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -33,6 +32,7 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.QuietHours
 import app.rimlit.model.QuietScope
 import app.rimlit.ui.components.PreviewButtons
+import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingCard
 import app.rimlit.ui.components.SettingIcon
@@ -41,13 +41,10 @@ import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
 import java.util.Calendar
 
-private typealias Update = ((GlowSettings) -> GlowSettings) -> Unit
-
 @Composable
 fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val fallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
-    val update: Update = { transform -> viewModel.update(transform) }
 
     SubScreenScaffold(
         title = stringResource(R.string.nav_behavior_title),
@@ -55,8 +52,10 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
         modifier = modifier,
     ) { innerPadding ->
         SettingsList(innerPadding) {
-            whereSection(settings, update)
-            quietHoursSection(settings.quietHours) { edit -> update { it.copy(quietHours = edit(it.quietHours)) } }
+            whereSection(settings, viewModel::update)
+            quietHoursSection(settings.quietHours) { edit ->
+                viewModel.update { it.copy(quietHours = edit(it.quietHours)) }
+            }
             item { SectionTitle(stringResource(R.string.preview_section)) }
             item {
                 PreviewButtons(
@@ -70,7 +69,7 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
 }
 
 /** The three places a glow can show, each with its own toggle. */
-private fun LazyListScope.whereSection(settings: GlowSettings, update: Update) {
+private fun LazyListScope.whereSection(settings: GlowSettings, update: ((GlowSettings) -> GlowSettings) -> Unit) {
     item { SectionTitle(stringResource(R.string.behavior_section)) }
     item {
         SwitchCard(
@@ -120,12 +119,11 @@ private fun LazyListScope.quietHoursSection(quiet: QuietHours, update: ((QuietHo
         TimeCard(stringResource(R.string.quiet_end), quiet.endMinute) { m -> update { it.copy(endMinute = m) } }
     }
     items(QuietScope.entries, key = { it.name }) { scope ->
-        val select = { update { it.copy(scope = scope) } }
-        SettingCard(
+        RadioCard(
             title = stringResource(scope.titleRes),
+            selected = quiet.scope == scope,
+            onSelect = { update { it.copy(scope = scope) } },
             subtitle = stringResource(scope.descRes),
-            onClick = select,
-            trailing = { RadioButton(selected = quiet.scope == scope, onClick = select) },
         )
     }
 }
