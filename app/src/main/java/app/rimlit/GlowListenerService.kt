@@ -5,6 +5,8 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import app.rimlit.engine.GlowEvent
+import app.rimlit.engine.GroupAlert
+import app.rimlit.engine.GroupRole
 import app.rimlit.engine.Post
 import app.rimlit.notify.GlowNotifications
 
@@ -73,7 +75,16 @@ class GlowListenerService : NotificationListenerService() {
             isTest = GlowNotifications.isTest(this@GlowListenerService, this),
             hasFullScreenIntent = notification.fullScreenIntent != null,
             isOngoing = isOngoing,
-            isGroupSummary = flags and Notification.FLAG_GROUP_SUMMARY != 0,
+            group = when {
+                notification.group == null -> GroupRole.NONE
+                flags and Notification.FLAG_GROUP_SUMMARY != 0 -> GroupRole.SUMMARY
+                else -> GroupRole.CHILD
+            },
+            groupAlert = when (notification.groupAlertBehavior) {
+                Notification.GROUP_ALERT_SUMMARY -> GroupAlert.SUMMARY
+                Notification.GROUP_ALERT_CHILDREN -> GroupAlert.CHILDREN
+                else -> GroupAlert.ALL
+            },
             onlyAlertOnce = flags and Notification.FLAG_ONLY_ALERT_ONCE != 0,
             importance = ranking?.importance,
             passesDnd = ranking?.matchesInterruptionFilter() ?: true,
