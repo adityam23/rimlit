@@ -55,7 +55,7 @@ fun MainScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
-    val fallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
+    val fallback by viewModel.glowFallback.collectAsStateWithLifecycle()
 
     SubScreenScaffold(title = stringResource(R.string.app_name), onBack = null, modifier = modifier) { innerPadding ->
         SettingsList(innerPadding) {
@@ -68,8 +68,8 @@ fun MainScreen(
                     prominent = true,
                 )
             }
-            // Only while the fallback is really in use: glows on, and drawn over other apps.
-            fallback?.takeIf { settings.enabled }?.let { reason ->
+            // Only while real glows fall back (see MainViewModel.glowFallback).
+            fallback?.let { reason ->
                 item {
                     NavCard(Icons.Filled.Info, R.string.fallback_title, reason.descriptionRes) {
                         viewModel.openPermission(PermissionKind.ACCESSIBILITY)

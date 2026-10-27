@@ -12,6 +12,7 @@ import app.rimlit.data.AppListRepository
 import app.rimlit.data.SettingsRepository
 import app.rimlit.engine.GlowEvent
 import app.rimlit.engine.PreviewTarget
+import app.rimlit.engine.onScreenOverlay
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.GlowNotifications
@@ -50,12 +51,20 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     private val _permissions = MutableStateFlow(Permissions.statuses(application))
     val permissions: StateFlow<List<PermissionStatus>> = _permissions.asStateFlow()
 
-    /** Why on-screen glows and previews would use the app overlay now, so Android shows its notice; `null` if not. */
+    /** Why on-screen previews would use the app overlay now, so Android shows its notice; `null` if not. */
     val overlayFallback: StateFlow<OverlayFallback?> = combine(
         _permissions,
-        application.glowCoordinator.state.map { it?.accessibilityOverlay == true }.distinctUntilChanged(),
+        application.glowCoordinator.state.map { it?.onScreenOverlay }.distinctUntilChanged(),
         ::overlayFallback,
     ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = null)
+
+    /**
+     * [overlayFallback] where real glows meet it: they are on and show while unlocked, the only place the app overlay
+     * stands in (above the lock screen, only the accessibility overlay draws).
+     */
+    val glowFallback: StateFlow<OverlayFallback?> = combine(overlayFallback, settings) { fallback, settings ->
+        fallback.takeIf { settings.enabled && settings.showWhenUnlocked }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = null)
 
     val apps: StateFlow<List<AppInfo>> = flow { emit(appListRepository.launchableApps()) }
         .flowOn(ioDispatcher)

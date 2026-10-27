@@ -9,6 +9,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
+import app.rimlit.engine.Surface
 import app.rimlit.notify.GlowNotifications
 import app.rimlit.overlay.GlowAccessibilityService
 
@@ -50,14 +51,15 @@ enum class OverlayFallback {
 }
 
 /**
- * Why on-screen glows would fall back to the app overlay now, given the grants in [statuses] and whether the
- * accessibility service is [serviceConnected]; `null` if they don't: the service draws them, or without Display over
- * other apps nothing does.
+ * Why on-screen glows and previews fall back to the app overlay now, given the grants in [statuses] and the [overlay]
+ * the engine draws them on ([app.rimlit.engine.onScreenOverlay]); `null` if they don't: the service draws them,
+ * without Display over other apps nothing does, or the engine hasn't started ([overlay] `null`), so nothing is known
+ * yet.
  */
-fun overlayFallback(statuses: List<PermissionStatus>, serviceConnected: Boolean): OverlayFallback? {
+fun overlayFallback(statuses: List<PermissionStatus>, overlay: Surface?): OverlayFallback? {
     fun granted(kind: PermissionKind) = statuses.any { it.kind == kind && it.granted }
     return when {
-        serviceConnected || !granted(PermissionKind.OVERLAY) -> null
+        overlay != Surface.APP_OVERLAY || !granted(PermissionKind.OVERLAY) -> null
         granted(PermissionKind.ACCESSIBILITY) -> OverlayFallback.SERVICE_NOT_RUNNING
         else -> OverlayFallback.SERVICE_OFF
     }
