@@ -9,11 +9,11 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MobileOff
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -141,7 +141,8 @@ private fun TimeCard(title: String, minuteOfDay: Int, onChange: (Int) -> Unit) {
         leading = { SettingIcon(Icons.Filled.Schedule) },
     )
     if (picking) {
-        TimePickerDialog(
+        TimeDialog(
+            title = title,
             minuteOfDay = minuteOfDay,
             onConfirm = { minute ->
                 picking = false
@@ -152,24 +153,27 @@ private fun TimeCard(title: String, minuteOfDay: Int, onChange: (Int) -> Unit) {
     }
 }
 
+/** Material's time picker dialog for [minuteOfDay], in the system's 12- or 24-hour format. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TimePickerDialog(minuteOfDay: Int, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun TimeDialog(title: String, minuteOfDay: Int, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
     val state = rememberTimePickerState(
         initialHour = minuteOfDay / 60,
         initialMinute = minuteOfDay % 60,
         is24Hour = DateFormat.is24HourFormat(LocalContext.current),
     )
-    AlertDialog(
+    TimePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) {
                 Text(stringResource(android.R.string.ok))
             }
         },
+        title = { Text(title) },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
-        text = { TimePicker(state = state) },
-    )
+    ) {
+        TimePicker(state = state)
+    }
 }
 
 /**
