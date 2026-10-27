@@ -23,6 +23,7 @@ import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
+import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
@@ -87,32 +88,29 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
 
 /**
  * Seconds since the first frame, while [running]; advanced at most [maxFps] times a second (`null`: every frame).
- * Read it only in draw to avoid recomposition: a frame that doesn't advance it isn't redrawn.
+ * Read it only in draw to avoid recomposition. Under a cap the clock sleeps between frames, so the app isn't woken
+ * on the vsyncs it skips.
  */
 @Composable
 private fun rememberFrameSeconds(running: Boolean, maxFps: Int?): State<Float> {
     val seconds = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(running, maxFps) {
         if (!running) return@LaunchedEffect
-        // A little under the cap's interval, so vsync jitter doesn't skip a frame that is due.
-        val interval = maxFps?.let { (NANOS_PER_SECOND / it * (1 - FRAME_JITTER)).toLong() } ?: 0L
+        // A little under the cap's interval, so vsync jitter doesn't push a frame a whole vsync late.
+        val pauseMs = maxFps?.let { (MILLIS_PER_SECOND / it * (1 - FRAME_JITTER)).toLong() }
         val start = withFrameNanos { it }
-        var shown = start
         while (true) {
-            withFrameNanos { now ->
-                if (now - shown >= interval) {
-                    shown = now
-                    seconds.floatValue = (now - start) / NANOS_PER_SECOND
-                }
-            }
+            if (pauseMs != null) delay(pauseMs)
+            withFrameNanos { now -> seconds.floatValue = (now - start) / NANOS_PER_SECOND }
         }
     }
     return seconds
 }
 
 private const val NANOS_PER_SECOND = 1_000_000_000f
+private const val MILLIS_PER_SECOND = 1_000f
 
-/** Share of a capped frame interval a frame may arrive early by and still be drawn. */
+/** Share of a capped frame interval the clock wakes early by, so the frame after it isn't a vsync late. */
 private const val FRAME_JITTER = 0.12f
 
 /**
