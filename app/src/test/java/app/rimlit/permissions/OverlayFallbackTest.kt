@@ -23,8 +23,8 @@ class OverlayFallbackTest {
     }
 
     @Test
-    fun withoutDisplayOverOtherAppsNothingFallsBack() {
-        assertNull(overlayFallback(statuses(), Surface.APP_OVERLAY))
+    fun withoutDisplayOverOtherAppsNothingDraws() {
+        assertEquals(OverlayFallback.NO_OVERLAY, overlayFallback(statuses(), Surface.APP_OVERLAY))
     }
 
     @Test

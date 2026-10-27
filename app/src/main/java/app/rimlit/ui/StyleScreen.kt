@@ -39,6 +39,7 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
+import app.rimlit.permissions.OverlayFallback
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.RadioCard
@@ -76,7 +77,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
                     spec = spec,
                     onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, spec) },
                     onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, spec) },
-                    onScreenFallsBack = fallback != null,
+                    fallback = fallback,
                 )
             }
             styleSection(draft, spec, editor)
@@ -281,7 +282,7 @@ private fun LivePreview(
     spec: GlowSpec,
     onPreviewOnScreen: () -> Unit,
     onPreviewLockScreen: () -> Unit,
-    onScreenFallsBack: Boolean,
+    fallback: OverlayFallback?,
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -297,7 +298,7 @@ private fun LivePreview(
             ) {
                 EdgeGlow(spec = spec, preview = true, modifier = Modifier.fillMaxSize())
             }
-            PreviewButtons(onPreviewOnScreen, onPreviewLockScreen, Modifier.weight(1f), onScreenFallsBack)
+            PreviewButtons(onPreviewOnScreen, onPreviewLockScreen, Modifier.weight(1f), fallback)
         }
     }
 }

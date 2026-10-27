@@ -53,7 +53,7 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
                 PreviewButtons(
                     onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, settings.previewSpec()) },
                     onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, settings.previewSpec()) },
-                    onScreenFallsBack = fallback != null,
+                    fallback = fallback,
                 )
             }
         }

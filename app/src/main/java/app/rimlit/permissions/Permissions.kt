@@ -39,8 +39,9 @@ enum class PermissionKind(val need: Need = Need.REQUIRED) {
 data class PermissionStatus(val kind: PermissionKind, val granted: Boolean)
 
 /**
- * Why on-screen glows fall back to the app overlay (`TYPE_APPLICATION_OVERLAY`), which makes Android post its own
- * "Rimlit is displaying over other apps" notification while one is up.
+ * Why on-screen glows don't get the accessibility overlay. They fall back to the app overlay
+ * (`TYPE_APPLICATION_OVERLAY`), which makes Android post its own "Rimlit is displaying over other apps" notification
+ * while one is up, or without Display over other apps they can't show at all.
  */
 enum class OverlayFallback {
     /** The accessibility service is off. */
@@ -48,18 +49,21 @@ enum class OverlayFallback {
 
     /** The accessibility service is on in settings, but the system hasn't bound it (killed, or stuck after updates). */
     SERVICE_NOT_RUNNING,
+
+    /** Neither overlay is available: nothing draws on-screen glows. */
+    NO_OVERLAY,
 }
 
 /**
- * Why on-screen glows and previews fall back to the app overlay now, given the grants in [statuses] and the [overlay]
- * the engine draws them on ([app.rimlit.engine.onScreenOverlay]); `null` if they don't: the service draws them,
- * without Display over other apps nothing does, or the engine hasn't started ([overlay] `null`), so nothing is known
- * yet.
+ * Why on-screen glows and previews don't get the accessibility overlay now, given the grants in [statuses] and the
+ * [overlay] the engine draws them on ([app.rimlit.engine.onScreenOverlay]); `null` if they do, or if the engine
+ * hasn't started ([overlay] `null`), so nothing is known yet.
  */
 fun overlayFallback(statuses: List<PermissionStatus>, overlay: Surface?): OverlayFallback? {
     fun granted(kind: PermissionKind) = statuses.any { it.kind == kind && it.granted }
     return when {
-        overlay != Surface.APP_OVERLAY || !granted(PermissionKind.OVERLAY) -> null
+        overlay != Surface.APP_OVERLAY -> null
+        !granted(PermissionKind.OVERLAY) -> OverlayFallback.NO_OVERLAY
         granted(PermissionKind.ACCESSIBILITY) -> OverlayFallback.SERVICE_NOT_RUNNING
         else -> OverlayFallback.SERVICE_OFF
     }

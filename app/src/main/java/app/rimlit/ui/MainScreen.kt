@@ -71,7 +71,7 @@ fun MainScreen(
             // Only while real glows fall back (see MainViewModel.glowFallback).
             fallback?.let { reason ->
                 item {
-                    NavCard(Icons.Filled.Info, R.string.fallback_title, reason.description()) {
+                    NavCard(Icons.Filled.Info, reason.titleRes, reason.description()) {
                         viewModel.openPermission(PermissionKind.ACCESSIBILITY)
                     }
                 }
@@ -165,12 +165,19 @@ private fun PermissionKind.icon(): ImageVector = when (this) {
     PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
 }
 
+private val OverlayFallback.titleRes
+    get() = when (this) {
+        OverlayFallback.SERVICE_OFF, OverlayFallback.SERVICE_NOT_RUNNING -> R.string.fallback_title
+        OverlayFallback.NO_OVERLAY -> R.string.no_overlay_title
+    }
+
 @Composable
 @ReadOnlyComposable
 private fun OverlayFallback.description(): String = stringResource(
     when (this) {
         OverlayFallback.SERVICE_OFF -> R.string.fallback_service_off
         OverlayFallback.SERVICE_NOT_RUNNING -> R.string.fallback_service_not_running
+        OverlayFallback.NO_OVERLAY -> R.string.fallback_no_overlay
     },
     stringResource(R.string.accessibility_service_label),
 )

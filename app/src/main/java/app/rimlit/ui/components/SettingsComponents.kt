@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import app.rimlit.R
+import app.rimlit.permissions.OverlayFallback
 
 /** Standard screen chrome: centered title, optional back arrow. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -260,26 +261,23 @@ fun SettingSlider(
 }
 
 /**
- * The two full-size previews: the on-screen overlay and the lock-screen glow. [onScreenFallsBack]: the on-screen one
- * would use the app overlay, so a note warns of Android's notice.
+ * The two full-size previews: the on-screen overlay and the lock-screen glow. [fallback]: why the on-screen one
+ * doesn't get the accessibility overlay, so a note says what the user will see instead.
  */
 @Composable
 fun PreviewButtons(
     onPreviewOnScreen: () -> Unit,
     onPreviewLockScreen: () -> Unit,
     modifier: Modifier = Modifier,
-    onScreenFallsBack: Boolean = false,
+    fallback: OverlayFallback? = null,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = onPreviewOnScreen, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.preview_unlocked))
         }
-        if (onScreenFallsBack) {
+        if (fallback != null) {
             Text(
-                text = stringResource(
-                    R.string.preview_fallback_hint,
-                    stringResource(R.string.accessibility_service_label),
-                ),
+                text = stringResource(fallback.previewHintRes, stringResource(R.string.accessibility_service_label)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -289,3 +287,10 @@ fun PreviewButtons(
         }
     }
 }
+
+private val OverlayFallback.previewHintRes
+    get() = when (this) {
+        OverlayFallback.SERVICE_OFF -> R.string.preview_hint_service_off
+        OverlayFallback.SERVICE_NOT_RUNNING -> R.string.preview_hint_service_not_running
+        OverlayFallback.NO_OVERLAY -> R.string.preview_hint_no_overlay
+    }
