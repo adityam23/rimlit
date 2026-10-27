@@ -64,7 +64,10 @@ data class GlowSettings(
     val glowWidthDp: Float = 24f,
     val speed: Float = 1f,
     val brightness: Float = 1f,
+    /** Brightness on the lock-screen surface; `null` follows [brightness]. */
+    val screenOffBrightness: Float? = null,
     val durationMs: Long = 4_000L,
+    val batterySaver: BatterySaver = BatterySaver.WITH_SYSTEM,
     val showWhenScreenOff: Boolean = true,
     val showOnLockScreen: Boolean = true,
     val showWhenUnlocked: Boolean = true,
@@ -93,7 +96,9 @@ data class GlowSettings(
         glowWidthDp = glowWidthDp,
         speed = speed,
         brightness = brightness,
+        screenOffBrightness = screenOffBrightness ?: brightness,
         durationMs = durationMs,
+        batterySaver = batterySaver,
     )
 
     /** The spec previews render for these settings: auto colours, with no notifying app to sample, use a stand-in. */

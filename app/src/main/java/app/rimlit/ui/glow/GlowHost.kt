@@ -28,12 +28,15 @@ import kotlinx.coroutines.flow.StateFlow
 fun GlowHost(state: StateFlow<GlowState?>, surface: Surface, modifier: Modifier = Modifier) {
     val current = state.collectAsStateWithLifecycle()
     val frame by remember(current, surface) { derivedStateOf { current.value?.frameFor(surface) } }
-    frame?.let { GlowFrameHost(it, modifier) }
+    frame?.let { GlowFrameHost(it, lockScreen = surface == Surface.LOCK_SCREEN, modifier) }
 }
 
-/** Fades towards [frame]'s visibility with the machine's fade durations, or snaps there when it is instant. */
+/**
+ * Fades towards [frame]'s visibility with the machine's fade durations, or snaps there when it is instant. Under
+ * Remove animations Compose already makes the fades instant.
+ */
 @Composable
-private fun GlowFrameHost(frame: GlowFrame, modifier: Modifier = Modifier) {
+private fun GlowFrameHost(frame: GlowFrame, lockScreen: Boolean, modifier: Modifier = Modifier) {
     val alpha = remember { Animatable(0f) }
     LaunchedEffect(frame) {
         when {
@@ -42,5 +45,9 @@ private fun GlowFrameHost(frame: GlowFrame, modifier: Modifier = Modifier) {
             else -> alpha.animateTo(0f, tween(FADE_OUT_MS.toInt(), easing = FastOutSlowInEasing))
         }
     }
-    EdgeGlow(spec = frame.spec, modifier = modifier.graphicsLayer { this.alpha = alpha.value })
+    EdgeGlow(
+        spec = frame.spec,
+        playback = frame.spec.playback(lockScreen, rememberDeviceConditions()),
+        modifier = modifier.graphicsLayer { this.alpha = alpha.value },
+    )
 }

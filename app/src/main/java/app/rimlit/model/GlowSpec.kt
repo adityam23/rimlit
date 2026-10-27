@@ -28,6 +28,18 @@ data class GlowSpec(
     val speed: Float,
     /** Peak opacity in [0, 1]. */
     val brightness: Float,
+    /** Peak opacity on the lock-screen surface, woken from off. */
+    val screenOffBrightness: Float,
     /** How long the glow holds before fading out. */
     val durationMs: Long,
+    val batterySaver: BatterySaver,
 )
+
+/** When glows save battery by drawing fewer frames. */
+enum class BatterySaver {
+    OFF,
+
+    /** While the system's battery saver is on. */
+    WITH_SYSTEM,
+    ALWAYS,
+}
