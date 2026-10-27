@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -41,6 +40,7 @@ import app.rimlit.ui.components.SettingCard
 import app.rimlit.ui.components.SettingIcon
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
+import app.rimlit.ui.components.SwitchCard
 
 @Composable
 fun MainScreen(
@@ -56,16 +56,12 @@ fun MainScreen(
     SubScreenScaffold(title = stringResource(R.string.app_name), onBack = null, modifier = modifier) { innerPadding ->
         SettingsList(innerPadding) {
             item {
-                SettingCard(
+                SwitchCard(
                     title = stringResource(R.string.master_toggle_title),
+                    checked = settings.enabled,
+                    onCheckedChange = { enabled -> viewModel.update { it.copy(enabled = enabled) } },
                     subtitle = stringResource(R.string.master_toggle_subtitle),
                     prominent = true,
-                    trailing = {
-                        Switch(
-                            checked = settings.enabled,
-                            onCheckedChange = { enabled -> viewModel.update { it.copy(enabled = enabled) } },
-                        )
-                    },
                 )
             }
             item { SectionTitle(stringResource(R.string.section_permissions)) }

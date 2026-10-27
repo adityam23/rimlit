@@ -3,7 +3,6 @@ package app.rimlit.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -14,10 +13,10 @@ import app.rimlit.R
 import app.rimlit.engine.PreviewTarget
 import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.SectionTitle
-import app.rimlit.ui.components.SettingCard
 import app.rimlit.ui.components.SettingIcon
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
+import app.rimlit.ui.components.SwitchCard
 
 @Composable
 fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -31,29 +30,21 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
         SettingsList(innerPadding) {
             item { SectionTitle(stringResource(R.string.behavior_section)) }
             item {
-                SettingCard(
+                SwitchCard(
                     title = stringResource(R.string.show_locked_title),
+                    checked = settings.showWhenLocked,
+                    onCheckedChange = { show -> viewModel.update { it.copy(showWhenLocked = show) } },
                     subtitle = stringResource(R.string.show_locked_desc),
                     leading = { SettingIcon(Icons.Filled.Lock) },
-                    trailing = {
-                        Switch(
-                            checked = settings.showWhenLocked,
-                            onCheckedChange = { show -> viewModel.update { it.copy(showWhenLocked = show) } },
-                        )
-                    },
                 )
             }
             item {
-                SettingCard(
+                SwitchCard(
                     title = stringResource(R.string.show_unlocked_title),
+                    checked = settings.showWhenUnlocked,
+                    onCheckedChange = { show -> viewModel.update { it.copy(showWhenUnlocked = show) } },
                     subtitle = stringResource(R.string.show_unlocked_desc),
                     leading = { SettingIcon(Icons.Filled.PhoneAndroid) },
-                    trailing = {
-                        Switch(
-                            checked = settings.showWhenUnlocked,
-                            onCheckedChange = { show -> viewModel.update { it.copy(showWhenUnlocked = show) } },
-                        )
-                    },
                 )
             }
             item { SectionTitle(stringResource(R.string.preview_section)) }
