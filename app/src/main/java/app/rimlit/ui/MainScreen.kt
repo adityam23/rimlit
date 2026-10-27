@@ -28,6 +28,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -139,17 +140,9 @@ private fun PermissionState(status: PermissionStatus) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val need = status.kind.need
             Text(
-                text = stringResource(
-                    when (need) {
-                        Need.REQUIRED -> R.string.status_needed
-                        Need.RECOMMENDED -> R.string.status_recommended
-                    },
-                ),
+                text = stringResource(need.labelRes),
                 style = MaterialTheme.typography.labelLarge,
-                color = when (need) {
-                    Need.REQUIRED -> MaterialTheme.colorScheme.error
-                    Need.RECOMMENDED -> MaterialTheme.colorScheme.tertiary
-                },
+                color = need.color(),
             )
             Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -163,6 +156,19 @@ private fun PermissionKind.icon(): ImageVector = when (this) {
     PermissionKind.FULL_SCREEN_INTENT -> Icons.Filled.Fullscreen
     PermissionKind.ACCESSIBILITY -> Icons.Filled.AccessibilityNew
     PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
+}
+
+private val Need.labelRes
+    get() = when (this) {
+        Need.REQUIRED -> R.string.status_needed
+        Need.RECOMMENDED -> R.string.status_recommended
+    }
+
+@Composable
+@ReadOnlyComposable
+private fun Need.color(): Color = when (this) {
+    Need.REQUIRED -> MaterialTheme.colorScheme.error
+    Need.RECOMMENDED -> MaterialTheme.colorScheme.tertiary
 }
 
 private val OverlayFallback.titleRes
