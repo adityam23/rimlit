@@ -12,8 +12,6 @@ import app.rimlit.data.AppListRepository
 import app.rimlit.data.SettingsRepository
 import app.rimlit.engine.GlowEvent
 import app.rimlit.engine.PreviewTarget
-import app.rimlit.model.DEFAULT_GLOW_ARGB
-import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.notify.GlowNotifications
@@ -77,9 +75,6 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     }
 
     companion object {
-        /** Stand-in for the auto palette in previews, where there is no notifying app to sample. */
-        val PREVIEW_AUTO_PALETTE = listOf(DEFAULT_GLOW_ARGB, 0xFFE040FB.toInt())
-
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] ?: error("Application not available")
@@ -88,7 +83,3 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         }
     }
 }
-
-/** The spec previews render for these settings (auto colors use [MainViewModel.PREVIEW_AUTO_PALETTE]). */
-fun GlowSettings.previewSpec(): GlowSpec =
-    toGlowSpec(paletteFor(packageName = null) ?: GlowPalette.Colors(MainViewModel.PREVIEW_AUTO_PALETTE))

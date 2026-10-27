@@ -3,7 +3,6 @@ package app.rimlit.engine
 import android.app.NotificationManager
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
-import app.rimlit.previewSpec
 
 /** Small, representative inputs shared by the model check and the scenario tests. Never trim them to save time. */
 internal object Fixtures {

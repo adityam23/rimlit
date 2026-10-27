@@ -12,7 +12,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.engine.PreviewTarget
-import app.rimlit.previewSpec
 import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingCard

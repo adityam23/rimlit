@@ -38,7 +38,6 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
-import app.rimlit.previewSpec
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.SectionTitle
