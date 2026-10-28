@@ -54,9 +54,12 @@ internal class GlowExecutor(
         }
     }
 
-    /** [instance] of [surface] asked to open what it shows; dropped unless it is the confirmed one. */
+    /**
+     * [instance] of [surface] asked to open what it shows. Unless it is the confirmed one, the request only ends it,
+     * as any other touch would: it is reported gone.
+     */
     fun openRequested(surface: Surface, instance: SurfaceInstance) {
-        val isCurrent = slots.getValue(surface).openRequested(instance) ?: return
+        val isCurrent = slots.getValue(surface).openRequested(instance) ?: return surfaceGone(surface, instance)
         report { GlowEvent.OpenRequested(surface).takeIf { isCurrent() } }
     }
 

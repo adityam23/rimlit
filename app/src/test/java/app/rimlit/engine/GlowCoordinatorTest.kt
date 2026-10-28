@@ -246,7 +246,9 @@ class GlowCoordinatorTest {
         coordinator.surfaceOpened(Surface.LOCK_SCREEN, replaced)
         coordinator.surfaceOpened(Surface.LOCK_SCREEN, shown)
         coordinator.openRequested(Surface.LOCK_SCREEN, replaced)
-        assertNotNull(glow, "a replaced instance's double tap is dropped")
+        assertNotNull(glow, "a replaced instance's double tap opens nothing")
+        assertTrue(driver.opened.isEmpty())
+        assertTrue(replaced.closed, "and ends it, as any touch would")
 
         coordinator.openRequested(Surface.LOCK_SCREEN, shown)
         assertEquals(listOf<Pair<String, SurfaceInstance>>("a" to shown), driver.opened)
@@ -255,7 +257,24 @@ class GlowCoordinatorTest {
         assertEquals(listOf(Surface.LOCK_SCREEN), driver.withdrawn, "the request is withdrawn all the same")
 
         coordinator.openRequested(Surface.LOCK_SCREEN, shown)
-        assertEquals(1, driver.opened.size, "a handed-over instance's double tap is dropped")
+        assertEquals(1, driver.opened.size, "a handed-over instance's double tap opens nothing")
+        assertTrue(shown.closed, "and ends it")
+    }
+
+    @Test
+    fun aStaleInstancesDoubleTapEndsItButNotTheGlow() {
+        coordinator.settingsChanged(CUSTOM)
+        driver.environment = SCREEN_OFF
+        posted("a")
+        val shown = Instance()
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, shown)
+        val stale = Instance() // e.g. an earlier glow's activity whose finish hasn't landed yet
+
+        coordinator.openRequested(Surface.LOCK_SCREEN, stale)
+        assertTrue(stale.closed)
+        assertTrue(driver.opened.isEmpty())
+        assertEquals("a", glow?.source?.post?.key)
+        assertFalse(shown.closed)
     }
 
     @Test
