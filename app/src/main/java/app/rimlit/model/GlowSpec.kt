@@ -24,6 +24,8 @@ data class GlowSpec(
     val region: EdgeRegion,
     /** Corner radius of the screen-edge outline; `null` follows the display's corners. */
     val cornerRadiusDp: Float?,
+    /** The camera cutout the ring hugs; `null` follows the display's. */
+    val customCutout: CustomCutout?,
     val thicknessDp: Float,
     val glowWidthDp: Float,
     /** Animation rate multiplier (1 = default). */

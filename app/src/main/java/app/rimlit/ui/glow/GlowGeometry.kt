@@ -7,6 +7,7 @@ import android.graphics.RectF
 import android.os.Build
 import android.view.RoundedCorner
 import android.view.View
+import app.rimlit.model.CustomCutout
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.min
@@ -55,8 +56,8 @@ private const val FALLBACK_CORNER_DP = 24f
 internal data class DisplayShape(
     /** Top-left, top-right, bottom-right, bottom-left corner radii. */
     val cornerRadii: FloatArray,
-    /** Camera cutout bounds, or `null` when the display has none. */
-    val cutout: RectF?,
+    /** The camera cutout, or `null` when the display has none. */
+    val cutout: Cutout?,
 ) {
     companion object {
         /**
@@ -76,7 +77,7 @@ internal data class DisplayShape(
             } else {
                 FloatArray(4) { fallbackCornerPx }
             }
-            return DisplayShape(radii, view.cutoutBounds())
+            return DisplayShape(radii, view.displayCutout())
         }
 
         /** Scaled stand-in for in-app previews: proportional corners and a simulated punch-hole camera. */
@@ -85,24 +86,22 @@ internal data class DisplayShape(
             val hole = min(width, height) * 0.06f
             val cx = width / 2f
             val cy = hole * 2.2f
-            return DisplayShape(FloatArray(4) { corner }, RectF(cx - hole, cy - hole, cx + hole, cy + hole))
+            val camera = pill(RectF(cx - hole, cy - hole, cx + hole, cy + hole))
+            return DisplayShape(FloatArray(4) { corner }, Cutout(CutoutSide.TOP, camera.polygon()))
         }
     }
 
     /** This shape with all four corners rounded to [radiusPx] instead. */
     fun withCornerRadius(radiusPx: Float) = copy(cornerRadii = FloatArray(4) { radiusPx })
 
+    /** This shape with its cutout, if it has one, drawn as [custom] instead (see [Cutout.redrawn]). */
+    fun withCustomCutout(custom: CustomCutout, pxPerDp: Float, width: Float, height: Float) =
+        copy(cutout = cutout?.redrawn(custom, pxPerDp, width, height))
+
     override fun equals(other: Any?) =
         other is DisplayShape && cornerRadii.contentEquals(other.cornerRadii) && cutout == other.cutout
 
     override fun hashCode() = 31 * cornerRadii.contentHashCode() + (cutout?.hashCode() ?: 0)
-}
-
-/** Bounds of the camera cutout of the window [this] is attached to, or `null` when the display has none. */
-internal fun View.cutoutBounds(): RectF? = rootWindowInsets?.displayCutout?.let { c ->
-    listOf(c.boundingRectTop, c.boundingRectLeft, c.boundingRectRight, c.boundingRectBottom)
-        .firstOrNull { !it.isEmpty }
-        ?.let(::RectF)
 }
 
 /**
@@ -117,13 +116,4 @@ internal fun screenEdgeGeometry(width: Float, height: Float, shape: DisplayShape
         addRoundRect(RectF(inset, inset, width - inset, height - inset), radii, Path.Direction.CW)
     }
     return GlowGeometry(path, cornerRadius = radii.max())
-}
-
-/** Pill/ring hugging the camera cutout (a circle for punch-holes, a pill for notches). */
-internal fun cutoutGeometry(cutout: RectF, gapPx: Float, strokePx: Float): GlowGeometry {
-    val pad = gapPx + strokePx / 2f
-    val rect = RectF(cutout.left - pad, cutout.top - pad, cutout.right + pad, cutout.bottom + pad)
-    val radius = min(rect.width(), rect.height()) / 2f
-    val path = Path().apply { addRoundRect(rect, radius, radius, Path.Direction.CW) }
-    return GlowGeometry(path, cornerRadius = radius)
 }

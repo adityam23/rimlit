@@ -56,10 +56,8 @@ import app.rimlit.ui.glow.BATTERY_SAVER_FPS
 import app.rimlit.ui.glow.DisplayShape
 import app.rimlit.ui.glow.EdgeGlow
 import app.rimlit.ui.glow.Playback
-import app.rimlit.ui.glow.cutoutBounds
 import app.rimlit.ui.glow.playback
 import app.rimlit.ui.glow.rememberDeviceConditions
-import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
 private val PreviewBackground = Color.Black
@@ -76,12 +74,13 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     val draft = editor.value
 
     val view = LocalView.current
-    val hasCutout = remember(view) { view.cutoutBounds() != null }
     val density = LocalDensity.current
     // Where the corner slider starts when the user stops matching the display: the display's own radius.
     val displayCornerDp = remember(view, density) {
         with(density) { DisplayShape.of(view).cornerRadii.max().toDp().value }
     }
+    val cutoutSeed = rememberCutoutSeed()
+    val hasCutout = cutoutSeed != null
     // Preview what this device will really show: the renderer falls back to the full edge without a cutout.
     val spec = draft.previewSpec().let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
     // While the screen-off brightness slider is dragged, the preview plays as the lock screen would, to show it.
@@ -101,6 +100,8 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             }
             styleSection(draft, spec, playback, editor)
             regionSection(draft, hasCutout, editor)
+            // The cutout's shape matters only where a ring is drawn around it.
+            if (cutoutSeed != null && draft.region.ringsCutout) cutoutItems(draft, cutoutSeed, editor)
             cornerRadiusItems(draft, displayCornerDp, editor)
             colorSection(draft, editor)
             tuningSection(draft, editor) { dragging -> draggingScreenOff = dragging }
@@ -111,43 +112,6 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
                 }
             }
         }
-    }
-}
-
-private typealias SettingsEdit = (GlowSettings) -> GlowSettings
-
-/**
- * The screen's in-memory settings, changed by [preview] (re-renders only, mid-drag), [persist] (writes only, once the
- * drag ends) or [commit] (both, for a tap). They follow the saved settings only while none of the screen's own edits
- * is unsaved (a write in flight, or a drag not committed yet): the emission of an earlier write would otherwise
- * revert newer edits. Skipping an emission is safe, since once the writes land the draft already holds what they
- * saved, and any later emission is followed again. Main thread only.
- */
-private class SettingsDraft(initial: GlowSettings, private val save: (SettingsEdit) -> Job) {
-    var value by mutableStateOf(initial)
-        private set
-
-    private var writes = 0
-    private var dragging = false
-
-    fun preview(edit: SettingsEdit) {
-        dragging = true
-        value = edit(value)
-    }
-
-    fun persist(edit: SettingsEdit) {
-        dragging = false
-        writes++
-        save(edit).invokeOnCompletion { writes-- }
-    }
-
-    fun commit(edit: SettingsEdit) {
-        value = edit(value)
-        persist(edit)
-    }
-
-    fun follow(saved: GlowSettings) {
-        if (writes == 0 && !dragging) value = saved
     }
 }
 

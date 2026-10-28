@@ -18,7 +18,7 @@ android {
         targetSdk = 36
         // CI passes its run number so every release has a higher versionCode and installs as an update.
         versionCode = providers.environmentVariable("RELEASE_VERSION_CODE").orNull?.toInt() ?: 1
-        versionName = "0.1.0"
+        versionName = "0.1.1"
     }
 
     // Release signing comes only from environment variables (GitHub secrets in CI); nothing secret lives
