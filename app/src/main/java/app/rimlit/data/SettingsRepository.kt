@@ -15,6 +15,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.rimlit.model.AutoColors
+import app.rimlit.model.CustomCutout
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.MAX_PALETTE_COLORS
@@ -64,6 +65,14 @@ private object Keys {
     val QUIET_SCOPE = stringPreferencesKey("quiet_scope")
     val REGION = stringPreferencesKey("region")
     val CORNER_RADIUS_DP = floatPreferencesKey("corner_radius_dp")
+
+    /** Present only while the cutout is drawn by hand; the other cutout keys are read only then. */
+    val CUTOUT_SHAPE = stringPreferencesKey("cutout_shape")
+    val CUTOUT_WIDTH_DP = floatPreferencesKey("cutout_width_dp")
+    val CUTOUT_HEIGHT_DP = floatPreferencesKey("cutout_height_dp")
+    val CUTOUT_RADIUS_DP = floatPreferencesKey("cutout_radius_dp")
+    val CUTOUT_OFFSET_X_DP = floatPreferencesKey("cutout_offset_x_dp")
+    val CUTOUT_OFFSET_Y_DP = floatPreferencesKey("cutout_offset_y_dp")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
     val APP_PALETTES = stringSetPreferencesKey("app_palettes")
 
@@ -98,6 +107,7 @@ class SettingsRepository(private val context: Context) {
 }
 
 private val defaults = GlowSettings()
+private val cutoutDefaults = CustomCutout()
 
 /** Tolerant decode: unknown or out-of-range stored values fall back to defaults or are clamped. */
 private fun Preferences.toSettings() = GlowSettings(
@@ -129,6 +139,17 @@ private fun Preferences.toSettings() = GlowSettings(
     ),
     region = this[Keys.REGION].toEnumOr(defaults.region),
     cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
+    // Drawn by hand only while its shape is stored; a missing field starts as in a new CustomCutout.
+    customCutout = this[Keys.CUTOUT_SHAPE]?.let { shape ->
+        CustomCutout(
+            shape = shape.toEnumOr(cutoutDefaults.shape),
+            widthDp = clamped(Keys.CUTOUT_WIDTH_DP, cutoutDefaults.widthDp, Ranges.cutoutSizeDp),
+            heightDp = clamped(Keys.CUTOUT_HEIGHT_DP, cutoutDefaults.heightDp, Ranges.cutoutSizeDp),
+            radiusDp = clamped(Keys.CUTOUT_RADIUS_DP, cutoutDefaults.radiusDp, Ranges.cutoutRadiusDp),
+            offsetXDp = clamped(Keys.CUTOUT_OFFSET_X_DP, cutoutDefaults.offsetXDp, Ranges.cutoutOffsetDp),
+            offsetYDp = clamped(Keys.CUTOUT_OFFSET_Y_DP, cutoutDefaults.offsetYDp, Ranges.cutoutOffsetDp),
+        )
+    } ?: defaults.customCutout,
     blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
     appPalettes = this[Keys.APP_PALETTES]?.let(::decodeAppPalettes) ?: defaults.appPalettes,
 )
@@ -182,6 +203,13 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.QUIET_SCOPE] = settings.quietHours.scope.name
     this[Keys.REGION] = settings.region.name
     setOrRemove(Keys.CORNER_RADIUS_DP, settings.cornerRadiusDp)
+    val cutout = settings.customCutout
+    setOrRemove(Keys.CUTOUT_SHAPE, cutout?.shape?.name)
+    setOrRemove(Keys.CUTOUT_WIDTH_DP, cutout?.widthDp)
+    setOrRemove(Keys.CUTOUT_HEIGHT_DP, cutout?.heightDp)
+    setOrRemove(Keys.CUTOUT_RADIUS_DP, cutout?.radiusDp)
+    setOrRemove(Keys.CUTOUT_OFFSET_X_DP, cutout?.offsetXDp)
+    setOrRemove(Keys.CUTOUT_OFFSET_Y_DP, cutout?.offsetYDp)
     this[Keys.BLOCKED_PACKAGES] = settings.blockedPackages
     this[Keys.APP_PALETTES] = settings.appPalettes.map { (pkg, colors) -> "$pkg=${encodePalette(colors)}" }.toSet()
     remove(Keys.LEGACY_CUSTOM_COLOR)

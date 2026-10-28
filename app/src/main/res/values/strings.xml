@@ -131,6 +131,21 @@
     <string name="corner_match_title">Match display corners</string>
     <string name="corner_match_desc">Turn off to round the screen-edge glow\'s corners your own way</string>
     <string name="corner_radius_label">Corner radius</string>
+    <string name="cutout_match_title">Match camera cutout</string>
+    <string name="cutout_match_desc">Turn off to draw the camera cutout yourself, if the ring doesn\'t fit it</string>
+    <string name="cutout_shape_circle_title">Circle</string>
+    <string name="cutout_shape_circle_desc">A round punch-hole camera</string>
+    <string name="cutout_shape_pill_title">Pill</string>
+    <string name="cutout_shape_pill_desc">A long punch-hole, like two cameras side by side</string>
+    <string name="cutout_shape_teardrop_title">Teardrop</string>
+    <string name="cutout_shape_teardrop_desc">A small notch with a round end</string>
+    <string name="cutout_shape_notch_title">Notch</string>
+    <string name="cutout_shape_notch_desc">A wide notch with rounded corners</string>
+    <string name="cutout_size_label">Size</string>
+    <string name="cutout_width_label">Width</string>
+    <string name="cutout_height_label">Height</string>
+    <string name="cutout_offset_x_label">Horizontal position</string>
+    <string name="cutout_offset_y_label">Vertical position</string>
 
     <!-- Test notification (Style screen) -->
     <string name="test_notification_button">Send test notification</string>

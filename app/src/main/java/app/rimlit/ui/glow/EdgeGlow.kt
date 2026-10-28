@@ -64,9 +64,12 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
             } else {
                 DisplayShape.of(view)
             }
-            // A preview is a scaled-down screen, so a custom radius scales with it to keep its proportion.
+            // A preview is a scaled-down screen, so custom corners and cutouts scale with it to keep their proportion.
             val scale = if (preview) size.width / view.rootView.width.coerceAtLeast(1) else 1f
-            val shape = spec.cornerRadiusDp?.let { display.withCornerRadius(it.dp.toPx() * scale) } ?: display
+            val pxPerDp = 1.dp.toPx() * scale
+            val shape = display
+                .let { d -> spec.cornerRadiusDp?.let { d.withCornerRadius(it * pxPerDp) } ?: d }
+                .let { d -> spec.customCutout?.let { d.withCustomCutout(it, pxPerDp, size.width, size.height) } ?: d }
             val layout = layouts.get(
                 GlowLayoutKey(
                     width = size.width,
