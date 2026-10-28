@@ -48,8 +48,8 @@ internal class GlowExecutor(
 
             // The open takes the instance over, so the step's Close leaves it up for the unlock.
             is GlowEffect.OpenNotification -> {
-                val from = checkNotNull(slots.getValue(effect.from).release()) { "Opens only from a confirmed instance" }
-                driver.openNotification(effect.post, from)
+                val from = slots.getValue(effect.from).release()
+                driver.openNotification(effect.post, checkNotNull(from) { "Opens only from a confirmed instance" })
             }
         }
     }
