@@ -114,17 +114,22 @@ class AndroidGlowDriver(
 
     /**
      * Reads the notification now, on the main thread (one binder call for a user's gesture), so one removed since
-     * neither opens nor asks the user to unlock.
+     * doesn't ask the user to unlock; then reads it again once unlocked, since the bouncer can stay up for minutes and
+     * one removed meanwhile must not open.
      */
     override fun openNotification(post: Post, from: SurfaceInstance) {
-        val notification = GlowListenerService.connected?.notification(post.key)
-        val open = notification?.let { NotificationOpener.opener(context, post.packageName, it) }
-        if (open == null) {
+        if (opener(post) == null) {
             Log.i(TAG, "Nothing to open for ${post.key}: gone, or it leads nowhere")
             return
         }
-        from.runUnlocked(open)
+        from.runUnlocked {
+            opener(post)?.invoke() ?: Log.i(TAG, "Nothing to open for ${post.key}: removed while unlocking")
+        }
     }
+
+    /** What opens [post]'s notification as it is posted now; `null` if it is gone or leads nowhere. */
+    private fun opener(post: Post): (() -> Unit)? = GlowListenerService.connected?.notification(post.key)
+        ?.let { NotificationOpener.opener(context, post.packageName, it) }
 
     private companion object {
         const val TAG = "AndroidGlowDriver"

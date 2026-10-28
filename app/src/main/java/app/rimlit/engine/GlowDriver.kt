@@ -29,7 +29,8 @@ interface GlowDriver {
 
     /**
      * Opens [post]'s notification as it is now (its content intent, else its app's launch intent) through [from],
-     * the live instance the user asked, which unlocks the device first. Nothing opens if it is gone by now.
+     * the live instance the user asked, which unlocks the device first. Nothing opens if it is gone by now, or by the
+     * time the device is unlocked.
      */
     fun openNotification(post: Post, from: SurfaceInstance)
 }
