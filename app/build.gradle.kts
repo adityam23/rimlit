@@ -64,7 +64,7 @@ android {
     testOptions {
         unitTests.all {
             // The state machine's model check holds every reachable state as a packed code, and its parallel search
-            // keeps a level's temporaries alive (22 M states fit in 2 GB, not in 1 GB); its inputs must never be
+            // keeps a level's temporaries alive (46 M states fit in 2 GB, not in 1.5 GB); its inputs must never be
             // trimmed to fit.
             it.maxHeapSize = providers.gradleProperty("testMaxHeap").getOrElse("2g")
         }

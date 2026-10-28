@@ -1,12 +1,14 @@
 package app.rimlit.engine
 
 import app.rimlit.engine.Fixtures.AUTO
+import app.rimlit.engine.Fixtures.CHAT_LOOK
 import app.rimlit.engine.Fixtures.CUSTOM
 import app.rimlit.engine.Fixtures.EXTRACTED
 import app.rimlit.engine.Fixtures.LOCK_SCREEN
 import app.rimlit.engine.Fixtures.NIGHT
 import app.rimlit.engine.Fixtures.OTHER_APP
 import app.rimlit.engine.Fixtures.PREVIEW_SPEC
+import app.rimlit.engine.Fixtures.RULED
 import app.rimlit.engine.Fixtures.SCREEN_OFF
 import app.rimlit.engine.Fixtures.UNLOCKED
 import app.rimlit.engine.Fixtures.custom
@@ -15,6 +17,7 @@ import app.rimlit.engine.Fixtures.quiet
 import app.rimlit.engine.Fixtures.withDefaultLook
 import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
+import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowStyle
@@ -242,6 +245,24 @@ class GlowMachineScenarioTest {
         val run = onLockScreen().send(posted("b"))
         assertEquals("b", run.glow.source.post?.key)
         assertTrue(run.effects.none { it is GlowEffect.Open })
+    }
+
+    @Test
+    fun anAppsRuleChoosesItsLooksColoursPerPost() {
+        val mail = GlowEvent.Posted(post("m").copy(packageName = "com.example.mail"))
+        val run = run(settings = RULED).send(mail)
+        assertEquals(listOf(GlowEffect.ExtractPalette(mail.post, AUTO.defaultLook.autoColors)), run.effects)
+
+        run.send(posted("a"))
+        assertEquals(listOf(GlowEffect.ExtractPalette(post("a"), CHAT_LOOK.autoColors)), run.effects, "its rule's look")
+
+        // The rule's look with fixed colours: the app's post shows at once, superseding the one still pending.
+        val fixed = RULED.updateLook(CHAT_LOOK.id) { it.copy(colorMode = ColorMode.CUSTOM, customColors = EXTRACTED) }
+        run.send(GlowEvent.SettingsChanged(fixed), mail, posted("b"))
+        assertNull(run.state.pending)
+        assertTrue(GlowEffect.CancelExtraction in run.effects)
+        assertEquals("b", run.glow.source.post?.key)
+        assertEquals(GlowPalette.Colors(EXTRACTED), run.glow.spec.palette)
     }
 
     @Test
