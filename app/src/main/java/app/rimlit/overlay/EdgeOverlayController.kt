@@ -109,6 +109,7 @@ class EdgeOverlayController(private val context: Context, private val surface: S
             } else {
                 action()
             }
+            close()
         }
     }
 

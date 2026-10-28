@@ -38,14 +38,18 @@ import app.rimlit.ui.glow.drawIntoCutout
  * closes one nobody asked for. The machine closes it as soon as the glow fades, handing back to the keyguard and its
  * short timeout (holding the woken screen until the system timeout made screen-on time the app's main battery cost);
  * a touch or `onStop` ends it too. While the glow would open something, a double tap asks the machine to open it
- * instead, and a single tap waits out the double-tap timeout before ending the glow.
+ * instead, and a single tap waits out the double-tap timeout before ending the glow. Opening hands this instance
+ * over: it is no longer the surface, never reports itself again, and finishes itself once the unlock ends.
  */
 class LockScreenGlowActivity :
     ComponentActivity(),
     SurfaceInstance {
 
-    /** A keyguard dismissal is in flight: closing waits for its outcome, since the request needs this activity. */
-    private var unlocking = false
+    /** Handed over to open a notification ([runUnlocked]): no longer the machine's surface. */
+    private var handedOver = false
+
+    /** A keyguard dismissal is in flight: stopping doesn't finish it, since the request needs this activity. */
+    private var dismissing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -81,60 +85,63 @@ class LockScreenGlowActivity :
         }
     }
 
+    /** A handed-over instance stays out of the coordinator's way: a new glow must not adopt it. */
     override fun onStart() {
         super.onStart()
-        glowCoordinator.surfaceOpened(Surface.LOCK_SCREEN, this)
-    }
-
-    /** Screen turned off (or user left): the AOD moment is over. */
-    override fun onStop() {
-        super.onStop()
-        gone()
+        if (!handedOver) glowCoordinator.surfaceOpened(Surface.LOCK_SCREEN, this)
     }
 
     /**
-     * Idempotent: a closed instance still reports itself gone from `onStop`, which closes it again. During a keyguard
-     * dismissal it stays (black, since the machine shows nothing here any more) until the dismissal ends.
+     * Screen turned off (or user left): the AOD moment is over. Not during a keyguard dismissal, which needs this
+     * activity and finishes it when it ends, however it ends.
      */
+    override fun onStop() {
+        super.onStop()
+        if (!dismissing) gone()
+    }
+
+    /** Idempotent: a closed instance still reports itself gone from `onStop`, which closes it again. */
     override fun close() {
-        if (!unlocking && !isFinishing) finish()
+        if (!isFinishing) finish()
     }
 
     /**
      * Dismisses the keyguard from this activity, which must still be showing, then runs [action] while this activity
-     * is the visible window (its standing lets a notification's pending intent start an activity), and finishes:
-     * the open request that led here also closed it.
+     * is the visible window (its standing lets a notification's pending intent start an activity), and finishes,
+     * whether the dismissal succeeded, was cancelled or failed. Meanwhile it stays, black, since the machine shows
+     * nothing here any more; a touch still finishes it.
      */
     override fun runUnlocked(action: () -> Unit) {
+        handedOver = true
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (keyguard?.isKeyguardLocked != true) {
-            action()
+            dismissed(action)
             return
         }
-        unlocking = true
+        dismissing = true
         keyguard.requestDismissKeyguard(
             this,
             object : KeyguardManager.KeyguardDismissCallback() {
-                override fun onDismissSucceeded() = unlocked(action)
+                override fun onDismissSucceeded() = dismissed(action)
 
-                override fun onDismissCancelled() = unlocked(null)
+                override fun onDismissCancelled() = dismissed(null)
 
                 override fun onDismissError() {
                     Log.w(TAG, "Couldn't dismiss the keyguard; not opening")
-                    unlocked(null)
+                    dismissed(null)
                 }
             },
         )
     }
 
-    /** The keyguard dismissal ended: runs [action] if it succeeded, then finishes the deferred close. */
-    private fun unlocked(action: (() -> Unit)?) {
-        unlocking = false
+    /** The keyguard is out of the way, or stays: runs [action] if it unlocked, then finishes. */
+    private fun dismissed(action: (() -> Unit)?) {
+        dismissing = false
         action?.invoke()
         close()
     }
 
-    /** Reported gone, which also closes (finishes) it. */
+    /** Reported gone, which also closes (finishes) it; a handed-over instance is only closed. */
     private fun gone() = glowCoordinator.surfaceGone(Surface.LOCK_SCREEN, this)
 
     /** Asks the machine to open the glow's notification; it ends the glow either way. */

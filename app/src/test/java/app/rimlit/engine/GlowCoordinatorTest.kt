@@ -28,7 +28,10 @@ class GlowCoordinatorTest {
             closed = true
         }
 
-        override fun runUnlocked(action: () -> Unit) = action()
+        override fun runUnlocked(action: () -> Unit) {
+            action()
+            close()
+        }
     }
 
     /** A virtual clock and recorded surfaces. [honoursCancel] off simulates a timer or extraction that races its cancel. */
@@ -75,6 +78,7 @@ class GlowCoordinatorTest {
 
         override fun wakeScreenDenied() = Unit
 
+        /** Each open, with the instance handed over to it; left up, as if its unlock were still in flight. */
         val opened = mutableListOf<Pair<String, SurfaceInstance>>()
 
         override fun openNotification(post: Post, from: SurfaceInstance) {
@@ -247,10 +251,29 @@ class GlowCoordinatorTest {
         coordinator.openRequested(Surface.LOCK_SCREEN, shown)
         assertEquals(listOf<Pair<String, SurfaceInstance>>("a" to shown), driver.opened)
         assertNull(glow)
-        assertTrue(shown.closed)
+        assertFalse(shown.closed, "handed over to the open, which closes it once the unlock ends")
+        assertEquals(listOf(Surface.LOCK_SCREEN), driver.withdrawn, "the request is withdrawn all the same")
 
         coordinator.openRequested(Surface.LOCK_SCREEN, shown)
-        assertEquals(1, driver.opened.size, "a closed instance's double tap is dropped")
+        assertEquals(1, driver.opened.size, "a handed-over instance's double tap is dropped")
+    }
+
+    @Test
+    fun aHandedOverInstanceNoLongerReportsForTheSurface() {
+        coordinator.settingsChanged(CUSTOM)
+        driver.environment = SCREEN_OFF
+        posted("a")
+        val shown = Instance()
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, shown)
+        coordinator.openRequested(Surface.LOCK_SCREEN, shown)
+
+        posted("b")
+        val next = Instance()
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, next)
+        coordinator.surfaceGone(Surface.LOCK_SCREEN, shown) // its unlock ended
+        assertEquals("b", glow?.source?.post?.key, "the next glow's surface isn't the handed-over one")
+        assertTrue(glow?.opened == true)
+        assertFalse(next.closed)
     }
 
     @Test

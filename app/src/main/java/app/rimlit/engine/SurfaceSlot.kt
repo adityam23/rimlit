@@ -3,7 +3,8 @@ package app.rimlit.engine
 /**
  * Holds one surface to the executor contract: its reports count only for the instance of its latest `Open`, until
  * that is closed. Every open and close starts a new generation, and a queued report is delivered only if its
- * generation is still current when its turn comes. Closing withdraws the request and closes the instance.
+ * generation is still current when its turn comes. Closing withdraws the request and closes the instance; releasing
+ * withdraws it too but hands the instance over instead.
  */
 internal class SurfaceSlot {
 
@@ -28,12 +29,19 @@ internal class SurfaceSlot {
     }
 
     fun close() {
+        release()?.close()
+    }
+
+    /**
+     * Like [close], but returns the confirmed instance, if any, without closing it: whoever takes it closes it. Its
+     * reports and requests no longer count, as after a close.
+     */
+    fun release(): SurfaceInstance? {
         generation++
         requested = false
         withdraw?.cancel()
         withdraw = null
-        instance?.close()
-        instance = null
+        return instance.also { instance = null }
     }
 
     /**

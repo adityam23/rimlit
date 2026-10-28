@@ -46,8 +46,9 @@ internal class GlowExecutor(
 
             GlowEffect.WakeScreenDenied -> driver.wakeScreenDenied()
 
+            // The open takes the instance over, so the step's Close leaves it up for the unlock.
             is GlowEffect.OpenNotification -> {
-                val from = checkNotNull(slots.getValue(effect.from).instance) { "Opens only from a confirmed instance" }
+                val from = checkNotNull(slots.getValue(effect.from).release()) { "Opens only from a confirmed instance" }
                 driver.openNotification(effect.post, from)
             }
         }

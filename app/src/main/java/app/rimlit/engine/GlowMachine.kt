@@ -211,7 +211,8 @@ sealed interface GlowEffect {
 
     /**
      * Opens [post]'s notification (its content intent, else its app) through [from]'s live instance, which unlocks
-     * the device first if it must. Runs before the `Close` of [from] in the same step, so the instance is still up.
+     * the device first if it must. Runs before the `Close` of [from] in the same step, so the instance is still up:
+     * the executor hands it over to the open, which closes it once the unlock ends, and that `Close` finds it gone.
      */
     data class OpenNotification(val post: Post, val from: Surface) : GlowEffect
 

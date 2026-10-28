@@ -30,7 +30,8 @@ interface GlowDriver {
     /**
      * Opens [post]'s notification as it is now (its content intent, else its app's launch intent) through [from],
      * the live instance the user asked, which unlocks the device first. Nothing opens if it is gone by now, or by the
-     * time the device is unlocked.
+     * time the device is unlocked. [from] is handed over, no longer the surface's: the driver closes it once done,
+     * whether or not anything opened.
      */
     fun openNotification(post: Post, from: SurfaceInstance)
 }
@@ -44,8 +45,9 @@ interface SurfaceInstance {
     fun close()
 
     /**
-     * Runs [action] once the device is unlocked, asking the user to unlock it if needed; never if they don't. A
-     * [close] meanwhile doesn't cancel it.
+     * Runs [action] once the device is unlocked, asking the user to unlock it if needed; never if they don't. Then
+     * closes this instance either way: it has been handed over, so nothing else will. A [close] meanwhile doesn't
+     * cancel [action].
      */
     fun runUnlocked(action: () -> Unit)
 }

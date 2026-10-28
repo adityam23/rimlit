@@ -120,6 +120,7 @@ class AndroidGlowDriver(
     override fun openNotification(post: Post, from: SurfaceInstance) {
         if (opener(post) == null) {
             Log.i(TAG, "Nothing to open for ${post.key}: gone, or it leads nowhere")
+            from.close()
             return
         }
         from.runUnlocked {
