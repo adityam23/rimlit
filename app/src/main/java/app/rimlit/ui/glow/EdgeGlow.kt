@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
+import app.rimlit.ui.glow.particles.rememberParticleLayer
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
@@ -54,7 +55,8 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
     val view = LocalView.current
     // A still glow needs no clock at all: it draws once.
     val seconds = rememberFrameSeconds(running = !playback.still, maxFps = playback.maxFps)
-    val layouts = remember { GlowLayoutCache() }
+    val layouts = remember { BuildCache(::GlowLayout) }
+    val particles = rememberParticleLayer()
     Spacer(
         modifier.drawWithCache {
             val thicknessPx = spec.thicknessDp.dp.toPx()
@@ -82,10 +84,15 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                 ),
             )
             val painter = GlowPainter(spec, playback, layout, thicknessPx, glowPx)
+            val particlePainter = particles.painter(spec, playback, size, pxPerDp = 1.dp.toPx() * scale)
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value
-                drawIntoCanvas { painter.draw(it.nativeCanvas, t) }
+                drawIntoCanvas {
+                    // Particles go beneath the edge.
+                    particlePainter?.draw(it.nativeCanvas, t)
+                    painter.draw(it.nativeCanvas, t)
+                }
             }
         },
     )

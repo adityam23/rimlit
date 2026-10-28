@@ -21,6 +21,12 @@ class GlowSettingsTest {
     }
 
     @Test
+    fun glowsHaveNoParticlesUntilALookAsksForThem() {
+        assertNull(GlowSettings().previewSpec().particles)
+        assertNull(GlowSettings().toGlowSpec(GlowPalette.Rainbow).particles)
+    }
+
+    @Test
     fun theSpecMatchesTheDisplayCornersUntilTheUserSetsARadius() {
         assertNull(GlowSettings().previewSpec().cornerRadiusDp)
         assertEquals(40f, GlowSettings(cornerRadiusDp = 40f).previewSpec().cornerRadiusDp)

@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- A four-pointed twinkle with a white-hot centre. -->
+    <path
+        android:fillColor="#FFFFF59D"
+        android:pathData="M12,1C12.6,8 16,11.4 23,12C16,12.6 12.6,16 12,23C11.4,16 8,12.6 1,12C8,11.4 11.4,8 12,1Z" />
+    <path
+        android:fillAlpha="0.9"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,12A2,2 0,1 0,14 12A2,2 0,1 0,10 12Z" />
+</vector>

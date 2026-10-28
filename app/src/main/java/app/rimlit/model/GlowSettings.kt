@@ -140,5 +140,9 @@ data class GlowSettings(
         val brightness = 0.2f..1f
         val durationMs = 1_000L..10_000L
         val minuteOfDay = 0 until MINUTES_PER_DAY
+        val particleSizeDp = 8f..48f
+        val particleSpeed = speed
+        val particleAmount = 0.1f..1f
+        val particleRotation = 0f..360f
     }
 }
