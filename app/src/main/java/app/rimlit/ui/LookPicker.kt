@@ -24,6 +24,7 @@ import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.Rule
+import app.rimlit.model.fitLookName
 import app.rimlit.model.isValidLookName
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
@@ -49,17 +50,17 @@ internal fun LazyListScope.lookPickerSection(
     item {
         FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val canAdd = settings.canAddLook
-            OutlinedButton(onClick = { onAction(LookAction.Add(editing, duplicate = false)) }, enabled = canAdd) {
+            OutlinedButton(onClick = { onAction(LookAction.Add(editing.id, duplicate = false)) }, enabled = canAdd) {
                 Text(stringResource(R.string.look_new))
             }
-            OutlinedButton(onClick = { onAction(LookAction.Add(editing, duplicate = true)) }, enabled = canAdd) {
+            OutlinedButton(onClick = { onAction(LookAction.Add(editing.id, duplicate = true)) }, enabled = canAdd) {
                 Text(stringResource(R.string.look_duplicate))
             }
-            OutlinedButton(onClick = { onAction(LookAction.Rename(editing)) }) {
+            OutlinedButton(onClick = { onAction(LookAction.Rename(editing.id)) }) {
                 Text(stringResource(R.string.look_rename))
             }
             val canDelete = editing.id != settings.defaultLookId
-            OutlinedButton(onClick = { onAction(LookAction.Delete(editing)) }, enabled = canDelete) {
+            OutlinedButton(onClick = { onAction(LookAction.Delete(editing.id)) }, enabled = canDelete) {
                 Text(stringResource(R.string.look_delete))
             }
         }
@@ -89,24 +90,24 @@ private fun GlowSettings.usage(look: Look): String {
 }
 
 /**
- * The dialog for [action] on [settings]. [onDone] gets the settings edit to make and the look to edit next; for a new
- * look it is the new one, after a delete the default look.
+ * The dialog for [action] on [look], its look in [settings]. [onDone] gets the settings edit to make and the look to
+ * edit next; for a new look it is the new one, after a delete the default look.
  */
 @Composable
 internal fun LookActionDialog(
     action: LookAction,
+    look: Look,
     settings: GlowSettings,
     onDone: (edit: SettingsEdit, editNext: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val look = action.look
     when (action) {
         is LookAction.Add -> {
             val id = rememberSaveable { UUID.randomUUID().toString() }
             val resources = LocalResources.current
             val numbered = generateSequence(settings.looks.size + 1) { it + 1 }
                 .map { resources.getString(R.string.look_new_name, it) }
-            val copy = stringResource(R.string.look_copy_name, look.name).take(Ranges.lookNameLength.last).trim()
+            val copy = fitLookName(stringResource(R.string.look_copy_name, look.name))
             LookNameDialog(
                 title = stringResource(
                     if (action.duplicate) R.string.look_duplicate_title else R.string.look_new_title,

@@ -31,6 +31,30 @@ class LookEditsTest {
     }
 
     @Test
+    fun aNameNeverHoldsABrokenEmoji() {
+        val sun = "☀️"
+        val rocket = "🚀"
+        assertTrue(isValidLookName("Launch $rocket$sun"))
+        assertFalse(isValidLookName("Launch \uD83D"), "lone high surrogate")
+        assertFalse(isValidLookName("\uDE80 Launch"), "lone low surrogate")
+        assertFalse(isValidLookName("a\uDE80\uD83Db"), "surrogates in the wrong order")
+    }
+
+    @Test
+    fun namesAreCutToFitOnACodePointBoundary() {
+        val rocket = "🚀"
+        assertEquals("Work copy", fitLookName("Work copy"))
+        assertEquals("x".repeat(30), fitLookName("x".repeat(31)))
+        // The rocket's pair spans units 30 and 31: it is left out whole rather than split.
+        assertEquals("x".repeat(29), fitLookName("x".repeat(29) + rocket + " copy"))
+        assertEquals("x".repeat(28) + rocket, fitLookName("x".repeat(28) + rocket + " copy"))
+        assertEquals("x".repeat(27), fitLookName("x".repeat(27) + "   copy"), "trimmed after the cut")
+        for (text in listOf("x".repeat(29) + rocket, "x".repeat(28) + rocket + "y")) {
+            assertTrue(isValidLookName(fitLookName(text + " copy")), text)
+        }
+    }
+
+    @Test
     fun aNewLookCopiesTheLookItStartsFrom() {
         val added = settings.addLook(work, "Night", id = "night")
         assertEquals(work.copy(id = "night", name = "Night"), added.look("night"))

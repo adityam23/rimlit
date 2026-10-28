@@ -16,6 +16,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +72,8 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     // The look this screen edits: the default one until another is picked, and again once that one is deleted.
     var editingId by rememberSaveable { mutableStateOf(saved.defaultLookId) }
     val look = draft.look(editingId) ?: draft.defaultLook
-    var lookAction by remember { mutableStateOf<LookAction?>(null) }
+    // The open look dialog, kept across configuration changes like the look being edited.
+    var lookAction by rememberSaveable(stateSaver = LookAction.Saver) { mutableStateOf<LookAction?>(null) }
 
     val view = LocalView.current
     val density = LocalDensity.current
@@ -115,9 +117,15 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
         }
     }
 
-    lookAction?.let { action ->
+    val action = lookAction ?: return
+    val target = draft.look(action.lookId)
+    if (target == null) {
+        // Restored for a look that no longer exists: drop it.
+        SideEffect { lookAction = null }
+    } else {
         LookActionDialog(
             action = action,
+            look = target,
             settings = draft,
             onDone = { edit, editNext ->
                 editor.commit(edit)
