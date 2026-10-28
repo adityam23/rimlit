@@ -70,7 +70,12 @@ class LockScreenGlowActivity :
                     .background(Color.Black)
                     .pointerInput(opens) {
                         if (opens) {
-                            detectTapGestures(onDoubleTap = { openRequested() }, onTap = { gone() })
+                            // A press that isn't a tap (a cancelled or dragged-away touch) still ends the glow.
+                            detectTapGestures(
+                                onPress = { if (!tryAwaitRelease()) gone() },
+                                onDoubleTap = { openRequested() },
+                                onTap = { gone() },
+                            )
                         } else {
                             // Nothing to open: end at the first touch, without waiting for a second tap.
                             awaitEachGesture {
