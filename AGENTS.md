@@ -82,7 +82,7 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 
 - **JDK 25.** The build targets it (see the KGP bump below); don't add toolchain auto-provisioning.
 - **Gradle 9.8.1**, system install; **no wrapper** — use `gradle`, not `./gradlew`.
-- **AGP 9.4.1 with built-in Kotlin** — do NOT re-add `org.jetbrains.kotlin.android`. Kotlin support is built in; KGP is bumped to 2.4.21 (catalog `kotlin`) in the root `buildscript` block for JDK 25.
+- **AGP 9.5.0 with built-in Kotlin** — do NOT re-add `org.jetbrains.kotlin.android`. Kotlin support is built in; KGP is bumped to 2.4.21 (catalog `kotlin`) in the root `buildscript` block for JDK 25.
 - **Compose compiler**: `org.jetbrains.kotlin.plugin.compose`, on the catalog `kotlin` version (2.4.21).
 - **Android SDK**: platform 36 (`sdk.dir` in `local.properties`, gitignored). compileSdk/targetSdk 36, minSdk 29.
 - Dependency resolution: `google()` + `mavenCentral()`, `FAIL_ON_PROJECT_REPOS`. Versions via the catalog, not inline.
