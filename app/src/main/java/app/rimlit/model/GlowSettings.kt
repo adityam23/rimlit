@@ -87,8 +87,15 @@ data class GlowSettings(
     val showWhenScreenOff: Boolean = true,
     val showOnLockScreen: Boolean = true,
     val showWhenUnlocked: Boolean = true,
-    /** A double tap on the lock-screen glow unlocks and opens its notification; off, it only ends the glow. */
+    /**
+     * A double tap on the lock-screen glow unlocks and opens its notification (off: it only ends the glow), and one
+     * on the pill opens it (off: it does nothing).
+     */
     val openOnDoubleTap: Boolean = true,
+    /** On-screen glows show a pill with the notifying app's icon and name, out of the camera cutout. */
+    val showPill: Boolean = true,
+    /** Swiping the pill away also dismisses its notification in the shade; off, it only ends the glow. */
+    val swipeClears: Boolean = false,
     val quietHours: QuietHours = QuietHours(),
     val region: EdgeRegion = EdgeRegion.FULL_SCREEN,
     /** Corner radius of the screen-edge outline; `null` matches the display's own corners. */
