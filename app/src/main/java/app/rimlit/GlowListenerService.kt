@@ -55,6 +55,18 @@ class GlowListenerService : NotificationListenerService() {
     /** [posted]'s notification alone. Any thread. */
     fun notification(key: String): Notification? = posted(key)?.notification
 
+    /**
+     * Dismisses the notification posted under [key], as the user would in the shade (the system keeps ongoing and
+     * non-clearable ones). Main thread.
+     */
+    fun cancel(key: String) {
+        try {
+            cancelNotification(key)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Notification access is gone; cancelling $key failed", e)
+        }
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?, rankingMap: RankingMap?) {
         sbn ?: return
         // The ranking carries the posting app's real channel importance and DND verdict (our own

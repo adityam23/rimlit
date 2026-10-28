@@ -1,6 +1,7 @@
 package app.rimlit.runtime
 
 import android.app.ActivityOptions
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
@@ -23,26 +24,33 @@ internal object NotificationOpener {
 
     private const val TAG = "NotificationOpener"
 
-    /** The action that opens [posted], or `null` if it leads nowhere. */
-    fun opener(context: Context, posted: StatusBarNotification): (() -> Unit)? {
+    /**
+     * The action that opens [posted], or `null` if it leads nowhere. Once its content intent is sent, a notification
+     * the app marked `FLAG_AUTO_CANCEL` is dismissed with [cancel], as the shade does; the app fallback dismisses
+     * nothing, since the shade wouldn't open such a notification at all.
+     */
+    fun opener(context: Context, posted: StatusBarNotification, cancel: (key: String) -> Unit): (() -> Unit)? {
         val content = posted.notification.contentIntent
-        if (content != null) return { send(content) }
+        val autoCancels = posted.notification.flags and Notification.FLAG_AUTO_CANCEL != 0
+        if (content != null) return { if (send(content) && autoCancels) cancel(posted.key) }
         val launcher = launcherActivity(context, posted.packageName, posted.user) ?: return null
         return { start(context, launcher, posted.user) }
     }
 
-    private fun send(intent: PendingIntent) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                intent.send(senderOptions())
-            } else {
-                intent.send()
-            }
-        } catch (e: PendingIntent.CanceledException) {
-            Log.w(TAG, "The notification's content intent was cancelled; nothing opened", e)
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Not allowed to send the notification's content intent", e)
+    /** Sends [intent]; whether it went. */
+    private fun send(intent: PendingIntent): Boolean = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            intent.send(senderOptions())
+        } else {
+            intent.send()
         }
+        true
+    } catch (e: PendingIntent.CanceledException) {
+        Log.w(TAG, "The notification's content intent was cancelled; nothing opened", e)
+        false
+    } catch (e: SecurityException) {
+        Log.w(TAG, "Not allowed to send the notification's content intent", e)
+        false
     }
 
     /** [packageName]'s launcher activity in [user]; `null` if it has none, or [user] isn't a profile Rimlit sees. */

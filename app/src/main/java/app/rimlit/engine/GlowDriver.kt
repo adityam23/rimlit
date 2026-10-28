@@ -28,10 +28,11 @@ interface GlowDriver {
     fun wakeScreenDenied()
 
     /**
-     * Opens [post]'s notification as it is now (its content intent, else its app's launch intent) through [from],
-     * the live instance the user asked, which unlocks the device first. Nothing opens if it is gone by now, or by the
-     * time the device is unlocked. [from] is handed over, no longer the surface's: the driver closes it once done,
-     * whether or not anything opened.
+     * Opens [post]'s notification as it is now, as tapping it in the shade would (its content intent, dismissing it
+     * if the app marked it auto-cancel; else its app, in the notification's user) through [from], the live instance
+     * the user asked, which unlocks the device first. Nothing opens if it is gone by now, or by the time the device
+     * is unlocked. [from] is handed over, no longer the surface's: the driver closes it once done, whether or not
+     * anything opened.
      */
     fun openNotification(post: Post, from: SurfaceInstance)
 }
