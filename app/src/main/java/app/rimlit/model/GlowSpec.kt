@@ -3,7 +3,10 @@ package app.rimlit.model
 /** Colors painted around the glow outline. */
 sealed interface GlowPalette {
 
-    /** One color = solid; 2–5 colors = gradient spread evenly around the outline, flowing over time. */
+    /**
+     * One color = solid; 2–5 colors = gradient spread evenly around the outline, flowing over time. The one place a
+     * palette's size is checked: looks and rules hold their colors as this.
+     */
     data class Colors(val argb: List<Int>) : GlowPalette {
         init {
             require(argb.size in 1..MAX_PALETTE_COLORS) { "Palette needs 1–$MAX_PALETTE_COLORS colors" }

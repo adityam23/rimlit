@@ -257,12 +257,13 @@ class GlowMachineScenarioTest {
         assertEquals(listOf(GlowEffect.ExtractPalette(post("a"), CHAT_LOOK.autoColors)), run.effects, "its rule's look")
 
         // The rule's look with fixed colours: the app's post shows at once, superseding the one still pending.
-        val fixed = RULED.updateLook(CHAT_LOOK.id) { it.copy(colorMode = ColorMode.CUSTOM, customColors = EXTRACTED) }
+        val palette = GlowPalette.Colors(EXTRACTED)
+        val fixed = RULED.updateLook(CHAT_LOOK.id) { it.copy(colorMode = ColorMode.CUSTOM, customColors = palette) }
         run.send(GlowEvent.SettingsChanged(fixed), mail, posted("b"))
         assertNull(run.state.pending)
         assertTrue(GlowEffect.CancelExtraction in run.effects)
         assertEquals("b", run.glow.source.post?.key)
-        assertEquals(GlowPalette.Colors(EXTRACTED), run.glow.spec.palette)
+        assertEquals(palette, run.glow.spec.palette)
     }
 
     @Test

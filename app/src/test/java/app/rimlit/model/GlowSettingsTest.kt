@@ -8,13 +8,13 @@ import kotlin.test.assertNull
 class GlowSettingsTest {
 
     private val app = "com.example.chat"
-    private val red = 0xFFFF0000.toInt()
-    private val blue = 0xFF0000FF.toInt()
+    private val red = GlowPalette.Colors(listOf(0xFFFF0000.toInt()))
+    private val blue = GlowPalette.Colors(listOf(0xFF0000FF.toInt()))
     private val extracted = listOf(0xFF336699.toInt())
 
     private val work = Look(id = "work", name = "Work", style = GlowStyle.BLADE, colorMode = ColorMode.RAINBOW)
     private val settings = GlowSettings(
-        looks = listOf(Look(colorMode = ColorMode.CUSTOM, customColors = listOf(blue)), work),
+        looks = listOf(Look(colorMode = ColorMode.CUSTOM, customColors = blue), work),
     )
 
     private fun GlowSettings.ready(packageName: String = app) =
@@ -24,7 +24,7 @@ class GlowSettingsTest {
     fun withoutARuleTheDefaultLookApplies() {
         val spec = settings.ready()
         assertEquals(GlowStyle.GLOW, spec.style)
-        assertEquals(GlowPalette.Colors(listOf(blue)), spec.palette)
+        assertEquals(blue, spec.palette)
     }
 
     @Test
@@ -43,15 +43,15 @@ class GlowSettingsTest {
 
     @Test
     fun aPaletteRulePaintsTheDefaultLook() {
-        val spec = settings.copy(appRules = mapOf(app to Rule.UsePalette(listOf(red)))).ready()
+        val spec = settings.copy(appRules = mapOf(app to Rule.UsePalette(red))).ready()
         assertEquals(GlowStyle.GLOW, spec.style)
-        assertEquals(GlowPalette.Colors(listOf(red)), spec.palette)
+        assertEquals(red, spec.palette)
     }
 
     @Test
     fun aPaletteRuleOverridesAutoColours() {
-        val auto = GlowSettings(appRules = mapOf(app to Rule.UsePalette(listOf(red))))
-        assertEquals(GlowPalette.Colors(listOf(red)), (auto.resolve(app) as Resolution.Ready).spec.palette)
+        val auto = GlowSettings(appRules = mapOf(app to Rule.UsePalette(red)))
+        assertEquals(red, (auto.resolve(app) as Resolution.Ready).spec.palette)
     }
 
     @Test
@@ -122,5 +122,12 @@ class GlowSettingsTest {
             assertFailsWith<IllegalArgumentException>("name '$name'") { Look(name = name) }
         }
         Look(name = "x".repeat(30))
+    }
+
+    @Test
+    fun aPaletteHoldsOneToTheLimitOfColours() {
+        assertFailsWith<IllegalArgumentException>("empty") { GlowPalette.Colors(emptyList()) }
+        assertFailsWith<IllegalArgumentException>("too many") { GlowPalette.Colors(List(MAX_PALETTE_COLORS + 1) { 0 }) }
+        GlowPalette.Colors(List(MAX_PALETTE_COLORS) { 0 })
     }
 }

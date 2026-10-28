@@ -38,6 +38,7 @@ import app.rimlit.model.AutoColorSource
 import app.rimlit.model.BatterySaver
 import app.rimlit.model.ColorMode
 import app.rimlit.model.EdgeRegion
+import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowSpec
@@ -202,11 +203,12 @@ private fun LazyListScope.colorSection(look: Look, editor: SettingsDraft) {
         ColorMode.AUTO -> autoColorsSection(look, editor)
 
         ColorMode.CUSTOM -> item {
+            val painted = { colors: List<Int> -> look.edit { it.copy(customColors = GlowPalette.Colors(colors)) } }
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 PaletteEditor(
-                    colors = look.customColors,
-                    onPreview = { colors -> editor.preview(look.edit { it.copy(customColors = colors) }) },
-                    onCommit = { colors -> editor.persist(look.edit { it.copy(customColors = colors) }) },
+                    colors = look.customColors.argb,
+                    onPreview = { colors -> editor.preview(painted(colors)) },
+                    onCommit = { colors -> editor.persist(painted(colors)) },
                     modifier = Modifier.padding(16.dp),
                 )
             }

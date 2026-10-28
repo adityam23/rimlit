@@ -22,8 +22,8 @@ data class Look(
     val style: GlowStyle = GlowStyle.GLOW,
     val colorMode: ColorMode = ColorMode.AUTO,
     val autoColors: AutoColors = AutoColors(),
-    /** One color = solid, more = gradient; used by [ColorMode.CUSTOM]. */
-    val customColors: List<Int> = listOf(DEFAULT_GLOW_ARGB),
+    /** The palette [ColorMode.CUSTOM] paints with. */
+    val customColors: GlowPalette.Colors = GlowPalette.Colors(listOf(DEFAULT_GLOW_ARGB)),
     val region: EdgeRegion = EdgeRegion.FULL_SCREEN,
     val thicknessDp: Float = 4f,
     val glowWidthDp: Float = 24f,
@@ -33,14 +33,13 @@ data class Look(
     init {
         require(id.isNotEmpty()) { "A look needs an id" }
         require(isValidLookName(name)) { "Invalid look name" }
-        require(customColors.size in 1..MAX_PALETTE_COLORS) { "Palette needs 1–$MAX_PALETTE_COLORS colors" }
     }
 
     /** The colors [colorMode] fixes; `null` for [ColorMode.AUTO], which are extracted per notification. */
     val palette: GlowPalette?
         get() = when (colorMode) {
             ColorMode.AUTO -> null
-            ColorMode.CUSTOM -> GlowPalette.Colors(customColors)
+            ColorMode.CUSTOM -> customColors
             ColorMode.RAINBOW -> GlowPalette.Rainbow
         }
 }

@@ -130,7 +130,7 @@ data class GlowSettings(
     fun resolve(packageName: String, extracted: List<Int>? = null): Resolution {
         val rule = appRules[packageName]
         val look = (rule as? Rule.UseLook)?.let { look(it.lookId) } ?: defaultLook
-        val palette = (rule as? Rule.UsePalette)?.let { GlowPalette.Colors(it.colors) }
+        val palette = (rule as? Rule.UsePalette)?.palette
             ?: look.palette
             ?: extracted?.let(GlowPalette::Colors)
             ?: return Resolution.Extract(look.autoColors)

@@ -44,6 +44,7 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.AppInfo
 import app.rimlit.model.DEFAULT_GLOW_ARGB
+import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.Rule
 import app.rimlit.ui.components.PaletteEditor
@@ -101,7 +102,8 @@ fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier 
             app = app,
             initial = settings.paletteOf(app.packageName),
             onSave = { colors ->
-                viewModel.update { it.copy(appRules = it.appRules + (app.packageName to Rule.UsePalette(colors))) }
+                val rule = Rule.UsePalette(GlowPalette.Colors(colors))
+                viewModel.update { it.copy(appRules = it.appRules + (app.packageName to rule)) }
                 editing = null
             },
             onUseDefault = {
@@ -148,7 +150,7 @@ private fun AppList(
 
 /** The palette [packageName]'s rule paints it with; `null` when it has none. */
 private fun GlowSettings.paletteOf(packageName: String): List<Int>? =
-    (appRules[packageName] as? Rule.UsePalette)?.colors
+    (appRules[packageName] as? Rule.UsePalette)?.palette?.argb
 
 private fun GlowSettings.withBlocked(packageName: String, blocked: Boolean) =
     copy(blockedPackages = if (blocked) blockedPackages + packageName else blockedPackages - packageName)

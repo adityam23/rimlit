@@ -75,7 +75,7 @@ class SettingsMigrationTest {
                 style = GlowStyle.BLADE,
                 colorMode = ColorMode.CUSTOM,
                 autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 2),
-                customColors = listOf(red, blue),
+                customColors = GlowPalette.Colors(listOf(red, blue)),
                 region = EdgeRegion.CUTOUT,
                 thicknessDp = 6f,
                 glowWidthDp = 30f,
@@ -91,7 +91,10 @@ class SettingsMigrationTest {
     fun perAppPalettesBecomePaletteRules() {
         val settings = preLooks().toSettings()
         assertEquals(
-            mapOf("com.a" to Rule.UsePalette(listOf(green)), "com.b" to Rule.UsePalette(listOf(green, blue))),
+            mapOf(
+                "com.a" to Rule.UsePalette(GlowPalette.Colors(listOf(green))),
+                "com.b" to Rule.UsePalette(GlowPalette.Colors(listOf(green, blue))),
+            ),
             settings.appRules,
         )
         assertEquals(preLooksSpec(GlowPalette.Colors(listOf(green))), settings.spec("com.a"))
@@ -100,7 +103,7 @@ class SettingsMigrationTest {
     @Test
     fun theOldestSingleCustomColourStillMigrates() {
         val prefs = mutablePreferencesOf(longPreferencesKey("custom_color_argb") to 0xFF00FF00L)
-        assertEquals(listOf(green), prefs.toSettings().defaultLook.customColors)
+        assertEquals(listOf(green), prefs.toSettings().defaultLook.customColors.argb)
     }
 
     @Test
@@ -126,7 +129,7 @@ class SettingsMigrationTest {
         val settings = GlowSettings(
             looks = listOf(Look(), Look(id = "work", name = "Work", style = GlowStyle.BASIC)),
             defaultLookId = "work",
-            appRules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UsePalette(listOf(red))),
+            appRules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UsePalette(GlowPalette.Colors(listOf(red)))),
         )
         val prefs = mutablePreferencesOf().apply { write(settings) }
         assertEquals(settings, prefs.toSettings())

@@ -4,6 +4,7 @@ import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.EdgeRegion
+import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
@@ -25,7 +26,7 @@ class SettingsJsonTest {
             style = GlowStyle.BLADE,
             colorMode = ColorMode.CUSTOM,
             autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 3),
-            customColors = listOf(red, 0x8000FF00.toInt(), 0),
+            customColors = GlowPalette.Colors(listOf(red, 0x8000FF00.toInt(), 0)),
             region = EdgeRegion.CUTOUT_AND_EDGE,
             thicknessDp = 7.5f,
             glowWidthDp = 0.1f,
@@ -44,7 +45,7 @@ class SettingsJsonTest {
 
     @Test
     fun rulesRoundTrip() {
-        val rules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UsePalette(listOf(red, 0)))
+        val rules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UsePalette(GlowPalette.Colors(listOf(red, 0))))
         assertEquals(rules, decodeRules(encodeRules(rules)))
         assertEquals(emptyMap(), decodeRules(encodeRules(emptyMap())))
     }
@@ -85,15 +86,15 @@ class SettingsJsonTest {
     @Test
     fun palettesKeepOnlyValidColoursUpToTheLimit() {
         val many = (1..8).joinToString(",") { "\"ff00000$it\"" }
-        assertEquals(MAX_PALETTE_COLORS, decodeOne(""","customColors":[$many]""").customColors.size)
+        assertEquals(MAX_PALETTE_COLORS, decodeOne(""","customColors":[$many]""").customColors.argb.size)
 
         val mixed = decodeOne(""","customColors":["zz", 5, "1ffffffff", "-1", "ff0000ff"]""")
-        assertEquals(listOf(0xFF0000FF.toInt()), mixed.customColors)
+        assertEquals(listOf(0xFF0000FF.toInt()), mixed.customColors.argb)
 
         assertEquals(Look().customColors, decodeOne(""","customColors":["nope"]""").customColors)
 
         val rules = decodeRules("""{"a":{"palette":[$many]},"b":{"palette":["x"]},"c":{"look":""},"":{"look":"y"}}""")
-        assertEquals(mapOf("a" to Rule.UsePalette((1..5).map { 0xFF000000.toInt() + it })), rules)
+        assertEquals(mapOf("a" to Rule.UsePalette(GlowPalette.Colors((1..5).map { 0xFF000000.toInt() + it }))), rules)
     }
 
     @Test

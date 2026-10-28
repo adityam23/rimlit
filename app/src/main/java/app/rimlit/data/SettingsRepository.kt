@@ -16,6 +16,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.rimlit.model.AutoColors
 import app.rimlit.model.CustomCutout
+import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
@@ -191,7 +192,7 @@ private fun Preferences.preLooksLook(): Look {
             count = clamped(Keys.PreLooks.AUTO_COLOR_COUNT, look.autoColors.count, Ranges.autoColorCount),
         ),
         customColors = this[Keys.PreLooks.CUSTOM_COLORS]?.let { decodePalette(it.splitToSequence(',')) }
-            ?: this[Keys.PreLooks.CUSTOM_COLOR]?.let { listOf(it.toInt()) }
+            ?: this[Keys.PreLooks.CUSTOM_COLOR]?.let { GlowPalette.Colors(listOf(it.toInt())) }
             ?: look.customColors,
         region = this[Keys.PreLooks.REGION].toEnumOr(look.region),
         thicknessDp = clamped(Keys.PreLooks.THICKNESS_DP, look.thicknessDp, Ranges.thicknessDp),

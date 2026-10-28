@@ -1,6 +1,7 @@
 package app.rimlit.data
 
 import app.rimlit.model.AutoColors
+import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
@@ -50,9 +51,13 @@ internal fun decodeRules(json: String?): Map<String, Rule>? {
         .toMap()
 }
 
-/** The valid colors among [colors] (8-digit ARGB hex, e.g. `ff00bcd4`), at most [MAX_PALETTE_COLORS], or `null`. */
-internal fun decodePalette(colors: Sequence<String>): List<Int>? =
+/**
+ * The palette of the valid colors among [colors] (8-digit ARGB hex, e.g. `ff00bcd4`), the first [MAX_PALETTE_COLORS]
+ * of them; `null` when there is none, so an invalid stored palette is dropped, never thrown.
+ */
+internal fun decodePalette(colors: Sequence<String>): GlowPalette.Colors? =
     colors.mapNotNull(PaletteJson::decodeColor).take(MAX_PALETTE_COLORS).toList().ifEmpty { null }
+        ?.let(GlowPalette::Colors)
 
 internal inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E =
     this?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
@@ -132,7 +137,7 @@ private object RuleJson {
 
     fun encode(rule: Rule): JSONObject = when (rule) {
         is Rule.UseLook -> JSONObject().put(LOOK, rule.lookId)
-        is Rule.UsePalette -> JSONObject().put(PALETTE, PaletteJson.encode(rule.colors))
+        is Rule.UsePalette -> JSONObject().put(PALETTE, PaletteJson.encode(rule.palette))
     }
 
     /** The rule [obj] holds: a look by id, or else a palette; `null` when it holds neither. */
@@ -144,9 +149,10 @@ private object RuleJson {
 
 /** A palette is a JSON array of colors as 8-digit ARGB hex. */
 private object PaletteJson {
-    fun encode(colors: List<Int>) = JSONArray().apply { colors.forEach { put("%08x".format(Locale.ROOT, it)) } }
+    fun encode(palette: GlowPalette.Colors) =
+        JSONArray().apply { palette.argb.forEach { put("%08x".format(Locale.ROOT, it)) } }
 
-    fun decode(array: JSONArray): List<Int>? =
+    fun decode(array: JSONArray): GlowPalette.Colors? =
         decodePalette((0 until array.length()).asSequence().mapNotNull { array.opt(it) as? String })
 
     /** The color [hex] encodes, or `null` when it isn't a hex number in the ARGB range. */
