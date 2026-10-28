@@ -1,0 +1,22 @@
+package app.rimlit.ui.glow
+
+import android.graphics.Path
+
+/**
+ * The shape of a glow outline in plain floats, so what effects derive from it is testable off-device: the screen
+ * edge's [RoundRect], or the [CutoutRing]. An outline opens toward the side the screen lies on, inside the screen edge
+ * and outside the cutout ring; effects move and grow only that way.
+ */
+internal sealed interface OutlineShape {
+    /** Whether the open screen lies inside the outline (the screen edge) rather than outside it (the cutout ring). */
+    val opensInward: Boolean
+
+    /** How far its corners curve in from its bounds, at most. */
+    val cornerRadius: Float
+
+    /**
+     * Sets [path] to this outline moved [by] (0 or more) toward its open side, exactly, traced clockwise on screen;
+     * reuses the path, allocating nothing. Returns `false`, leaving the path empty, when it moves away to nothing.
+     */
+    fun trace(path: Path, by: Float): Boolean
+}

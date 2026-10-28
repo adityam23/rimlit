@@ -13,14 +13,14 @@ import kotlin.math.atan2
 import kotlin.math.min
 
 /**
- * The closed outline a glow is drawn along, plus precomputed samples for painting colors by
- * arc length. Built once per size/shape (never per frame).
+ * The closed outline a glow is drawn along, [path], plus precomputed samples for painting colors by arc length, and
+ * its [shape] in plain floats, which effects move and sample. [path] is [shape] traced clockwise unless given: the
+ * cutout ring draws its exact outline (see [cutoutGeometry]). Built once per size/shape (never per frame).
  */
-internal class GlowGeometry(
-    val path: Path,
-    /** Largest corner radius of [path]: how far its corners curve in from its bounds. */
-    val cornerRadius: Float,
-) {
+internal class GlowGeometry(val shape: OutlineShape, val path: Path = Path().also { shape.trace(it, by = 0f) }) {
+
+    /** How far the corners of [path] curve in from its bounds, at most. */
+    val cornerRadius: Float get() = shape.cornerRadius
 
     private val measure = PathMeasure(path, true)
     val length: Float = measure.length
@@ -119,9 +119,6 @@ internal data class DisplayShape(
 internal fun screenEdgeGeometry(width: Float, height: Float, shape: DisplayShape, strokePx: Float): GlowGeometry {
     val inset = strokePx / 2f
     val maxRadius = (min(width, height) / 2f - inset).coerceAtLeast(0f)
-    val radii = FloatArray(8) { i -> (shape.cornerRadii[i / 2] - inset).coerceIn(0f, maxRadius) }
-    val path = Path().apply {
-        addRoundRect(RectF(inset, inset, width - inset, height - inset), radii, Path.Direction.CW)
-    }
-    return GlowGeometry(path, cornerRadius = radii.max())
+    val radii = FloatArray(4) { (shape.cornerRadii[it] - inset).coerceIn(0f, maxRadius) }
+    return GlowGeometry(RoundRect(inset, inset, width - inset, height - inset, radii))
 }

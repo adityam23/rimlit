@@ -30,15 +30,13 @@ internal fun interface OutlinePart<T : Any> {
  * One closed outline the glow is drawn along, in the layout of [key]. Its pre-blurred halo is built on the first draw
  * that asks for it (`null` when the glow width is 0), so a style that draws none never blurs.
  */
-internal class GlowOutline(
-    val geometry: GlowGeometry,
+internal class GlowOutline(val geometry: GlowGeometry, val key: GlowLayoutKey) {
     /**
      * Whether the open screen lies inside the outline (the screen edge) rather than outside it (the cutout ring):
      * the side an effect may move or grow toward.
      */
-    val opensInward: Boolean,
-    val key: GlowLayoutKey,
-) {
+    val opensInward: Boolean get() = geometry.shape.opensInward
+
     val bloom: BloomMask? by lazy(LazyThreadSafetyMode.NONE) {
         // A zero-radius blur is invalid.
         if (key.glowPx > 0f) {
@@ -65,11 +63,10 @@ internal class GlowLayout(key: GlowLayoutKey) {
     private fun outlines(key: GlowLayoutKey): List<GlowOutline> {
         val cutout = key.shape.cutout?.takeIf { key.region.ringsCutout }?.let {
             val geometry = cutoutGeometry(it, gapPx = key.cutoutGapPx, strokePx = key.thicknessPx)
-            GlowOutline(geometry, opensInward = false, key = key)
+            GlowOutline(geometry, key)
         }
         val edge = if (key.region.tracesEdge || cutout == null) {
-            val geometry = screenEdgeGeometry(key.width, key.height, key.shape, key.thicknessPx)
-            GlowOutline(geometry, opensInward = true, key = key)
+            GlowOutline(screenEdgeGeometry(key.width, key.height, key.shape, key.thicknessPx), key)
         } else {
             null
         }
