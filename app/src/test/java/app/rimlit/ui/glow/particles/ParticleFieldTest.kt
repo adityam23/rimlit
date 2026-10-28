@@ -6,8 +6,11 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
 import app.rimlit.model.ParticleSpec
+import app.rimlit.ui.glow.BATTERY_SAVER_PARTICLE_SHARE
 import org.junit.Test
+import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.hypot
 import kotlin.math.sqrt
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -16,6 +19,7 @@ import kotlin.test.assertTrue
 class ParticleFieldTest {
 
     private val ranges = GlowSettings.Ranges
+    private val defaultHold = GlowSettings().durationMs
 
     /** A phone at the largest particle size, a landscape one, and an in-app preview stand-in. */
     private val areas = listOf(
@@ -23,24 +27,16 @@ class ParticleFieldTest {
         ParticleArea(2400f, 1080f, spritePx = 132f),
         ParticleArea(330f, 660f, spritePx = 10f),
     )
-    private val holds = listOf(ranges.durationMs.first, GlowSettings().durationMs, ranges.durationMs.last)
+    private val holds = listOf(ranges.durationMs.first, defaultHold, ranges.durationMs.last)
     private val speeds = listOf(ranges.particleSpeed.start, 1f, ranges.particleSpeed.endInclusive)
 
-    private data class Pose(
-        val x: Float,
-        val y: Float,
-        val degrees: Float,
-        val scale: Float,
-        val alpha: Float,
-        val tint: Int,
-        val progress: Float,
-    )
+    private data class Pose(val x: Float, val y: Float, val degrees: Float, val scale: Float, val alpha: Float, val tint: Int)
 
-    private fun Particle.pose() = Pose(x, y, degrees, scale, alpha, tint, progress)
+    private fun Particle.pose() = Pose(x, y, degrees, scale, alpha, tint)
 
     private fun field(
         motion: ParticleMotion,
-        holdMs: Long = GlowSettings().durationMs,
+        holdMs: Long = defaultHold,
         speed: Float = 1f,
         area: ParticleArea = areas.first(),
         seed: Int = 7,
@@ -48,7 +44,7 @@ class ParticleFieldTest {
     ): ParticleField {
         val amount = ranges.particleAmount.endInclusive
         val spec = ParticleSpec(ParticleImage.STAR, motion, speed = speed, amount = amount, rotationDegPerSecond = 90f)
-        return ParticleField(spec, particleCount(amount, share), tints = 3, holdMs, area, seed)
+        return ParticleField(spec, particleCount(motion, amount, share), tints = 3, holdMs, area, seed)
     }
 
     /** The live particles at [t], by index. */
@@ -63,7 +59,7 @@ class ParticleFieldTest {
         .takeWhile { it < timeline.cycle }
 
     private class Case(val field: ParticleField, val motion: ParticleMotion, val area: ParticleArea, val holdMs: Long) {
-        override fun toString() = "$motion over $area, hold $holdMs ms"
+        override fun toString() = "$motion over $area, hold $holdMs ms, lifetime ${field.lifetime} s"
     }
 
     /** Every motion, over every area, for the shortest, default and longest holds, at the slowest to fastest speed. */
@@ -89,6 +85,21 @@ class ParticleFieldTest {
     }
 
     @Test
+    fun theSpeedAloneSetsHowFastParticlesMove() {
+        for (motion in ParticleMotion.entries) {
+            val lifetimes = holds.map { field(motion, holdMs = it).lifetime }
+            assertTrue(lifetimes.all { it == lifetimes.first() }, "$motion: the glow's length changes $lifetimes")
+            for (speed in speeds) {
+                assertEquals(field(motion).lifetime / speed, field(motion, speed = speed).lifetime, 1e-4f, "$motion")
+            }
+            val slow = field(motion)
+            val fast = field(motion, speed = 2f)
+            val midHold = slow.timeline.spawnEnd / 2
+            assertNotEquals(slow.poses(midHold), fast.poses(midHold), "$motion: speed changes nothing at the default hold")
+        }
+    }
+
+    @Test
     fun particlesStayWithinReachOfTheCanvas() {
         everyField { case ->
             val area = case.area
@@ -101,28 +112,66 @@ class ParticleFieldTest {
         }
     }
 
+    /** Every slot has a particle out from the first frame to the end of the hold: the amount is what shows. */
     @Test
-    fun spawningStopsSoTheLastParticlesLeaveByTheEndOfTheFadeOut() {
+    fun theFieldHoldsItsAmountThroughTheHold() {
+        everyField { case ->
+            val field = case.field
+            for (t in field.times().filter { it <= field.timeline.spawnEnd }) {
+                assertEquals(field.count, field.poses(t).size, "$case: particles out at $t s")
+            }
+        }
+        // And most of them are in sight mid-hold, at the default hold and speed.
+        for (motion in ParticleMotion.entries) for (area in areas) {
+            val field = field(motion, area = area)
+            val midHold = (FADE_IN_MS + defaultHold / 2) / 1000f
+            for (t in listOf(midHold - 1f, midHold, midHold + 1f)) {
+                val inSight = field.poses(t).values.count { !it.hidden(area) }
+                assertTrue(inSight >= field.count * IN_SIGHT_SHARE, "$motion over $area: $inSight in sight at $t s")
+            }
+        }
+    }
+
+    @Test
+    fun spawningStopsAtTheEndOfTheHold() {
         everyField { case ->
             val field = case.field
             val timeline = field.timeline
+            assertEquals((FADE_IN_MS + case.holdMs) / 1000f, timeline.spawnEnd, 1e-4f, "$case")
             assertEquals((FADE_IN_MS + case.holdMs + FADE_OUT_MS) / 1000f, timeline.cycle, 1e-4f, "$case")
-            assertEquals(timeline.cycle, timeline.spawnEnd + timeline.lifetime, 1e-4f, "$case")
-            assertTrue(timeline.lifetime <= timeline.cycle / 2, "$case: spawning covers at least half the glow")
 
-            // Once spawning has ended, particles only ever leave.
-            var alive = Int.MAX_VALUE
-            for (t in field.times().filter { it > timeline.spawnEnd }) {
-                val now = field.poses(t).size
-                assertTrue(now <= alive, "$case: a particle spawned at $t s, after ${timeline.spawnEnd} s")
-                alive = now
+            // Once spawning has ended, particles only ever leave: no slot gets a new one, frame by frame. The first
+            // frame past the end may still show one spawned within the frame before it.
+            val particle = Particle()
+            val after = ceil(timeline.spawnEnd / FRAME_STEP).toInt() + 1
+            for (index in 0 until field.count) {
+                var last = if (field.at(index, (after - 1) * FRAME_STEP, particle)) particle.pose() else null
+                for (frame in after until ceil(timeline.cycle / FRAME_STEP).toInt()) {
+                    val t = frame * FRAME_STEP
+                    val pose = if (field.at(index, t, particle)) particle.pose() else null
+                    val spawned = pose != null && (last == null || pose.isNewAfter(last, case.area))
+                    assertTrue(!spawned, "$case: particle $index spawned at $t s, after ${timeline.spawnEnd} s")
+                    last = pose
+                }
+            }
+        }
+    }
+
+    @Test
+    fun nothingShowsAsTheGlowEnds() {
+        everyField { case ->
+            val end = case.field.timeline.cycle
+            for (t in listOf(end - 0.004f, end - 0.001f)) for ((index, pose) in case.field.poses(t)) {
+                assertTrue(pose.hidden(case.area), "$case: particle $index still shows at $t s: $pose")
             }
         }
     }
 
     /**
      * Frame by frame (every millisecond) through one whole glow, each slot's particles come and go only out of sight,
-     * and what is left when the glow ends is out of sight too. A burst pops up in sight: that is its look.
+     * and what is left when the glow ends is out of sight too. A burst pops up in sight: that is its look. A slot's
+     * next particle starts elsewhere, so a jump of more than a sprite between frames is a new particle: none moves
+     * that fast.
      */
     @Test
     fun particlesAppearAndVanishOnlyOutOfSight() {
@@ -135,8 +184,7 @@ class ParticleFieldTest {
                 for (frame in 0 until frames) {
                     val t = frame * FRAME_STEP
                     val pose = if (field.at(index, t, particle)) particle.pose() else null
-                    // A slot's next particle starts its life over.
-                    val replaced = last != null && pose != null && pose.progress < last.progress
+                    val replaced = last != null && pose != null && pose.isNewAfter(last, case.area)
                     if (pose != null && (last == null || replaced) && case.motion != ParticleMotion.POP) {
                         assertTrue(pose.hidden(case.area), "$case: particle $index appears in sight at $t s: $pose")
                     }
@@ -153,17 +201,34 @@ class ParticleFieldTest {
     @Test
     fun theAmountMapsToACappedCountThatBatterySaverHalves() {
         val most = ranges.particleAmount.endInclusive
-        assertEquals(MAX_PARTICLES, particleCount(most, share = 1f))
-        assertEquals(MAX_PARTICLES / 2, particleCount(most, share = 0.5f))
-        for (amount in listOf(ranges.particleAmount.start, 0.5f, most)) for (share in listOf(0.5f, 1f)) {
-            assertTrue(particleCount(amount, share) in 1..MAX_PARTICLES, "amount $amount, share $share")
-        }
+        val amounts = listOf(ranges.particleAmount.start, 0.3f, 0.5f, 0.7f, most)
         for (motion in ParticleMotion.entries) {
-            val full = field(motion)
-            val half = field(motion, share = 0.5f)
-            assertEquals(full.count / 2, half.count)
-            val peak = full.times().maxOf { full.poses(it).size }
+            assertEquals(MAX_PARTICLES, particleCount(motion, most, share = 1f), "$motion")
+            for (amount in amounts) for (share in listOf(0.5f, 1f)) {
+                val count = particleCount(motion, amount, share)
+                assertTrue(count in 1..MAX_PARTICLES, "$motion: amount $amount, share $share gives $count")
+            }
+            for (amount in amounts) {
+                val full = particleCount(motion, amount, share = 1f)
+                val half = particleCount(motion, amount, share = BATTERY_SAVER_PARTICLE_SHARE)
+                val within = if (motion == ParticleMotion.POP) BURST_SIZE else 1
+                assertTrue(abs(full / 2f - half) <= within, "$motion: amount $amount gives $full, then $half")
+            }
+            val field = field(motion)
+            val peak = field.times().maxOf { field.poses(it).size }
             assertTrue(peak in 1..MAX_PARTICLES, "$motion peaks at $peak live particles")
+        }
+    }
+
+    @Test
+    fun burstsAreAlwaysWhole() {
+        for (amount in generateSequence(ranges.particleAmount.start) { it + 0.01f }
+            .takeWhile { it <= ranges.particleAmount.endInclusive }) {
+            for (share in listOf(BATTERY_SAVER_PARTICLE_SHARE, 1f)) {
+                val count = particleCount(ParticleMotion.POP, amount, share)
+                assertEquals(0, count % BURST_SIZE, "amount $amount, share $share gives $count")
+                assertTrue(count >= BURST_SIZE, "amount $amount, share $share gives $count")
+            }
         }
     }
 
@@ -201,7 +266,16 @@ class ParticleFieldTest {
     private companion object {
         /** A frame every millisecond: a particle moves at most a few pixels from one to the next. */
         const val FRAME_STEP = 0.001f
+
+        /** The least share of the particles in sight mid-hold: the rest are entering or leaving past an edge. */
+        const val IN_SIGHT_SHARE = 0.7f
     }
+
+    /**
+     * This frame's pose is a slot's next particle, not [previous] (the frame before) moved on: a new particle starts
+     * elsewhere, and none moves a sprite's width within a frame.
+     */
+    private fun Pose.isNewAfter(previous: Pose, area: ParticleArea) = hypot(x - previous.x, y - previous.y) > area.spritePx
 
     /** Wholly outside the canvas (whatever its rotation), or all but transparent. */
     private fun Pose.hidden(area: ParticleArea): Boolean {

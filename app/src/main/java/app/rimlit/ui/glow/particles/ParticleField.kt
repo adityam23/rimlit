@@ -16,9 +16,9 @@ internal const val MAX_PARTICLES = 120
 internal const val PARTICLE_REACH = 1.5f
 
 /** Particles per burst of [ParticleMotion.POP]. */
-private const val BURST_SIZE = 8
+internal const val BURST_SIZE = 8
 
-/** Seconds a particle takes over its path at speed 1, before [ParticleTimeline] fits it to a short glow. */
+/** Seconds the farthest (slowest) particle takes over its path at speed 1; speed alone scales it. */
 private val ParticleMotion.lifetimeSeconds: Float
     get() = when (this) {
         ParticleMotion.FALL -> 4f
@@ -27,9 +27,15 @@ private val ParticleMotion.lifetimeSeconds: Float
         ParticleMotion.DRIFT -> 3f
     }
 
-/** How many particles a glow draws: its [amount] (a share of [MAX_PARTICLES]), of which [share] plays. */
-internal fun particleCount(amount: Float, share: Float): Int =
-    (amount * share * MAX_PARTICLES).roundToInt().coerceIn(1, MAX_PARTICLES)
+/**
+ * How many particles a glow draws: its [amount] (a share of [MAX_PARTICLES]), of which [share] plays. [motion]'s
+ * bursts ([ParticleMotion.POP]) round to whole bursts, so none is lopsided.
+ */
+internal fun particleCount(motion: ParticleMotion, amount: Float, share: Float): Int {
+    val count = (amount * share * MAX_PARTICLES).roundToInt()
+    val whole = if (motion == ParticleMotion.POP) (count + BURST_SIZE / 2) / BURST_SIZE * BURST_SIZE else count
+    return whole.coerceIn(if (motion == ParticleMotion.POP) BURST_SIZE else 1, MAX_PARTICLES)
+}
 
 /** One particle's pose in one frame. Reused from frame to frame, so a frame allocates nothing. */
 internal class Particle {
@@ -44,9 +50,6 @@ internal class Particle {
 
     /** Which of the field's tints colours it. */
     var tint = 0
-
-    /** How far through its life it is, in [0, 1): a slot's next particle starts again from 0. */
-    var progress = 0f
 }
 
 /** The canvas particles move over, and a particle's size there at scale 1, all in pixels. */
@@ -57,10 +60,12 @@ internal data class ParticleArea(val width: Float, val height: Float, val sprite
  * particle's pose is a pure function of ([seed], index, t), so a frame keeps nothing from the last one and the same
  * inputs always give the same picture.
  *
- * Each index is a slot that spawns one particle after another, every [ParticleTimeline.lifetime] from its own random
- * phase, while the timeline still spawns. Each spawn (a slot's generation) draws its own random place, depth and
- * spin. Bursts ([ParticleMotion.POP]) are slots spawning together. A centre never strays more than
- * [PARTICLE_REACH] sprites outside the canvas.
+ * Each index is a slot that is never empty while the glow spawns: it spawns one particle as the last one ends, so
+ * [count] is how many are out at once. A slot's particles live [life] each, from its own random phase, so at the
+ * glow's first frame every slot already has one partway along its path (the field starts full, faded in by
+ * [ParticleTimeline.envelope]). Each spawn (a slot's generation) draws its own random place and spin; bursts
+ * ([ParticleMotion.POP]) are slots spawning together. A centre never strays more than [PARTICLE_REACH] sprites
+ * outside the canvas.
  */
 internal class ParticleField(
     private val spec: ParticleSpec,
@@ -71,35 +76,43 @@ internal class ParticleField(
     area: ParticleArea,
     private val seed: Int,
 ) {
-    val timeline = ParticleTimeline(holdMs, spec.motion.lifetimeSeconds / spec.speed)
+    val timeline = ParticleTimeline(holdMs)
+
+    /** The farthest (slowest) particle's life, in seconds: set by the speed alone, never by the glow's length. */
+    val lifetime = spec.motion.lifetimeSeconds / spec.speed
 
     private val width = area.width
     private val height = area.height
     private val spritePx = area.spritePx
     private val shorter = min(width, height)
 
-    /** Poses particle [index] at [t] seconds into the glow into [into]; `false` when it isn't alive then. */
+    /** How long each of [slot]'s particles lives, from its depth: nearer slots move quicker. */
+    private fun life(slot: Int): Float = lifetime * (1f - NEAR_SPEEDUP * (1f - depth(slot)))
+
+    /** 0 is the nearest: nearer particles are bigger, brighter and quicker, for a sense of depth. */
+    private fun depth(slot: Int): Float = noise(slot, SLOT, DEPTH)
+
+    /** The slot particle [index] spawns in: its burst's for [ParticleMotion.POP], its own otherwise. */
+    private fun slotOf(index: Int): Int = if (spec.motion == ParticleMotion.POP) index / BURST_SIZE else index
+
+    /** Poses particle [index] at [t] seconds into the glow into [into]; `false` when it isn't out then. */
     fun at(index: Int, t: Float, into: Particle): Boolean {
-        val lifetime = timeline.lifetime
         val local = timeline.local(t)
-        val slot = if (spec.motion == ParticleMotion.POP) index / BURST_SIZE else index
-        val phase = noise(slot, -1, PHASE)
-        val generation = floor(local / lifetime - phase).toInt()
-        if (generation < 0) return false
-        val birth = (generation + phase) * lifetime
+        val slot = slotOf(index)
+        val life = life(slot)
+        val phase = noise(slot, SLOT, PHASE)
+        // At least -1: the particle that is already out at the glow's first frame.
+        val generation = floor(local / life - phase).toInt()
+        val birth = (generation + phase) * life
         if (birth > timeline.spawnEnd) return false
-        // 0 is the nearest: nearer particles are bigger, brighter and quicker, for a sense of depth.
-        val depth = noise(index, generation, DEPTH)
-        val life = lifetime * (1f - NEAR_SPEEDUP * (1f - depth))
         val age = local - birth
-        if (age >= life) return false
+        val depth = depth(slot)
 
         into.scale = 1f - FAR_SHRINK * depth
-        into.alpha = 1f - FAR_DIM * depth
+        into.alpha = (1f - FAR_DIM * depth) * timeline.envelope(local)
         into.tint = (noise(slot, generation, TINT) * tints).toInt().coerceAtMost(tints - 1)
         into.degrees = spin(index, generation, age)
-        val progress = age / life
-        into.progress = progress
+        val progress = (age / life).coerceIn(0f, 1f)
         when (spec.motion) {
             ParticleMotion.FALL -> sway(index, generation, age, progress, into, rising = false)
             ParticleMotion.RISE -> sway(index, generation, age, progress, into, rising = true)
@@ -181,6 +194,9 @@ internal class ParticleField(
 
         /** How far a drifting particle floats, as a share of the canvas's shorter side. */
         const val DRIFT_REACH = 0.12f
+
+        /** The generation a slot's own random numbers (its phase and depth) are drawn for: no spawn has it. */
+        const val SLOT = Int.MIN_VALUE
 
         // Random channels: one independent number per use.
         const val PHASE = 0

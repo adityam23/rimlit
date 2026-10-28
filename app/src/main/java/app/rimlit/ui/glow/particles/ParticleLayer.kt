@@ -39,7 +39,7 @@ internal class ParticleLayer(context: Context) {
         val sprites = sprites.get(SpriteKey.of(particles.image, sizePx, particles.tint, spec.palette))
         val field = ParticleField(
             spec = particles,
-            count = particleCount(particles.amount, playback.particleShare),
+            count = particleCount(particles.motion, particles.amount, playback.particleShare),
             tints = sprites.count,
             holdMs = spec.durationMs,
             area = ParticleArea(size.width, size.height, sizePx.toFloat()),

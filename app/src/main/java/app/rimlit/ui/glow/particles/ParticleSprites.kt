@@ -10,7 +10,7 @@ import app.rimlit.R
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleTint
-import app.rimlit.model.vividColor
+import app.rimlit.ui.glow.colorAt
 
 /** A rainbow tints its particles with this many evenly spaced hues. */
 private const val RAINBOW_TINTS = 8
@@ -34,7 +34,7 @@ internal data class SpriteKey(
 
         private fun GlowPalette.tints(): List<Int> = when (this) {
             is GlowPalette.Colors -> argb
-            GlowPalette.Rainbow -> List(RAINBOW_TINTS) { vividColor(it * 360f / RAINBOW_TINTS) }
+            GlowPalette.Rainbow -> List(RAINBOW_TINTS) { GlowPalette.Rainbow.colorAt(it / RAINBOW_TINTS.toFloat()) }
         }
     }
 }
