@@ -26,14 +26,14 @@ private const val FLOW_LOOPS_PER_SECOND = 0.12f
  * the shared breathing pulse, and the stroke and halo paints, tinted at an alpha × the playback's brightness. Built
  * once per spec and layout; a frame allocates only the palette's shader.
  */
-internal class OutlineBrush(
-    val spec: GlowSpec,
-    private val playback: Playback,
-    val outline: GlowOutline,
-    val thicknessPx: Float,
-    val glowPx: Float,
-) {
+internal class OutlineBrush(val spec: GlowSpec, private val playback: Playback, val outline: GlowOutline) {
     val geometry: GlowGeometry get() = outline.geometry
+
+    /** Line thickness, from the outline's layout. */
+    val thicknessPx: Float get() = outline.key.thicknessPx
+
+    /** Glow width (the halo's blur radius), from the outline's layout. */
+    val glowPx: Float get() = outline.key.glowPx
 
     /** Holds still (Remove animations): no pulse, flow or motion. */
     val still: Boolean get() = playback.still

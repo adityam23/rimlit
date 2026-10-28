@@ -36,8 +36,6 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
     val particles = rememberParticleLayer()
     Spacer(
         modifier.drawWithCache {
-            val thicknessPx = spec.thicknessDp.dp.toPx()
-            val glowPx = spec.glowWidthDp.dp.toPx()
             val display = if (preview) {
                 DisplayShape.preview(size.width, size.height)
             } else {
@@ -55,16 +53,14 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                     height = size.height,
                     shape = shape,
                     region = spec.region,
-                    thicknessPx = thicknessPx,
+                    thicknessPx = spec.thicknessDp.dp.toPx(),
                     cutoutGapPx = 4.dp.toPx(),
-                    glowPx = glowPx,
+                    glowPx = spec.glowWidthDp.dp.toPx(),
                 ),
             )
             // One painter per outline, each in the spec's style.
-            val edges = layout.outlines.map { outline ->
-                spec.style.painter(OutlineBrush(spec, playback, outline, thicknessPx, glowPx))
-            }
-            val particlePainter = particles.painter(spec, playback, size, 1.dp.toPx() * scale, preview)
+            val edges = layout.outlines.map { outline -> spec.style.painter(OutlineBrush(spec, playback, outline)) }
+            val particlePainter = particles.painter(spec, playback, size, pxPerDp, preview)
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value
