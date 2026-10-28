@@ -69,6 +69,8 @@
     <string name="style_glitter_desc">Sparkles twinkling along the edge</string>
     <string name="style_echo_title">Echo</string>
     <string name="style_echo_desc">Rings echoing off the edge</string>
+    <string name="style_fireworks_title">Fireworks</string>
+    <string name="style_fireworks_desc">Bursts of sparks going off along the edge</string>
     <string name="color_section">Color</string>
     <string name="color_auto_title">Auto</string>
     <string name="color_auto_desc">Colors from the notifying app</string>
