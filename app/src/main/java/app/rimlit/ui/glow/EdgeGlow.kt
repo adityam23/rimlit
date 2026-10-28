@@ -84,7 +84,7 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                 ),
             )
             val painter = GlowPainter(spec, playback, layout, thicknessPx, glowPx)
-            val particlePainter = particles.painter(spec, playback, size, pxPerDp = 1.dp.toPx() * scale)
+            val particlePainter = particles.painter(spec, playback, size, 1.dp.toPx() * scale, preview)
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value

@@ -32,8 +32,10 @@ class ParticleFieldTest {
 
     private data class Pose(val x: Float, val y: Float, val degrees: Float, val scale: Float, val alpha: Float, val tint: Int)
 
-    private fun Particle.pose() = Pose(x, y, degrees, scale, alpha, tint)
-
+    /**
+     * Fields are previews unless a test says otherwise: a preview fades itself, so what a test sees is all there is
+     * to see. A surface's host fades it instead.
+     */
     private fun field(
         motion: ParticleMotion,
         holdMs: Long = defaultHold,
@@ -41,17 +43,26 @@ class ParticleFieldTest {
         area: ParticleArea = areas.first(),
         seed: Int = 7,
         share: Float = 1f,
+        preview: Boolean = true,
     ): ParticleField {
         val amount = ranges.particleAmount.endInclusive
         val spec = ParticleSpec(ParticleImage.STAR, motion, speed = speed, amount = amount, rotationDegPerSecond = 90f)
-        return ParticleField(spec, particleCount(motion, amount, share), tints = 3, holdMs, area, seed)
+        val count = particleCount(motion, amount, share)
+        return ParticleField(spec, count, tints = 3, ParticleTimeline(holdMs, preview), area, seed)
     }
+
+    /** Particle [index] as drawn at [t] seconds since the first frame, its alpha faded as a frame fades it. */
+    private fun ParticleField.pose(index: Int, t: Float, particle: Particle = Particle()): Pose? =
+        if (at(index, timeline.local(t), particle)) {
+            with(particle) { Pose(x, y, degrees, scale, alpha * timeline.opacity(t), tint) }
+        } else {
+            null
+        }
 
     /** The live particles at [t], by index. */
     private fun ParticleField.poses(t: Float): Map<Int, Pose> {
         val particle = Particle()
-        return (0 until count).mapNotNull { index -> if (at(index, t, particle)) index to particle.pose() else null }
-            .toMap()
+        return (0 until count).mapNotNull { index -> pose(index, t, particle)?.let { index to it } }.toMap()
     }
 
     /** Every [step] seconds through one whole glow. */
@@ -145,10 +156,10 @@ class ParticleFieldTest {
             val particle = Particle()
             val after = ceil(timeline.spawnEnd / FRAME_STEP).toInt() + 1
             for (index in 0 until field.count) {
-                var last = if (field.at(index, (after - 1) * FRAME_STEP, particle)) particle.pose() else null
+                var last = field.pose(index, (after - 1) * FRAME_STEP, particle)
                 for (frame in after until ceil(timeline.cycle / FRAME_STEP).toInt()) {
                     val t = frame * FRAME_STEP
-                    val pose = if (field.at(index, t, particle)) particle.pose() else null
+                    val pose = field.pose(index, t, particle)
                     val spawned = pose != null && (last == null || pose.isNewAfter(last, case.area))
                     assertTrue(!spawned, "$case: particle $index spawned at $t s, after ${timeline.spawnEnd} s")
                     last = pose
@@ -157,12 +168,36 @@ class ParticleFieldTest {
         }
     }
 
+    /** A preview fades its particles out by itself as each glow's timeline ends. */
     @Test
-    fun nothingShowsAsTheGlowEnds() {
+    fun nothingShowsAsAPreviewsGlowEnds() {
         everyField { case ->
             val end = case.field.timeline.cycle
-            for (t in listOf(end - 0.004f, end - 0.001f)) for ((index, pose) in case.field.poses(t)) {
+            for (t in listOf(end - 0.004f, end - 0.001f, 2 * end - 0.001f)) for ((index, pose) in case.field.poses(t)) {
                 assertTrue(pose.hidden(case.area), "$case: particle $index still shows at $t s: $pose")
+            }
+        }
+    }
+
+    /**
+     * A surface's host already fades its whole glow, so its particles add no fade of their own over the glow's
+     * timeline: fading them too would fade them twice. Past it (a glow the machine re-targeted, whose clock runs on)
+     * nothing else fades them where a cycle turns, so they fade themselves there, as a preview does.
+     */
+    @Test
+    fun aSurfacesParticlesFadeOnlyWithTheirHost() {
+        for (hold in holds) {
+            val surface = field(ParticleMotion.FALL, holdMs = hold, preview = false)
+            val preview = field(ParticleMotion.FALL, holdMs = hold)
+            val cycle = surface.timeline.cycle
+            for (t in generateSequence(0f) { it + FRAME_STEP }.takeWhile { it < cycle }) {
+                assertEquals(1f, surface.timeline.opacity(t), "hold $hold ms: a surface's particles faded at $t s")
+            }
+            for (t in listOf(0f, 0.05f, cycle - 0.05f, cycle + 0.05f, 2 * cycle - 0.05f)) {
+                assertTrue(preview.timeline.opacity(t) < 1f, "hold $hold ms: a preview's particles don't fade at $t s")
+            }
+            for (t in listOf(cycle, cycle + 0.05f, 2 * cycle - 0.05f, cycle + cycle / 2)) {
+                assertEquals(preview.timeline.opacity(t), surface.timeline.opacity(t), "hold $hold ms: a re-targeted glow at $t s")
             }
         }
     }
@@ -183,7 +218,7 @@ class ParticleFieldTest {
                 var last: Pose? = null
                 for (frame in 0 until frames) {
                     val t = frame * FRAME_STEP
-                    val pose = if (field.at(index, t, particle)) particle.pose() else null
+                    val pose = field.pose(index, t, particle)
                     val replaced = last != null && pose != null && pose.isNewAfter(last, case.area)
                     if (pose != null && (last == null || replaced) && case.motion != ParticleMotion.POP) {
                         assertTrue(pose.hidden(case.area), "$case: particle $index appears in sight at $t s: $pose")
@@ -242,8 +277,11 @@ class ParticleFieldTest {
             val field = field(motion, holdMs = ranges.durationMs.last)
             val particle = Particle()
             var sink = 0f
+            // As `ParticlePainter.draw` does it: the frame's time and fade once, then every particle.
             fun frame(t: Float) {
-                for (index in 0 until field.count) if (field.at(index, t, particle)) sink += particle.x
+                val local = field.timeline.local(t)
+                sink += field.timeline.opacity(t)
+                for (index in 0 until field.count) if (field.at(index, local, particle)) sink += particle.x
             }
             val frames = 20_000
             val step = field.timeline.cycle / frames

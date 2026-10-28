@@ -28,8 +28,8 @@ enum class ParticleTint {
 }
 
 /**
- * Particles animated across the screen while a glow shows, drawn beneath its edge. They start with the glow and
- * stop spawning in time for the last ones to leave by the end of its fade-out.
+ * Particles animated across the screen while a glow shows, drawn beneath its edge. The field is full from the glow's
+ * first frame, keeps spawning until its hold ends, and the particles still in flight then fade out with the glow.
  */
 data class ParticleSpec(
     val image: ParticleImage,

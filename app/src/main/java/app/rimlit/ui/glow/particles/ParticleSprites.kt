@@ -56,7 +56,8 @@ internal class ParticleSprites(context: Context, key: SpriteKey) {
     private fun render(context: Context, image: ParticleImage, tint: Int?): Bitmap {
         val drawable = checkNotNull(ContextCompat.getDrawable(context, image.drawableRes)).mutate()
         drawable.setBounds(0, 0, sizePx, sizePx)
-        // Tinting keeps each shape's alpha, so the images shade with translucency, not colour.
+        // A tint keeps only each pixel's alpha (SRC_IN), so every image draws its detail (a shine, a centre, a vein)
+        // more opaque than its translucent body: the detail survives the palette tint as a brighter shade of it.
         tint?.let(drawable::setTint)
         return createBitmap(sizePx, sizePx).also {
             drawable.draw(Canvas(it))

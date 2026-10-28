@@ -3,14 +3,15 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- A cherry-blossom petal: notched tip at the top, narrowing to its base. -->
+    <!-- A cherry-blossom petal: notched tip at the top, narrowing to its base. Its vein is opaque over a translucent
+         body, so it survives a palette tint. -->
     <path
+        android:fillAlpha="0.75"
         android:fillColor="#FFF8A5C2"
         android:pathData="M12,22C6,18 4,11 7,5C8.5,2.5 10.5,3 12,5.5C13.5,3 15.5,2.5 17,5C20,11 18,18 12,22Z" />
     <path
         android:pathData="M12,20L12,9"
-        android:strokeAlpha="0.5"
-        android:strokeColor="#FFD81B60"
+        android:strokeColor="#FFF06292"
         android:strokeLineCap="round"
         android:strokeWidth="0.8" />
 </vector>

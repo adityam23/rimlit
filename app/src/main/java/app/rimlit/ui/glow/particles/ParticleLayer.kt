@@ -30,10 +30,10 @@ internal class ParticleLayer(context: Context) {
     private val sprites = BuildCache<SpriteKey, ParticleSprites> { ParticleSprites(context, it) }
 
     /**
-     * What [spec]'s particles draw as [playback] plays them over a canvas of [size], with [pxPerDp] pixels per dp;
-     * `null` when none play.
+     * What [spec]'s particles draw as [playback] plays them over a canvas of [size], with [pxPerDp] pixels per dp, in
+     * an in-app [preview] or on a surface; `null` when none play.
      */
-    fun painter(spec: GlowSpec, playback: Playback, size: Size, pxPerDp: Float): ParticlePainter? {
+    fun painter(spec: GlowSpec, playback: Playback, size: Size, pxPerDp: Float, preview: Boolean): ParticlePainter? {
         val particles = spec.particles?.takeIf { playback.particleShare > 0f } ?: return null
         val sizePx = (particles.sizeDp * pxPerDp).roundToInt().coerceAtLeast(1)
         val sprites = sprites.get(SpriteKey.of(particles.image, sizePx, particles.tint, spec.palette))
@@ -41,7 +41,7 @@ internal class ParticleLayer(context: Context) {
             spec = particles,
             count = particleCount(particles.motion, particles.amount, playback.particleShare),
             tints = sprites.count,
-            holdMs = spec.durationMs,
+            timeline = ParticleTimeline(spec.durationMs, preview),
             area = ParticleArea(size.width, size.height, sizePx.toFloat()),
             seed = seed,
         )
@@ -65,13 +65,15 @@ internal class ParticlePainter(
 
     /** Draws the particles at [t] seconds into the glow. */
     fun draw(canvas: Canvas, t: Float) {
+        val local = field.timeline.local(t)
+        val opacity = 255 * field.timeline.opacity(t) * brightness
         for (index in 0 until field.count) {
-            if (!field.at(index, t, particle)) continue
+            if (!field.at(index, local, particle)) continue
             matrix.setTranslate(-half, -half)
             matrix.postScale(particle.scale, particle.scale)
             matrix.postRotate(particle.degrees)
             matrix.postTranslate(particle.x, particle.y)
-            paint.alpha = (255 * particle.alpha * brightness).toInt().coerceIn(0, 255)
+            paint.alpha = (opacity * particle.alpha).toInt().coerceIn(0, 255)
             canvas.drawBitmap(sprites[particle.tint], matrix, paint)
         }
     }
