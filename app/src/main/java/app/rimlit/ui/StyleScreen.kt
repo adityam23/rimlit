@@ -409,6 +409,7 @@ private val GlowStyle.titleRes
         GlowStyle.ECHO -> R.string.style_echo_title
         GlowStyle.LOOP -> R.string.style_loop_title
         GlowStyle.MIRROR -> R.string.style_mirror_title
+        GlowStyle.BOOMERANG -> R.string.style_boomerang_title
     }
 
 private val GlowStyle.descRes
@@ -421,6 +422,7 @@ private val GlowStyle.descRes
         GlowStyle.ECHO -> R.string.style_echo_desc
         GlowStyle.LOOP -> R.string.style_loop_desc
         GlowStyle.MIRROR -> R.string.style_mirror_desc
+        GlowStyle.BOOMERANG -> R.string.style_boomerang_desc
     }
 
 private val EdgeRegion.titleRes
