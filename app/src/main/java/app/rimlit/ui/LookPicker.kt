@@ -139,7 +139,7 @@ internal fun LookActionDialog(
                     Text(stringResource(R.string.look_delete))
                 }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
         )
     }
 }

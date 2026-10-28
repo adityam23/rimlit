@@ -78,6 +78,6 @@ internal fun AppLookDialog(app: AppInfo, settings: GlowSettings, onSave: (Rule?)
                 Text(stringResource(R.string.save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
     )
 }

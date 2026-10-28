@@ -47,6 +47,6 @@ fun TextFieldDialog(
         confirmButton = {
             TextButton(onClick = { onConfirm(text.trim()) }, enabled = error == null) { Text(confirmLabel) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
     )
 }
