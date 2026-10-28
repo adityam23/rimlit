@@ -160,8 +160,11 @@ class GlowMachineModelCheckTest {
      * still wanted; and then always. The request ends the glow, opening through the surface before closing it.
      */
     private fun openViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
+        // Runs on every transition: allocate the effect list only for a request.
+        if (event !is GlowEvent.OpenRequested) {
+            return "opens without a request".takeIf { step.effects.any { it is GlowEffect.OpenNotification } }
+        }
         val opens = step.effects.filterIsInstance<GlowEffect.OpenNotification>()
-        if (event !is GlowEvent.OpenRequested) return "opens without a request".takeIf { opens.isNotEmpty() }
         val shown = checkNotNull(old.glow)
         val post = shown.source.post
         val opened = opens.singleOrNull()
