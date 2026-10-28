@@ -1,35 +1,34 @@
 package app.rimlit.runtime
 
 import android.app.ActivityOptions
-import android.app.Notification
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
+import android.content.pm.LauncherApps
 import android.os.Build
 import android.os.Bundle
+import android.os.UserHandle
+import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.annotation.RequiresApi
 
 /**
  * Opens what a notification leads to, as tapping it in the shade would: its content intent, or its app when it has
- * none. Called once the device is unlocked, while Rimlit's lock-screen activity is still the visible window, since
- * Android lets an app start activities from a pending intent only with that standing (and, from Android 14, only
- * when it opts in).
+ * none, in the notification's own user (a work profile's notification opens the work profile's app). Called once
+ * the device is unlocked, while Rimlit's lock-screen activity is still the visible window, since Android lets an app
+ * start activities from a pending intent only with that standing (and, from Android 14, only when it opts in).
  */
 internal object NotificationOpener {
 
     private const val TAG = "NotificationOpener"
 
-    /** The action that opens [notification] from [packageName], or `null` if it leads nowhere. */
-    fun opener(context: Context, packageName: String, notification: Notification): (() -> Unit)? {
-        val content = notification.contentIntent
-        val launch = if (content == null) context.packageManager.getLaunchIntentForPackage(packageName) else null
-        return when {
-            content != null -> { -> send(content) }
-            launch != null -> { -> start(context, launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            else -> null
-        }
+    /** The action that opens [posted], or `null` if it leads nowhere. */
+    fun opener(context: Context, posted: StatusBarNotification): (() -> Unit)? {
+        val content = posted.notification.contentIntent
+        if (content != null) return { send(content) }
+        val launcher = launcherActivity(context, posted.packageName, posted.user) ?: return null
+        return { start(context, launcher, posted.user) }
     }
 
     private fun send(intent: PendingIntent) {
@@ -46,9 +45,20 @@ internal object NotificationOpener {
         }
     }
 
-    private fun start(context: Context, intent: Intent) {
+    /** [packageName]'s launcher activity in [user]; `null` if it has none, or [user] isn't a profile Rimlit sees. */
+    private fun launcherActivity(context: Context, packageName: String, user: UserHandle): ComponentName? = try {
+        context.getSystemService(LauncherApps::class.java)
+            ?.getActivityList(packageName, user)
+            ?.firstOrNull()
+            ?.componentName
+    } catch (e: SecurityException) {
+        Log.w(TAG, "Can't see $packageName's launcher activity in $user", e)
+        null
+    }
+
+    private fun start(context: Context, component: ComponentName, user: UserHandle) {
         try {
-            context.startActivity(intent)
+            context.getSystemService(LauncherApps::class.java)?.startMainActivity(component, user, null, null)
         } catch (e: ActivityNotFoundException) {
             Log.w(TAG, "The app's launcher activity is gone; nothing opened", e)
         } catch (e: SecurityException) {

@@ -129,8 +129,8 @@ class AndroidGlowDriver(
     }
 
     /** What opens [post]'s notification as it is posted now; `null` if it is gone or leads nowhere. */
-    private fun opener(post: Post): (() -> Unit)? = GlowListenerService.connected?.notification(post.key)
-        ?.let { NotificationOpener.opener(context, post.packageName, it) }
+    private fun opener(post: Post): (() -> Unit)? = GlowListenerService.connected?.posted(post.key)
+        ?.let { NotificationOpener.opener(context, it) }
 
     private companion object {
         const val TAG = "AndroidGlowDriver"
