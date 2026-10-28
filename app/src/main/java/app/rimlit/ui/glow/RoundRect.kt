@@ -46,6 +46,14 @@ internal class RoundRect(
         return true
     }
 
+    /** This shape grown by [by] on every side (negative shrinks it), as [offset] does; `null` when it shrinks away. */
+    fun offset(by: Float): RoundRect? {
+        val bounds = FloatArray(4)
+        val radii = FloatArray(8)
+        if (!offset(by, bounds, radii)) return null
+        return RoundRect(bounds[0], bounds[1], bounds[2], bounds[3], FloatArray(4) { radii[2 * it] })
+    }
+
     override fun trace(path: Path, by: Float): Boolean {
         path.rewind()
         if (!offset(-by, traceBounds, traceRadii)) return false

@@ -66,7 +66,7 @@ internal class GlowLayout(key: GlowLayoutKey) {
             GlowOutline(geometry, key)
         }
         val edge = if (key.region.tracesEdge || cutout == null) {
-            GlowOutline(screenEdgeGeometry(key.width, key.height, key.shape, key.thicknessPx), key)
+            screenEdgeGeometry(key.width, key.height, key.shape, key.thicknessPx)?.let { GlowOutline(it, key) }
         } else {
             null
         }

@@ -113,12 +113,8 @@ internal data class DisplayShape(
 }
 
 /**
- * Border following the screen's rounded corners, inset so the full stroke stays on-screen. Each radius is capped
- * at half the shorter side, so the outline never overlaps itself.
+ * Border following the screen's rounded corners, inset so the full stroke stays on-screen (see [RoundRect.offset]);
+ * `null` when the stroke is wider than the window.
  */
-internal fun screenEdgeGeometry(width: Float, height: Float, shape: DisplayShape, strokePx: Float): GlowGeometry {
-    val inset = strokePx / 2f
-    val maxRadius = (min(width, height) / 2f - inset).coerceAtLeast(0f)
-    val radii = FloatArray(4) { (shape.cornerRadii[it] - inset).coerceIn(0f, maxRadius) }
-    return GlowGeometry(RoundRect(inset, inset, width - inset, height - inset, radii))
-}
+internal fun screenEdgeGeometry(width: Float, height: Float, shape: DisplayShape, strokePx: Float): GlowGeometry? =
+    RoundRect(0f, 0f, width, height, shape.cornerRadii).offset(by = -strokePx / 2f)?.let { GlowGeometry(it) }
