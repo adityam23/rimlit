@@ -102,7 +102,11 @@ class EdgeOverlayController(private val context: Context, private val surface: S
                 .onFailure { Log.w(TAG, "Failed to remove overlay", it) }
         }
 
-        /** A window can't dismiss the keyguard (only an activity can), so above a locked one nothing opens. */
+        /**
+         * Unreached today: overlays take no touches (`FLAG_NOT_TOUCHABLE`), so nothing asks one to open. Kept as the
+         * groundwork for the pill's on-screen double tap. A window can't dismiss the keyguard (only an activity can),
+         * so above a locked one nothing opens.
+         */
         override fun runUnlocked(action: () -> Unit) {
             if (context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true) {
                 Log.w(TAG, "Can't unlock from an overlay; not opening")
