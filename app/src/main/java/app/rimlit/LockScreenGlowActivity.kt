@@ -29,6 +29,7 @@ import app.rimlit.engine.SurfaceInstance
 import app.rimlit.engine.opensOnRequest
 import app.rimlit.ui.glow.GlowHost
 import app.rimlit.ui.glow.drawIntoCutout
+import java.util.UUID
 
 /**
  * AOD-style glow for when the screen is off or locked: the machine's lock-screen surface, launched via a
@@ -155,7 +156,14 @@ class LockScreenGlowActivity :
     companion object {
         private const val TAG = "LockScreenGlowActivity"
 
+        /**
+         * Starts a fresh instance, directly or through the trampoline. Each launch has its own identity: an intent
+         * equal to the root of this activity's task (a handed-over instance still waiting on its unlock) would only
+         * bring that task forward, so no new instance would start or report, and the glow would never open. A UUID,
+         * not a counter, since the task can outlive the process.
+         */
         fun newIntent(context: Context): Intent = Intent(context, LockScreenGlowActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .setIdentifier(UUID.randomUUID().toString())
     }
 }
