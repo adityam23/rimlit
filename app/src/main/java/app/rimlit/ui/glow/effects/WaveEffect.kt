@@ -2,8 +2,8 @@ package app.rimlit.ui.glow.effects
 
 import android.graphics.Canvas
 import android.graphics.Path
-import app.rimlit.ui.glow.GlowOutline
 import app.rimlit.ui.glow.OutlinePart
+import app.rimlit.ui.glow.OutlineShape
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -36,10 +36,7 @@ private const val MAX_SAMPLES = 4096
  * number of waves per lap so it joins up across the path's start. Still, it is the steady outline.
  */
 internal class WaveEffect(private val brush: OutlineBrush) : GlowEffectPainter {
-    private val samples = brush.outline.part(Samples)
-    private val length = brush.geometry.length
-    private val amplitude = brush.geometry.shape.fit(brush.thicknessPx * AMPLITUDE_THICKNESSES, MAX_AMPLITUDE_SHARE)
-    private val waves = waveCount(length, wavelength = amplitude * WAVELENGTH_AMPLITUDES)
+    private val track = brush.outline.part(Track)
     private val path = Path()
 
     override fun draw(canvas: Canvas, t: Float) {
@@ -56,12 +53,7 @@ internal class WaveEffect(private val brush: OutlineBrush) : GlowEffectPainter {
     /** Rebuilds [path] as the outline bent into the wave [phase] waves along; reuses the path, allocating nothing. */
     private fun bend(phase: Float) {
         path.rewind()
-        for (i in 0 until samples.count) {
-            val offset = waveOffset(length * i / samples.count, length, waves, phase, amplitude)
-            val x = samples.x[i] + samples.normalX[i] * offset
-            val y = samples.y[i] + samples.normalY[i] * offset
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
+        track.bend(phase) { i, x, y -> if (i == 0) path.moveTo(x, y) else path.lineTo(x, y) }
         path.close()
     }
 }
@@ -77,27 +69,45 @@ internal fun waveCount(length: Float, wavelength: Float): Int =
 internal fun waveOffset(distance: Float, length: Float, waves: Int, phase: Float, amplitude: Float): Float =
     amplitude * (1f + sin(2f * PI.toFloat() * (waves * distance / length - phase)))
 
-/** Points evenly spaced along an outline, each with its unit normal toward the open side. */
-private class WaveSamples(outline: GlowOutline) {
-    val count = (outline.geometry.length / SAMPLE_SPACING_PX).toInt().coerceIn(MIN_SAMPLES, MAX_SAMPLES)
+/**
+ * The line a wave of [amplitude] bends along [shape]: points evenly spaced around it, each with its unit normal toward
+ * the open side. The points follow [shape] smoothed for 2 × [amplitude], the farthest the wave swings (see
+ * [OutlineShape.smoothedFor]: the screen edge's corners rounded to at least that), so the normals turn smoothly and
+ * the wave never swings past a corner's centre into a loop, however sharp the outline's own corners.
+ */
+internal class WaveTrack(shape: OutlineShape, val amplitude: Float) {
+    private val rounded = shape.smoothedFor(2f * amplitude)
+
+    /** Length of the track, which the waves divide. */
+    val length = rounded.perimeter
+    val waves = waveCount(length, wavelength = amplitude * WAVELENGTH_AMPLITUDES)
+    val count = (length / SAMPLE_SPACING_PX).toInt().coerceIn(MIN_SAMPLES, MAX_SAMPLES)
     val x = FloatArray(count)
     val y = FloatArray(count)
     val normalX = FloatArray(count)
     val normalY = FloatArray(count)
 
     init {
-        val position = FloatArray(2)
-        val tangent = FloatArray(2)
-        // The tangent runs clockwise on screen, so (-ty, tx) points inside the outline.
-        val side = if (outline.opensInward) 1f else -1f
+        val point = FloatArray(4)
         for (i in 0 until count) {
-            outline.geometry.pointAt(outline.geometry.length * i / count, position, tangent)
-            x[i] = position[0]
-            y[i] = position[1]
-            normalX[i] = -tangent[1] * side
-            normalY[i] = tangent[0] * side
+            rounded.pointAt(length * i / count, point)
+            x[i] = point[0]
+            y[i] = point[1]
+            normalX[i] = point[2]
+            normalY[i] = point[3]
+        }
+    }
+
+    /** Hands each point of the line bent into the wave [phase] waves along to [to], in order round the track. */
+    inline fun bend(phase: Float, to: (index: Int, x: Float, y: Float) -> Unit) {
+        for (i in 0 until count) {
+            val offset = waveOffset(length * i / count, length, waves, phase, amplitude)
+            to(i, x[i] + normalX[i] * offset, y[i] + normalY[i] * offset)
         }
     }
 }
 
-private val Samples = OutlinePart(::WaveSamples)
+private val Track = OutlinePart {
+    val amplitude = it.geometry.shape.fit(it.key.thicknessPx * AMPLITUDE_THICKNESSES, MAX_AMPLITUDE_SHARE)
+    WaveTrack(it.geometry.shape, amplitude)
+}

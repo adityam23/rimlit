@@ -1,9 +1,12 @@
 package app.rimlit.ui.glow
 
 import android.graphics.Path
+import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
+import kotlin.math.sin
 
 /** Degrees in a full turn. */
 private const val FULL_TURN = 360f
@@ -28,6 +31,9 @@ internal class CutoutRing(polygon: FloatArray, val radius: Float) : OutlineShape
     private val normalDegrees = FloatArray(corners)
     private val turnDegrees = FloatArray(corners)
 
+    /** Length of each hull side. */
+    private val sideLengths = FloatArray(corners)
+
     private val hullLeft = hull.filterIndexed { i, _ -> i % 2 == 0 }.min()
     private val hullTop = hull.filterIndexed { i, _ -> i % 2 == 1 }.min()
     private val hullRight = hull.filterIndexed { i, _ -> i % 2 == 0 }.max()
@@ -39,6 +45,7 @@ internal class CutoutRing(polygon: FloatArray, val radius: Float) : OutlineShape
             val dx = hull[2 * next] - hull[2 * i]
             val dy = hull[2 * next + 1] - hull[2 * i + 1]
             val length = hypot(dx, dy)
+            sideLengths[i] = length
             // Clockwise on screen, the outside is to the left of travel: (dy, -dx). A lone point faces up.
             normalX[i] = if (length > 0f) dy / length else 0f
             normalY[i] = if (length > 0f) -dx / length else -1f
@@ -72,6 +79,42 @@ internal class CutoutRing(polygon: FloatArray, val radius: Float) : OutlineShape
         path.close()
         return true
     }
+
+    /** The hull's sides and a whole turn of [radius]. */
+    override val perimeter: Float = sideLengths.sum() + 2f * PI.toFloat() * radius
+
+    /** Starts at the start of the first hull side; the normal points out. */
+    override fun pointAt(distance: Float, point: FloatArray) {
+        var rest = (distance % perimeter + perimeter) % perimeter
+        for (i in 0 until corners) {
+            // Along the side, then round the corner after it.
+            val next = (i + 1) % corners
+            if (rest <= sideLengths[i]) {
+                val along = if (sideLengths[i] > 0f) rest / sideLengths[i] else 0f
+                point[0] = hull[2 * i] + (hull[2 * next] - hull[2 * i]) * along + radius * normalX[i]
+                point[1] = hull[2 * i + 1] + (hull[2 * next + 1] - hull[2 * i + 1]) * along + radius * normalY[i]
+                point[2] = normalX[i]
+                point[3] = normalY[i]
+                return
+            }
+            rest -= sideLengths[i]
+            val arc = radius * Math.toRadians(turnDegrees[i].toDouble()).toFloat()
+            if (rest < arc) {
+                val angle = Math.toRadians(normalDegrees[i].toDouble()).toFloat() + rest / radius
+                point[2] = cos(angle)
+                point[3] = sin(angle)
+                point[0] = hull[2 * next] + radius * point[2]
+                point[1] = hull[2 * next + 1] + radius * point[3]
+                return
+            }
+            rest -= arc
+        }
+        // Rounding ran past the end: that is the start.
+        pointAt(0f, point)
+    }
+
+    /** Moved out, a convex ring only grows rounder: it never crosses itself. */
+    override fun smoothedFor(reach: Float): CutoutRing = this
 }
 
 /**

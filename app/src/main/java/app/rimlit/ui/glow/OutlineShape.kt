@@ -30,4 +30,19 @@ internal sealed interface OutlineShape {
      * reuses the path, allocating nothing. Returns `false`, leaving the path empty, when it moves away to nothing.
      */
     fun trace(path: Path, by: Float): Boolean
+
+    /** Length of the outline. */
+    val perimeter: Float
+
+    /**
+     * Writes the outline point at arc [distance] (any real; wraps), traced clockwise on screen, into [point]: its x
+     * and y, then its unit normal toward the open side, x and y.
+     */
+    fun pointAt(distance: Float, point: FloatArray)
+
+    /**
+     * This outline with its corners rounded enough that any point moved up to [reach] along its normal toward the
+     * open side never crosses another: the line an effect bends along, however sharp the outline's own corners.
+     */
+    fun smoothedFor(reach: Float): OutlineShape
 }
