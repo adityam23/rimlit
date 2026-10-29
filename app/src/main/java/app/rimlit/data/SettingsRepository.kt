@@ -59,6 +59,7 @@ private object Keys {
     val SHOW_WHEN_SCREEN_OFF = booleanPreferencesKey("show_when_screen_off")
     val SHOW_ON_LOCK_SCREEN = booleanPreferencesKey("show_on_lock_screen")
     val SHOW_WHEN_UNLOCKED = booleanPreferencesKey("show_when_unlocked")
+    val OPEN_ON_DOUBLE_TAP = booleanPreferencesKey("open_on_double_tap")
     val QUIET_ENABLED = booleanPreferencesKey("quiet_enabled")
     val QUIET_START_MINUTE = intPreferencesKey("quiet_start_minute")
     val QUIET_END_MINUTE = intPreferencesKey("quiet_end_minute")
@@ -131,6 +132,7 @@ private fun Preferences.toSettings() = GlowSettings(
     showWhenScreenOff = lockedToggle(Keys.SHOW_WHEN_SCREEN_OFF, defaults.showWhenScreenOff),
     showOnLockScreen = lockedToggle(Keys.SHOW_ON_LOCK_SCREEN, defaults.showOnLockScreen),
     showWhenUnlocked = valueOr(Keys.SHOW_WHEN_UNLOCKED, defaults.showWhenUnlocked),
+    openOnDoubleTap = valueOr(Keys.OPEN_ON_DOUBLE_TAP, defaults.openOnDoubleTap),
     quietHours = QuietHours(
         enabled = valueOr(Keys.QUIET_ENABLED, defaults.quietHours.enabled),
         startMinute = clamped(Keys.QUIET_START_MINUTE, defaults.quietHours.startMinute, Ranges.minuteOfDay),
@@ -197,6 +199,7 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.SHOW_WHEN_SCREEN_OFF] = settings.showWhenScreenOff
     this[Keys.SHOW_ON_LOCK_SCREEN] = settings.showOnLockScreen
     this[Keys.SHOW_WHEN_UNLOCKED] = settings.showWhenUnlocked
+    this[Keys.OPEN_ON_DOUBLE_TAP] = settings.openOnDoubleTap
     this[Keys.QUIET_ENABLED] = settings.quietHours.enabled
     this[Keys.QUIET_START_MINUTE] = settings.quietHours.startMinute
     this[Keys.QUIET_END_MINUTE] = settings.quietHours.endMinute

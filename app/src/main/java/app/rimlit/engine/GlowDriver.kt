@@ -26,6 +26,15 @@ interface GlowDriver {
 
     /** A lock-screen glow was skipped because the screen can't be woken; once per listener connection. */
     fun wakeScreenDenied()
+
+    /**
+     * Opens [post]'s notification as it is now, as tapping it in the shade would (its content intent, dismissing it
+     * if the app marked it auto-cancel; else its app, in the notification's user) through [from], the live instance
+     * the user asked, which unlocks the device first. Nothing opens if it is gone by now, or by the time the device
+     * is unlocked. [from] is handed over, no longer the surface's: the driver closes it once done, whether or not
+     * anything opened.
+     */
+    fun openNotification(post: Post, from: SurfaceInstance)
 }
 
 fun interface Cancellable {
@@ -33,6 +42,13 @@ fun interface Cancellable {
 }
 
 /** One live instance of a surface: an overlay window or a lock-screen activity. */
-fun interface SurfaceInstance {
+interface SurfaceInstance {
     fun close()
+
+    /**
+     * Runs [action] once the device is unlocked, asking the user to unlock it if needed; never if they don't. Then
+     * closes this instance either way: it has been handed over, so nothing else will. A [close] meanwhile doesn't
+     * cancel [action].
+     */
+    fun runUnlocked(action: () -> Unit)
 }

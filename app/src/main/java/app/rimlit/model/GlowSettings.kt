@@ -87,6 +87,8 @@ data class GlowSettings(
     val showWhenScreenOff: Boolean = true,
     val showOnLockScreen: Boolean = true,
     val showWhenUnlocked: Boolean = true,
+    /** A double tap on the lock-screen glow unlocks and opens its notification; off, it only ends the glow. */
+    val openOnDoubleTap: Boolean = true,
     val quietHours: QuietHours = QuietHours(),
     val region: EdgeRegion = EdgeRegion.FULL_SCREEN,
     /** Corner radius of the screen-edge outline; `null` matches the display's own corners. */
