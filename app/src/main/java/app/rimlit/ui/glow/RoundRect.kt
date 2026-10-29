@@ -19,6 +19,10 @@ internal class RoundRect(
 
     override val cornerRadius: Float get() = cornerRadii.max()
 
+    override val width: Float get() = right - left
+
+    override val height: Float get() = bottom - top
+
     /** Scratch for [trace]: main thread only. */
     private val traceBounds = FloatArray(4)
     private val traceRadii = FloatArray(8)

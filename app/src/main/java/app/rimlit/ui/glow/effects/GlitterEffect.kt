@@ -22,7 +22,7 @@ private const val TWINKLES_PER_SECOND = 0.9f
 private const val RADIUS_THICKNESSES = 2.5f
 private const val RADIUS_GLOW_SHARE = 0.25f
 
-/** Largest sparkle radius, as a share of the window's shorter side, so a preview isn't swamped. */
+/** Largest sparkle radius, as a share of the outline's shorter side, so a preview or the cutout ring isn't swamped. */
 private const val MAX_RADIUS_SHARE = 0.06f
 
 /** Arc length per sparkle, in sparkle radii. */
@@ -103,15 +103,24 @@ internal class SparkleSeeds(val count: Int, seed: Int) {
     }
 }
 
+/**
+ * Radius of the sparkles around an outline [length] long: [wanted], shrunk so the fewest sparkles still fit around
+ * it spaced apart rather than overlapping; at least 1 px.
+ */
+internal fun sparkleRadius(wanted: Float, length: Float): Float =
+    min(wanted, length / (MIN_SPARKLES * SPACING_RADII)).coerceAtLeast(1f)
+
+/** How many sparkles of [radius] fit around an outline [length] long, spaced apart. */
+internal fun sparkleCount(radius: Float, length: Float): Int =
+    (length / (radius * SPACING_RADII)).roundToInt().coerceIn(MIN_SPARKLES, MAX_SPARKLES)
+
 /** An outline's sparkles: where they sit, how they twinkle, and the one sprite they all draw. Built once per layout. */
 private class SparkleField(outline: GlowOutline) {
     val radius = outline.key.let {
-        min(
-            it.thicknessPx * RADIUS_THICKNESSES + it.glowPx * RADIUS_GLOW_SHARE,
-            min(it.width, it.height) * MAX_RADIUS_SHARE,
-        ).coerceAtLeast(1f)
+        val wanted = it.thicknessPx * RADIUS_THICKNESSES + it.glowPx * RADIUS_GLOW_SHARE
+        sparkleRadius(outline.geometry.shape.fit(wanted, MAX_RADIUS_SHARE), outline.geometry.length)
     }
-    val count = (outline.geometry.length / (radius * SPACING_RADII)).roundToInt().coerceIn(MIN_SPARKLES, MAX_SPARKLES)
+    val count = sparkleCount(radius, outline.geometry.length)
     val seeds = SparkleSeeds(count, if (outline.opensInward) SEED else SEED + 1)
     val x = FloatArray(count)
     val y = FloatArray(count)

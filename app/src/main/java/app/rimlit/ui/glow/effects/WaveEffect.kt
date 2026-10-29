@@ -5,7 +5,6 @@ import android.graphics.Path
 import app.rimlit.ui.glow.GlowOutline
 import app.rimlit.ui.glow.OutlinePart
 import kotlin.math.PI
-import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -39,9 +38,7 @@ private const val MAX_SAMPLES = 4096
 internal class WaveEffect(private val brush: OutlineBrush) : GlowEffectPainter {
     private val samples = brush.outline.part(Samples)
     private val length = brush.geometry.length
-    private val amplitude = brush.geometry.bounds.let { bounds ->
-        min(brush.thicknessPx * AMPLITUDE_THICKNESSES, min(bounds.width(), bounds.height()) * MAX_AMPLITUDE_SHARE)
-    }
+    private val amplitude = brush.geometry.shape.fit(brush.thicknessPx * AMPLITUDE_THICKNESSES, MAX_AMPLITUDE_SHARE)
     private val waves = waveCount(length, wavelength = amplitude * WAVELENGTH_AMPLITUDES)
     private val path = Path()
 

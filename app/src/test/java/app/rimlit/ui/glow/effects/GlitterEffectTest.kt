@@ -29,6 +29,28 @@ class GlitterEffectTest {
     }
 
     @Test
+    fun aLongOutlineKeepsTheWantedSparkleSize() {
+        val radius = sparkleRadius(wanted = 20f, length = 5_900f)
+        assertEquals(20f, radius)
+        assertEquals(118, sparkleCount(radius, length = 5_900f))
+    }
+
+    @Test
+    fun aSmallRingGetsSmallerSparklesRatherThanOverlappingOnes() {
+        val length = 200f
+        val radius = sparkleRadius(wanted = 44f, length)
+        assertEquals(10f, radius)
+        val count = sparkleCount(radius, length)
+        assertEquals(8, count, "still the fewest sparkles")
+        assertTrue(length / count >= radius * 2.5f - 1e-3f, "each keeps its spacing")
+    }
+
+    @Test
+    fun aTinyRingStillDrawsOnePixelSparkles() {
+        assertEquals(1f, sparkleRadius(wanted = 44f, length = 5f))
+    }
+
+    @Test
     fun aSparkleFlashesOncePerCycle() {
         assertEquals(0f, twinkle(0f), 1e-6f)
         assertEquals(1f, twinkle(0.5f), 1e-6f)

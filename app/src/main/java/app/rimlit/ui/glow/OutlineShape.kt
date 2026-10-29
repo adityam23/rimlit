@@ -1,6 +1,7 @@
 package app.rimlit.ui.glow
 
 import android.graphics.Path
+import kotlin.math.min
 
 /**
  * The shape of a glow outline in plain floats, so what effects derive from it is testable off-device: the screen
@@ -13,6 +14,16 @@ internal sealed interface OutlineShape {
 
     /** How far its corners curve in from its bounds, at most. */
     val cornerRadius: Float
+
+    /** Size of its bounds. */
+    val width: Float
+    val height: Float
+
+    /**
+     * [px], capped at [share] of this outline's shorter side: how an effect sizes what it draws on the outline, so a
+     * small outline (the cutout ring, a preview) isn't swamped.
+     */
+    fun fit(px: Float, share: Float): Float = min(px, min(width, height) * share)
 
     /**
      * Sets [path] to this outline moved [by] (0 or more) toward its open side, exactly, traced clockwise on screen;

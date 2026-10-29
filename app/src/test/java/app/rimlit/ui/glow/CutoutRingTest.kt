@@ -30,4 +30,12 @@ class CutoutRingTest {
         assertEquals(16f, ring.cornerRadius, "half the 20 px width plus the radius")
         assertFalse(ring.opensInward)
     }
+
+    @Test
+    fun aSizeFitsWithinAShareOfTheRing() {
+        val ring = CutoutRing(floatArrayOf(10f, 10f, 30f, 10f, 30f, 50f, 10f, 50f), radius = 6f)
+        assertEquals(32f, ring.width)
+        assertEquals(52f, ring.height)
+        assertEquals(6.4f, ring.fit(30f, share = 0.2f), 1e-4f)
+    }
 }

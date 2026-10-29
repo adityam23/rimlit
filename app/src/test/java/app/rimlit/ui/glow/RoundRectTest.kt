@@ -2,6 +2,7 @@ package app.rimlit.ui.glow
 
 import org.junit.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -72,6 +73,13 @@ class RoundRectTest {
         val ring = assertNotNull(RoundRect(500f, 30f, 580f, 70f, FloatArray(4) { 20f }).offset(10f))
         assertContentEquals(floatArrayOf(490f, 20f, 590f, 80f), ring.sides)
         assertContentEquals(FloatArray(4) { 30f }, ring.cornerRadii, "still a pill")
+    }
+
+    @Test
+    fun aSizeFitsWithinAShareOfTheShorterSide() {
+        assertEquals(30f, screen.fit(30f, share = 0.2f), "the screen edge has room")
+        val ring = RoundRect(500f, 30f, 580f, 70f, FloatArray(4) { 20f })
+        assertEquals(8f, ring.fit(30f, share = 0.2f), "a small outline caps it at a share of its 40 px height")
     }
 }
 

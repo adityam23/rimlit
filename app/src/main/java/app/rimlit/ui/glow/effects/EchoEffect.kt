@@ -5,7 +5,6 @@ import android.graphics.Path
 import android.graphics.Shader
 import app.rimlit.ui.glow.OutlineShape
 import kotlin.math.floor
-import kotlin.math.min
 
 /** Journeys each ring completes per second at speed 1. */
 private const val ECHOES_PER_SECOND = 0.5f
@@ -17,7 +16,7 @@ private const val RINGS = 3
 private const val REACH_THICKNESSES = 4f
 private const val REACH_GLOWS = 2f
 
-/** Farthest reach, as a share of the window's shorter side, so a preview's rings don't collapse. */
+/** Farthest reach, as a share of the outline's shorter side, so a preview's or the cutout ring's rings stay close. */
 private const val MAX_REACH_SHARE = 0.2f
 
 /** Opacity of a ring as it leaves the outline. */
@@ -34,10 +33,8 @@ private const val STILL_PROGRESS = 0.4f
  */
 internal class EchoEffect(private val brush: OutlineBrush) : GlowEffectPainter {
     private val shape = brush.geometry.shape
-    private val reach = brush.outline.key.let {
-        val wanted = brush.thicknessPx * REACH_THICKNESSES + brush.glowPx * REACH_GLOWS
-        min(wanted, min(it.width, it.height) * MAX_REACH_SHARE)
-    }
+    private val reach =
+        shape.fit(brush.thicknessPx * REACH_THICKNESSES + brush.glowPx * REACH_GLOWS, MAX_REACH_SHARE)
     private val ring = Path()
 
     override fun draw(canvas: Canvas, t: Float) {

@@ -52,7 +52,11 @@ internal class CutoutRing(polygon: FloatArray, val radius: Float) : OutlineShape
 
     override val opensInward: Boolean get() = false
 
-    override val cornerRadius: Float get() = min(hullRight - hullLeft, hullBottom - hullTop) / 2f + radius
+    override val width: Float get() = hullRight - hullLeft + 2f * radius
+
+    override val height: Float get() = hullBottom - hullTop + 2f * radius
+
+    override val cornerRadius: Float get() = min(width, height) / 2f
 
     override fun trace(path: Path, by: Float): Boolean {
         val r = radius + by
