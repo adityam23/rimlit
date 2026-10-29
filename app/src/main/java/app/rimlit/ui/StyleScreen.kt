@@ -16,7 +16,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -117,24 +116,21 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
         }
     }
 
+    // Restored before the settings load, or for a look that no longer exists, the dialog waits unseen; the next action
+    // replaces it. Clearing it here would lose a restored dialog to the placeholder settings shown before DataStore.
     val action = lookAction ?: return
-    val target = draft.look(action.lookId)
-    if (target == null) {
-        // Restored for a look that no longer exists: drop it.
-        SideEffect { lookAction = null }
-    } else {
-        LookActionDialog(
-            action = action,
-            look = target,
-            settings = draft,
-            onDone = { edit, editNext ->
-                editor.commit(edit)
-                editingId = editNext
-                lookAction = null
-            },
-            onDismiss = { lookAction = null },
-        )
-    }
+    val target = draft.look(action.lookId) ?: return
+    LookActionDialog(
+        action = action,
+        look = target,
+        settings = draft,
+        onDone = { edit, editNext ->
+            editor.commit(edit)
+            editingId = editNext
+            lookAction = null
+        },
+        onDismiss = { lookAction = null },
+    )
 }
 
 private fun LazyListScope.styleSection(look: Look, spec: GlowSpec, playback: Playback, editor: SettingsDraft) {

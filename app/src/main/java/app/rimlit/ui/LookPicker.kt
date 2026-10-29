@@ -24,8 +24,14 @@ import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.Rule
+import app.rimlit.model.addLook
+import app.rimlit.model.canAddLook
+import app.rimlit.model.canName
+import app.rimlit.model.deleteLook
+import app.rimlit.model.firstFreeName
 import app.rimlit.model.fitLookName
 import app.rimlit.model.isValidLookName
+import app.rimlit.model.renameLook
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.TextFieldDialog

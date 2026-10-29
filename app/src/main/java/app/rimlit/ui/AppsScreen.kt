@@ -44,6 +44,7 @@ import app.rimlit.R
 import app.rimlit.data.AppInfo
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.Rule
+import app.rimlit.model.withAppRule
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.paletteBrush
 
@@ -128,7 +129,7 @@ private fun AppList(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items(apps, key = { it.packageName }) { app ->
-            val rule = settings.appRules[app.packageName]
+            val rule = settings.ruleFor(app.packageName)
             AppRow(
                 app = app,
                 blocked = app.packageName in settings.blockedPackages,
@@ -141,7 +142,7 @@ private fun AppList(
     }
 }
 
-/** What an app's [rule] reads as under its name; `null` when it glows with the default look. */
+/** What an app's [rule] (as [GlowSettings.ruleFor] applies it) reads as under its name; `null` for the default look. */
 @Composable
 @ReadOnlyComposable
 private fun GlowSettings.ruleLabel(rule: Rule?): String? = when (rule) {

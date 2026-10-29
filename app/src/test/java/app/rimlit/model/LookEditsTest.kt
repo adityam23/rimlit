@@ -106,6 +106,23 @@ class LookEditsTest {
     }
 
     @Test
+    fun aRuleNamingAMissingLookAppliesAsTheDefaultLook() {
+        val ruled = settings
+            .withAppRule(app, Rule.UseLook("work"))
+            .withAppRule("com.example.mail", Rule.UsePalette(redPalette))
+            .withAppRule("com.example.old", Rule.UseLook("gone"))
+        assertEquals(Rule.UseLook("work"), ruled.ruleFor(app))
+        assertEquals(Rule.UsePalette(redPalette), ruled.ruleFor("com.example.mail"))
+        assertNull(ruled.ruleFor("com.example.old"), "names a missing look")
+        assertNull(ruled.ruleFor("com.example.none"), "no rule")
+        assertEquals(
+            ruled.resolve("com.example.none", listOf(red)),
+            ruled.resolve("com.example.old", listOf(red)),
+            "the resolver applies it as ruleFor says",
+        )
+    }
+
+    @Test
     fun theFirstFreeNameIsSuggested() {
         val numbered = generateSequence(1) { it + 1 }.map { "Look $it" }
         assertEquals("Work copy", settings.firstFreeName(sequenceOf("Work copy") + numbered))

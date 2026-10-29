@@ -30,10 +30,8 @@ import app.rimlit.ui.components.RadioCard
  */
 @Composable
 internal fun AppLookDialog(app: AppInfo, settings: GlowSettings, onSave: (Rule?) -> Unit, onDismiss: () -> Unit) {
-    // A rule naming a deleted look reads as the default look, as it glows.
-    val saved = settings.appRules[app.packageName]
-    val initial = saved.takeUnless { it is Rule.UseLook && settings.look(it.lookId) == null }
-    var choice by remember(app.packageName) { mutableStateOf(initial) }
+    val initial = settings.ruleFor(app.packageName)
+    var choice by remember(app.packageName) { mutableStateOf(Choice.of(initial)) }
     var palette by remember(app.packageName) {
         mutableStateOf((initial as? Rule.UsePalette)?.palette ?: GlowPalette.Colors(listOf(DEFAULT_GLOW_ARGB)))
     }
@@ -47,24 +45,24 @@ internal fun AppLookDialog(app: AppInfo, settings: GlowSettings, onSave: (Rule?)
             ) {
                 RadioCard(
                     title = stringResource(R.string.app_look_default_title),
-                    selected = choice == null,
-                    onSelect = { choice = null },
+                    selected = choice == Choice.Default,
+                    onSelect = { choice = Choice.Default },
                     subtitle = settings.defaultLook.name,
                 )
                 for (look in settings.looks.filter { it.id != settings.defaultLookId }) {
                     RadioCard(
                         title = look.name,
-                        selected = choice == Rule.UseLook(look.id),
-                        onSelect = { choice = Rule.UseLook(look.id) },
+                        selected = choice == Choice.Named(look.id),
+                        onSelect = { choice = Choice.Named(look.id) },
                     )
                 }
                 RadioCard(
                     title = stringResource(R.string.app_look_palette_title),
-                    selected = choice is Rule.UsePalette,
-                    onSelect = { choice = Rule.UsePalette(palette) },
+                    selected = choice == Choice.Palette,
+                    onSelect = { choice = Choice.Palette },
                     subtitle = stringResource(R.string.app_look_palette_desc),
                 )
-                if (choice is Rule.UsePalette) {
+                if (choice == Choice.Palette) {
                     PaletteEditor(
                         colors = palette.argb,
                         onPreview = { palette = GlowPalette.Colors(it) },
@@ -74,10 +72,34 @@ internal fun AppLookDialog(app: AppInfo, settings: GlowSettings, onSave: (Rule?)
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(if (choice is Rule.UsePalette) Rule.UsePalette(palette) else choice) }) {
+            TextButton(onClick = { onSave(choice.rule(palette)) }) {
                 Text(stringResource(R.string.save))
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
     )
+}
+
+/** Which of the dialog's options is selected; the palette being edited is kept apart until saved. */
+private sealed interface Choice {
+    data object Default : Choice
+
+    data class Named(val lookId: String) : Choice
+
+    data object Palette : Choice
+
+    /** The rule this choice saves, painting with [palette] when it is [Palette]; `null` for the default look. */
+    fun rule(palette: GlowPalette.Colors): Rule? = when (this) {
+        Default -> null
+        is Named -> Rule.UseLook(lookId)
+        Palette -> Rule.UsePalette(palette)
+    }
+
+    companion object {
+        fun of(rule: Rule?): Choice = when (rule) {
+            null -> Default
+            is Rule.UseLook -> Named(rule.lookId)
+            is Rule.UsePalette -> Palette
+        }
+    }
 }
