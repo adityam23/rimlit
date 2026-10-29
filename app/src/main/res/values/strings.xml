@@ -178,4 +178,7 @@
     <string name="preview_section">Preview</string>
     <string name="preview_locked">Preview lock screen</string>
     <string name="preview_unlocked">Preview on-screen</string>
+    <string name="pill_open_app">Open %1$s</string>
+    <string name="pill_action_open">Open</string>
+    <string name="pill_action_dismiss">Dismiss</string>
 </resources>
