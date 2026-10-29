@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- A strip of paper, its lower edge folded into shade. -->
+    <path
+        android:fillColor="#FFFFCA28"
+        android:pathData="M4,9L20,6L20,11.5L4,14.5Z" />
+    <path
+        android:fillAlpha="0.65"
+        android:fillColor="#FFFF8F00"
+        android:pathData="M4,14.5L20,11.5L20,13.5L4,17Z" />
+</vector>

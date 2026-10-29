@@ -23,6 +23,9 @@ import app.rimlit.model.GlowSpec
 /** Frame rate cap while battery saver applies: the glow keeps its look, at fewer frames. */
 const val BATTERY_SAVER_FPS = 30
 
+/** Share of a glow's particles drawn while battery saver applies. */
+const val BATTERY_SAVER_PARTICLE_SHARE = 0.5f
+
 /** Device conditions that change how a glow plays. */
 data class DeviceConditions(
     /** Remove animations (an animator duration scale of 0) is on. */
@@ -48,16 +51,25 @@ data class Playback(
     val still: Boolean,
     /** At most this many frames per second; `null` for the display's own rate. */
     val maxFps: Int?,
+    /** Share of the spec's particle amount drawn; 0 for none. */
+    val particleShare: Float,
 )
 
 /** How [this] plays under [device], on the lock-screen surface when [lockScreen]. */
-fun GlowSpec.playback(lockScreen: Boolean, device: DeviceConditions) = Playback(
-    brightness = if (lockScreen) screenOffBrightness else brightness,
-    still = device.animationsOff,
-    maxFps = BATTERY_SAVER_FPS.takeIf {
-        batterySaver == BatterySaver.ALWAYS || (batterySaver == BatterySaver.WITH_SYSTEM && device.powerSave)
-    },
-)
+fun GlowSpec.playback(lockScreen: Boolean, device: DeviceConditions): Playback {
+    val saving = batterySaver == BatterySaver.ALWAYS || (batterySaver == BatterySaver.WITH_SYSTEM && device.powerSave)
+    return Playback(
+        brightness = if (lockScreen) screenOffBrightness else brightness,
+        still = device.animationsOff,
+        maxFps = BATTERY_SAVER_FPS.takeIf { saving },
+        // Particles are nothing but motion, so a still glow draws none.
+        particleShare = when {
+            device.animationsOff -> 0f
+            saving -> BATTERY_SAVER_PARTICLE_SHARE
+            else -> 1f
+        },
+    )
+}
 
 /**
  * The device conditions, followed live: the Style screen stays open while the user flips battery saver or Remove

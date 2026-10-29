@@ -37,4 +37,6 @@ data class GlowSpec(
     /** How long the glow holds before fading out. */
     val durationMs: Long,
     val batterySaver: BatterySaver,
+    /** Particles drawn beneath the edge; `null` for none. */
+    val particles: ParticleSpec? = null,
 )

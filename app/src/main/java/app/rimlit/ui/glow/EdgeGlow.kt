@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
+import app.rimlit.ui.glow.particles.rememberParticleLayer
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
@@ -47,14 +48,16 @@ private const val CRISP_EDGE_PX = 0.5f
  * No side effects and no settings access: everything comes from [spec], played as [playback] says.
  *
  * With [preview] the outline is a scaled stand-in for the display (proportional corners, simulated
- * camera hole) instead of the real window's corners and cutout.
+ * camera hole) instead of the real window's corners and cutout. A preview has no [GlowFrameHost] fading it,
+ * so its particles fade themselves in and out.
  */
 @Composable
 fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, preview: Boolean = false) {
     val view = LocalView.current
     // A still glow needs no clock at all: it draws once.
     val seconds = rememberFrameSeconds(running = !playback.still, maxFps = playback.maxFps)
-    val layouts = remember { GlowLayoutCache() }
+    val layouts = remember { BuildCache(::GlowLayout) }
+    val particles = rememberParticleLayer()
     Spacer(
         modifier.drawWithCache {
             val thicknessPx = spec.thicknessDp.dp.toPx()
@@ -82,10 +85,15 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                 ),
             )
             val painter = GlowPainter(spec, playback, layout, thicknessPx, glowPx)
+            val particlePainter = particles.painter(spec, playback, size, 1.dp.toPx() * scale, preview)
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value
-                drawIntoCanvas { painter.draw(it.nativeCanvas, t) }
+                drawIntoCanvas {
+                    // Particles go beneath the edge.
+                    particlePainter?.draw(it.nativeCanvas, t)
+                    painter.draw(it.nativeCanvas, t)
+                }
             }
         },
     )

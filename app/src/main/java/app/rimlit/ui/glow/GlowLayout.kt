@@ -44,14 +44,3 @@ internal class GlowLayout(key: GlowLayoutKey) {
         return listOfNotNull(edge, cutout)
     }
 }
-
-/** Holds the last built [GlowLayout] and rebuilds it only when its key changes. Main thread only. */
-internal class GlowLayoutCache {
-    private var key: GlowLayoutKey? = null
-    private var layout: GlowLayout? = null
-
-    fun get(key: GlowLayoutKey): GlowLayout = layout?.takeIf { this.key == key } ?: GlowLayout(key).also {
-        this.key = key
-        layout = it
-    }
-}

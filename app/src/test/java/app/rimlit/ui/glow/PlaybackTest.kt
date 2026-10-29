@@ -43,4 +43,19 @@ class PlaybackTest {
         assertEquals(BATTERY_SAVER_FPS, fps(BatterySaver.ALWAYS, normal))
         assertNull(fps(BatterySaver.OFF, powerSave))
     }
+
+    @Test
+    fun batterySaverHalvesTheParticlesAndRemoveAnimationsDropsThem() {
+        val powerSave = normal.copy(powerSave = true)
+        fun share(saver: BatterySaver, device: DeviceConditions, lockScreen: Boolean = false) =
+            spec(GlowSettings(batterySaver = saver)).playback(lockScreen, device).particleShare
+
+        assertEquals(1f, share(BatterySaver.WITH_SYSTEM, normal))
+        assertEquals(1f, share(BatterySaver.WITH_SYSTEM, normal, lockScreen = true), "the lock screen draws them too")
+        assertEquals(BATTERY_SAVER_PARTICLE_SHARE, share(BatterySaver.WITH_SYSTEM, powerSave))
+        assertEquals(BATTERY_SAVER_PARTICLE_SHARE, share(BatterySaver.ALWAYS, normal))
+        assertEquals(1f, share(BatterySaver.OFF, powerSave))
+        assertEquals(0f, share(BatterySaver.OFF, normal.copy(animationsOff = true)))
+        assertEquals(0f, share(BatterySaver.ALWAYS, powerSave.copy(animationsOff = true)))
+    }
 }
