@@ -172,9 +172,13 @@
     <string name="quiet_scope_all_desc">Nothing glows during quiet hours</string>
     <string name="quiet_scope_screen_off_title">Only with the screen off</string>
     <string name="quiet_scope_screen_off_desc">The screen stays dark; glows still show while you use the phone</string>
-    <string name="gestures_section">Gestures</string>
+    <string name="gestures_section">Pill and gestures</string>
+    <string name="show_pill_title">Show app pill</string>
+    <string name="show_pill_desc">On-screen glows show the app\'s icon and name in a pill around the camera. Swipe it up or sideways to dismiss the glow.</string>
     <string name="open_on_double_tap_title">Open on double tap</string>
-    <string name="open_on_double_tap_desc">Double tap the screen-off glow to unlock and open its notification. A single tap still ends the glow.</string>
+    <string name="open_on_double_tap_desc">Double tap the screen-off glow or the pill to open its notification, unlocking first from the screen-off glow. A single tap on the screen-off glow still ends it.</string>
+    <string name="swipe_clears_title">Swipe also clears the notification</string>
+    <string name="swipe_clears_desc">Swiping the pill away also dismisses its notification, as swiping it away in the notification shade would</string>
     <string name="preview_section">Preview</string>
     <string name="preview_locked">Preview lock screen</string>
     <string name="preview_unlocked">Preview on-screen</string>
