@@ -48,7 +48,8 @@ private const val CRISP_EDGE_PX = 0.5f
  * No side effects and no settings access: everything comes from [spec], played as [playback] says.
  *
  * With [preview] the outline is a scaled stand-in for the display (proportional corners, simulated
- * camera hole) instead of the real window's corners and cutout.
+ * camera hole) instead of the real window's corners and cutout. A preview has no [GlowFrameHost] fading it,
+ * so its particles fade themselves in and out.
  */
 @Composable
 fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, preview: Boolean = false) {

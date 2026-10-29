@@ -56,8 +56,9 @@ internal class ParticleSprites(context: Context, key: SpriteKey) {
     private fun render(context: Context, image: ParticleImage, tint: Int?): Bitmap {
         val drawable = checkNotNull(ContextCompat.getDrawable(context, image.drawableRes)).mutate()
         drawable.setBounds(0, 0, sizePx, sizePx)
-        // A tint keeps only each pixel's alpha (SRC_IN), so every image draws its detail (a shine, a centre, a vein)
+        // A tint keeps only each pixel's alpha (SRC_IN), so an image with a detail (a shine, a centre, a vein) draws it
         // more opaque than its translucent body: the detail survives the palette tint as a brighter shade of it.
+        // Confetti's fold is the reverse, a dimmer shade on an opaque body; star and snowflake have no detail.
         tint?.let(drawable::setTint)
         return createBitmap(sizePx, sizePx).also {
             drawable.draw(Canvas(it))
