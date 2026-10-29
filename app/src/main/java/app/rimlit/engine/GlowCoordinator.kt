@@ -50,6 +50,12 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
     /** [instance] of [surface] went away by itself, and is closed; `null` if it failed to open. */
     fun surfaceGone(surface: Surface, instance: SurfaceInstance?) = executor.surfaceGone(surface, instance)
 
+    /**
+     * The user asked [instance] of [surface] to open what it shows. Unless it is the instance shown, it only ends
+     * [instance], like [surfaceGone].
+     */
+    fun openRequested(surface: Surface, instance: SurfaceInstance) = executor.openRequested(surface, instance)
+
     private fun enqueue(input: Input) {
         queue.addLast(input)
         drain()

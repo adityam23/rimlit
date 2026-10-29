@@ -172,6 +172,9 @@
     <string name="quiet_scope_all_desc">Nothing glows during quiet hours</string>
     <string name="quiet_scope_screen_off_title">Only with the screen off</string>
     <string name="quiet_scope_screen_off_desc">The screen stays dark; glows still show while you use the phone</string>
+    <string name="gestures_section">Gestures</string>
+    <string name="open_on_double_tap_title">Open on double tap</string>
+    <string name="open_on_double_tap_desc">Double tap the screen-off glow to unlock and open its notification. A single tap still ends the glow.</string>
     <string name="preview_section">Preview</string>
     <string name="preview_locked">Preview lock screen</string>
     <string name="preview_unlocked">Preview on-screen</string>

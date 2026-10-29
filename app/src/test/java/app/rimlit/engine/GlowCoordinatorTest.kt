@@ -27,6 +27,11 @@ class GlowCoordinatorTest {
         override fun close() {
             closed = true
         }
+
+        override fun runUnlocked(action: () -> Unit) {
+            action()
+            close()
+        }
     }
 
     /** A virtual clock and recorded surfaces. [honoursCancel] off simulates a timer or extraction that races its cancel. */
@@ -72,6 +77,13 @@ class GlowCoordinatorTest {
         }
 
         override fun wakeScreenDenied() = Unit
+
+        /** Each open, with the instance handed over to it; left up, as if its unlock were still in flight. */
+        val opened = mutableListOf<Pair<String, SurfaceInstance>>()
+
+        override fun openNotification(post: Post, from: SurfaceInstance) {
+            opened += post.key to from
+        }
 
         /** Runs every timer due within [ms], in order. */
         fun advance(ms: Long) {
@@ -221,6 +233,66 @@ class GlowCoordinatorTest {
 
         coordinator.surfaceGone(Surface.LOCK_SCREEN, second)
         assertNull(glow)
+    }
+
+    @Test
+    fun onlyTheShownInstanceOpensAndItOpensThroughItself() {
+        coordinator.settingsChanged(CUSTOM)
+        driver.environment = SCREEN_OFF
+        posted("a")
+        driver.environment = LOCK_SCREEN
+        val replaced = Instance()
+        val shown = Instance()
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, replaced)
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, shown)
+        coordinator.openRequested(Surface.LOCK_SCREEN, replaced)
+        assertNotNull(glow, "a replaced instance's double tap opens nothing")
+        assertTrue(driver.opened.isEmpty())
+        assertTrue(replaced.closed, "and ends it, as any touch would")
+
+        coordinator.openRequested(Surface.LOCK_SCREEN, shown)
+        assertEquals(listOf<Pair<String, SurfaceInstance>>("a" to shown), driver.opened)
+        assertNull(glow)
+        assertFalse(shown.closed, "handed over to the open, which closes it once the unlock ends")
+        assertEquals(listOf(Surface.LOCK_SCREEN), driver.withdrawn, "the request is withdrawn all the same")
+
+        coordinator.openRequested(Surface.LOCK_SCREEN, shown)
+        assertEquals(1, driver.opened.size, "a handed-over instance's double tap opens nothing")
+        assertTrue(shown.closed, "and ends it")
+    }
+
+    @Test
+    fun aStaleInstancesDoubleTapEndsItButNotTheGlow() {
+        coordinator.settingsChanged(CUSTOM)
+        driver.environment = SCREEN_OFF
+        posted("a")
+        val shown = Instance()
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, shown)
+        val stale = Instance() // e.g. an earlier glow's activity whose finish hasn't landed yet
+
+        coordinator.openRequested(Surface.LOCK_SCREEN, stale)
+        assertTrue(stale.closed)
+        assertTrue(driver.opened.isEmpty())
+        assertEquals("a", glow?.source?.post?.key)
+        assertFalse(shown.closed)
+    }
+
+    @Test
+    fun aHandedOverInstanceNoLongerReportsForTheSurface() {
+        coordinator.settingsChanged(CUSTOM)
+        driver.environment = SCREEN_OFF
+        posted("a")
+        val shown = Instance()
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, shown)
+        coordinator.openRequested(Surface.LOCK_SCREEN, shown)
+
+        posted("b")
+        val next = Instance()
+        coordinator.surfaceOpened(Surface.LOCK_SCREEN, next)
+        coordinator.surfaceGone(Surface.LOCK_SCREEN, shown) // its unlock ended
+        assertEquals("b", glow?.source?.post?.key, "the next glow's surface isn't the handed-over one")
+        assertTrue(glow?.opened == true)
+        assertFalse(next.closed)
     }
 
     @Test

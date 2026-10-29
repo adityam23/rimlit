@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MobileOff
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,6 +59,7 @@ fun BehaviorScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modif
             quietHoursSection(settings.quietHours) { edit ->
                 viewModel.update { it.copy(quietHours = edit(it.quietHours)) }
             }
+            gesturesSection(settings, viewModel::update)
             item { SectionTitle(stringResource(R.string.preview_section)) }
             item {
                 PreviewButtons(
@@ -140,6 +142,20 @@ private fun LazyListScope.quietHoursSection(quiet: QuietHours, update: ((QuietHo
             selected = quiet.scope == scope,
             onSelect = { update { it.copy(scope = scope) } },
             subtitle = stringResource(scope.descRes),
+        )
+    }
+}
+
+/** What touching the screen-off glow does. */
+private fun LazyListScope.gesturesSection(settings: GlowSettings, update: ((GlowSettings) -> GlowSettings) -> Unit) {
+    item { SectionTitle(stringResource(R.string.gestures_section)) }
+    item {
+        SwitchCard(
+            title = stringResource(R.string.open_on_double_tap_title),
+            checked = settings.openOnDoubleTap,
+            onCheckedChange = { open -> update { it.copy(openOnDoubleTap = open) } },
+            subtitle = stringResource(R.string.open_on_double_tap_desc),
+            leading = { SettingIcon(Icons.Filled.TouchApp) },
         )
     }
 }

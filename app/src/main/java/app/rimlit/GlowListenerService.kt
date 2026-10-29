@@ -42,14 +42,29 @@ class GlowListenerService : NotificationListenerService() {
     }
 
     /**
-     * The notification posted under [key] now; `null` if it is gone or the listener was unbound, including when
-     * access was revoked before it noticed (the system then rejects the call). Any thread.
+     * The notification posted under [key] now, with its app and user; `null` if it is gone or the listener was
+     * unbound, including when access was revoked before it noticed (the system then rejects the call). Any thread.
      */
-    fun notification(key: String): Notification? = try {
-        getActiveNotifications(arrayOf(key))?.firstOrNull()?.notification
+    fun posted(key: String): StatusBarNotification? = try {
+        getActiveNotifications(arrayOf(key))?.firstOrNull()
     } catch (e: SecurityException) {
         Log.w(TAG, "Notification access is gone; reading $key failed", e)
         null
+    }
+
+    /** [posted]'s notification alone. Any thread. */
+    fun notification(key: String): Notification? = posted(key)?.notification
+
+    /**
+     * Dismisses the notification posted under [key], as the user would in the shade (the system keeps ongoing and
+     * non-clearable ones). Main thread.
+     */
+    fun cancel(key: String) {
+        try {
+            cancelNotification(key)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Notification access is gone; cancelling $key failed", e)
+        }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?, rankingMap: RankingMap?) {

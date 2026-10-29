@@ -129,7 +129,10 @@ internal class ConcurrentLongSet(private val shardBits: Int = 8) {
     }
 }
 
-/** An open-addressing set of non-negative longs: about 16 bytes per element, where a boxed `HashSet` takes 50+. */
+/**
+ * An open-addressing set of non-negative longs, filled up to three quarters: 11–21 bytes per element, where a boxed
+ * `HashSet` takes 50+. Linear probing stays short at that load, and most lookups find a state already visited.
+ */
 internal class LongSet(initialCapacity: Int) {
 
     init {
@@ -143,7 +146,7 @@ internal class LongSet(initialCapacity: Int) {
     /** Adds [key]; `false` if it was already present. */
     fun add(key: Long): Boolean {
         require(key >= 0) { "only non-negative keys: $key" }
-        if (size * 2 >= keys.size) grow()
+        if (size * 4 >= keys.size * 3) grow()
         return insert(keys, key).also { if (it) size++ }
     }
 
@@ -180,22 +183,47 @@ internal class LongSet(initialCapacity: Int) {
     }
 }
 
-/** A growable list of longs, without boxing. */
+/**
+ * A growable list of longs, without boxing. It doubles up to [BLOCK] elements, then grows a block at a time, so a
+ * list of tens of millions is never copied whole and wastes at most one block.
+ */
 internal class LongList(initialCapacity: Int = 16) {
 
-    private var values = LongArray(initialCapacity)
-    var size = 0
-        private set
+    /** Full blocks of [BLOCK] elements, then [last], which holds the rest. */
+    private val blocks = ArrayList<LongArray>()
+    private var last = LongArray(initialCapacity.coerceIn(1, BLOCK))
+    private var lastSize = 0
+
+    val size: Int get() = blocks.size * BLOCK + lastSize
 
     operator fun get(index: Int): Long {
-        require(index < size) { "index $index out of $size" }
-        return values[index]
+        require(index in 0 until size) { "index $index out of $size" }
+        val block = index / BLOCK
+        return (if (block < blocks.size) blocks[block] else last)[index % BLOCK]
     }
 
     fun add(value: Long) {
-        if (size == values.size) values = values.copyOf(size * 2)
-        values[size++] = value
+        if (lastSize == last.size) {
+            if (last.size < BLOCK) {
+                last = last.copyOf(minOf(last.size * 2, BLOCK))
+            } else {
+                blocks += last
+                last = LongArray(BLOCK)
+                lastSize = 0
+            }
+        }
+        last[lastSize++] = value
     }
 
-    fun toArray(): LongArray = values.copyOf(size)
+    fun toArray(): LongArray {
+        val array = LongArray(size)
+        blocks.forEachIndexed { i, block -> block.copyInto(array, destinationOffset = i * BLOCK) }
+        last.copyInto(array, destinationOffset = blocks.size * BLOCK, endIndex = lastSize)
+        return array
+    }
+
+    private companion object {
+        /** 8 MB: small enough to waste, large enough that the block list stays short. */
+        const val BLOCK = 1 shl 20
+    }
 }

@@ -3,7 +3,8 @@ package app.rimlit.engine
 /**
  * Holds one surface to the executor contract: its reports count only for the instance of its latest `Open`, until
  * that is closed. Every open and close starts a new generation, and a queued report is delivered only if its
- * generation is still current when its turn comes. Closing withdraws the request and closes the instance.
+ * generation is still current when its turn comes. Closing withdraws the request and closes the instance; releasing
+ * withdraws it too but hands the instance over instead.
  */
 internal class SurfaceSlot {
 
@@ -12,7 +13,9 @@ internal class SurfaceSlot {
     /** An `Open` is outstanding and hasn't been closed or reported gone since. */
     private var requested = false
 
-    private var instance: SurfaceInstance? = null
+    /** The confirmed instance of the latest request, while it is up. */
+    var instance: SurfaceInstance? = null
+        private set
 
     /** Withdraws the latest request (e.g. cancels the lock screen's trampoline); kept until the slot is closed. */
     private var withdraw: Cancellable? = null
@@ -26,12 +29,19 @@ internal class SurfaceSlot {
     }
 
     fun close() {
+        release()?.close()
+    }
+
+    /**
+     * Like [close], but returns the confirmed instance, if any, without closing it: whoever takes it closes it. Its
+     * reports and requests no longer count, as after a close.
+     */
+    fun release(): SurfaceInstance? {
         generation++
         requested = false
         withdraw?.cancel()
         withdraw = null
-        instance?.close()
-        instance = null
+        return instance.also { instance = null }
     }
 
     /**
@@ -57,6 +67,17 @@ internal class SurfaceSlot {
         requested = false
         instance = null
         return current()
+    }
+
+    /**
+     * [asking] asked to open what it shows. Returns the check for its `OpenRequested` report, or `null` if it isn't
+     * the confirmed instance of the latest request. The check also fails once [asking] has gone meanwhile, so the
+     * open effect always finds it up.
+     */
+    fun openRequested(asking: SurfaceInstance): (() -> Boolean)? {
+        if (!requested || instance !== asking) return null
+        val isCurrent = current()
+        return { isCurrent() && instance === asking }
     }
 
     private fun current(): () -> Boolean {

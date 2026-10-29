@@ -15,6 +15,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 - **Easy on you and the battery:** with Remove animations turned on, the glow holds still instead of pulsing or racing; with battery saver (the system's, or always) it draws at most 30 frames a second.
 - **Fits your screen:** follows your display's real rounded corners, and can ring the camera cutout instead of the whole edge, or as well as it.
 - **When it glows:** choose separately whether it glows with the screen off, above the lock screen, and while you use the phone, and set daily quiet hours (for every glow, or only the one that wakes the screen). Turning edge lighting off, or excluding an app, also ends a glow that is showing.
+- **Double tap to open:** double tap the screen-off glow to unlock and open the notification, just as tapping it in the shade would; a single tap still dismisses the glow. It can be turned off.
 - **Respectful:** honors Do Not Disturb, skips silent and low-priority notifications, and never covers incoming-call or alarm screens. Any app can be excluded.
 
 ## Install

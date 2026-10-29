@@ -45,7 +45,22 @@ internal class GlowExecutor(
             GlowEffect.CancelExtraction -> extraction.cancel()
 
             GlowEffect.WakeScreenDenied -> driver.wakeScreenDenied()
+
+            // The open takes the instance over, so the step's Close leaves it up for the unlock.
+            is GlowEffect.OpenNotification -> {
+                val from = slots.getValue(effect.from).release()
+                driver.openNotification(effect.post, checkNotNull(from) { "Opens only from a confirmed instance" })
+            }
         }
+    }
+
+    /**
+     * [instance] of [surface] asked to open what it shows. Unless it is the confirmed one, the request only ends it,
+     * as any other touch would: it is reported gone.
+     */
+    fun openRequested(surface: Surface, instance: SurfaceInstance) {
+        val isCurrent = slots.getValue(surface).openRequested(instance) ?: return surfaceGone(surface, instance)
+        report { GlowEvent.OpenRequested(surface).takeIf { isCurrent() } }
     }
 
     fun surfaceOpened(surface: Surface, instance: SurfaceInstance) {
