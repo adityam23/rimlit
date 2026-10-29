@@ -5,6 +5,7 @@ import android.graphics.Path
 import app.rimlit.ui.glow.OutlinePart
 import app.rimlit.ui.glow.OutlineShape
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -26,9 +27,13 @@ private const val MIN_WAVES = 4
 /** Halo opacity under the wave. */
 private const val HALO_ALPHA = 0.6f
 
-/** Arc length between the points the wave bends; fine enough to stay smooth, coarse enough to stay cheap. */
+/**
+ * Points the wave bends per wave: one every [SAMPLE_SPACING_PX] of arc, but between the fewest that keep a wave
+ * smooth and the most worth drawing; and at most [MAX_SAMPLES] round the whole outline.
+ */
 private const val SAMPLE_SPACING_PX = 4f
-private const val MIN_SAMPLES = 32
+private const val MIN_SAMPLES_PER_WAVE = 16
+private const val MAX_SAMPLES_PER_WAVE = 32
 private const val MAX_SAMPLES = 4096
 
 /**
@@ -36,7 +41,8 @@ private const val MAX_SAMPLES = 4096
  * number of waves per lap so it joins up across the path's start. Still, it is the steady outline.
  */
 internal class WaveEffect(private val brush: OutlineBrush) : GlowEffectPainter {
-    private val track = brush.outline.part(Track)
+    /** Only a moving wave bends, so a still one never builds its track. */
+    private val track by lazy(LazyThreadSafetyMode.NONE) { brush.outline.part(Track) }
     private val path = Path()
 
     override fun draw(canvas: Canvas, t: Float) {
@@ -81,11 +87,17 @@ internal class WaveTrack(shape: OutlineShape, val amplitude: Float) {
     /** Length of the track, which the waves divide. */
     val length = rounded.perimeter
     val waves = waveCount(length, wavelength = amplitude * WAVELENGTH_AMPLITUDES)
-    val count = (length / SAMPLE_SPACING_PX).toInt().coerceIn(MIN_SAMPLES, MAX_SAMPLES)
+    val count = (length / waves / SAMPLE_SPACING_PX).roundToInt()
+        .coerceIn(MIN_SAMPLES_PER_WAVE, MAX_SAMPLES_PER_WAVE)
+        .let { (it * waves).coerceAtMost(MAX_SAMPLES) }
     val x = FloatArray(count)
     val y = FloatArray(count)
     val normalX = FloatArray(count)
     val normalY = FloatArray(count)
+
+    /** Sine and cosine of each point's place in its wave, so a frame only rotates them by the phase: see [bend]. */
+    val sinAt = FloatArray(count)
+    val cosAt = FloatArray(count)
 
     init {
         val point = FloatArray(4)
@@ -95,13 +107,22 @@ internal class WaveTrack(shape: OutlineShape, val amplitude: Float) {
             y[i] = point[1]
             normalX[i] = point[2]
             normalY[i] = point[3]
+            val angle = 2f * PI.toFloat() * waves * i / count
+            sinAt[i] = sin(angle)
+            cosAt[i] = cos(angle)
         }
     }
 
-    /** Hands each point of the line bent into the wave [phase] waves along to [to], in order round the track. */
+    /**
+     * Hands each point of the line bent into the wave [phase] waves along to [to], in order round the track: the
+     * [waveOffset] at each point, from one sine and cosine per frame (sin(a − p) = sin a cos p − cos a sin p).
+     */
     inline fun bend(phase: Float, to: (index: Int, x: Float, y: Float) -> Unit) {
+        val shift = 2f * PI.toFloat() * phase
+        val sinShift = sin(shift)
+        val cosShift = cos(shift)
         for (i in 0 until count) {
-            val offset = waveOffset(length * i / count, length, waves, phase, amplitude)
+            val offset = amplitude * (1f + sinAt[i] * cosShift - cosAt[i] * sinShift)
             to(i, x[i] + normalX[i] * offset, y[i] + normalY[i] * offset)
         }
     }

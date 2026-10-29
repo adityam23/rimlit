@@ -58,8 +58,9 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                     glowPx = spec.glowWidthDp.dp.toPx(),
                 ),
             )
-            // One painter per outline, each in the spec's style.
-            val edges = layout.outlines.map { outline -> spec.style.painter(OutlineBrush(spec, playback, outline)) }
+            // One painter per outline, each in the spec's style; an array, so a frame walks it without an iterator.
+            val outlines = layout.outlines
+            val edges = Array(outlines.size) { spec.style.painter(OutlineBrush(spec, playback, outlines[it])) }
             val particlePainter = particles.painter(spec, playback, size, pxPerDp, preview)
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
@@ -67,7 +68,7 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                 drawIntoCanvas { canvas ->
                     // Particles go beneath the edge.
                     particlePainter?.draw(canvas.nativeCanvas, t)
-                    for (edge in edges) edge.draw(canvas.nativeCanvas, t)
+                    for (i in edges.indices) edges[i].draw(canvas.nativeCanvas, t)
                 }
             }
         },

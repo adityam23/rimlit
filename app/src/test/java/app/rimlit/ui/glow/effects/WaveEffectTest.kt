@@ -97,6 +97,24 @@ class WaveEffectTest {
         return polygon
     }
 
+    @Test
+    fun theTrackBendsByTheWaveOffsetAtEveryPoint() {
+        val edge = RoundRect(0f, 0f, 1080f, 1920f, FloatArray(4) { 100f })
+        val track = WaveTrack(edge, amplitude = 22f)
+        assertEquals(0, track.count % track.waves, "each wave gets the same points")
+        assertTrue(track.count / track.waves in 16..32)
+        for (phase in listOf(0f, 0.37f, 3.8f)) {
+            val bent = bentPoints(track, phase)
+            for (i in 0 until track.count) {
+                val expected = waveOffset(track.length * i / track.count, track.length, track.waves, phase, 22f)
+                // How far the point moved along its normal.
+                val moved = (bent[2 * i] - track.x[i]) * track.normalX[i] +
+                    (bent[2 * i + 1] - track.y[i]) * track.normalY[i]
+                assertEquals(expected, moved, 1e-2f, "phase $phase, point $i")
+            }
+        }
+    }
+
     private fun bentPoints(track: WaveTrack, phase: Float): FloatArray {
         val points = FloatArray(2 * track.count)
         track.bend(phase) { i, x, y ->

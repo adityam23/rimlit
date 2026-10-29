@@ -22,11 +22,12 @@ internal class BloomMask(geometry: GlowGeometry, width: Float, height: Float, st
     private val bitmap: Bitmap?
 
     /**
-     * The (bitmap source, window destination) rects to draw each frame. A screen-edge halo is a band around
-     * an empty middle, drawn as four corner squares and four thin edge strips, so the GPU shades only the
-     * band (a clip-out would still shade the middle).
+     * The window rects to draw each frame, and at the same index the bitmap rect each draws from. A screen-edge halo
+     * is a band around an empty middle, drawn as four corner squares and four thin edge strips, so the GPU shades
+     * only the band (a clip-out would still shade the middle). Arrays, so a frame walks them without an iterator.
      */
-    private val pieces: List<Pair<Rect, Rect>>
+    private val destinations: Array<Rect>
+    private val sources: Array<Rect>
 
     init {
         // A blur fades out within about twice its radius (sigma ≈ 0.58 × radius; ~3 sigma reach).
@@ -39,7 +40,7 @@ internal class BloomMask(geometry: GlowGeometry, width: Float, height: Float, st
         // their radius, so near them it ends within reach + radius; each corner square is that size.
         val corner = reach + geometry.cornerRadius
         val bounds = geometry.bounds
-        val destinations = if (bounds.width() > 2f * corner && bounds.height() > 2f * corner) {
+        destinations = if (bounds.width() > 2f * corner && bounds.height() > 2f * corner) {
             // Edge strip inner sides and corner square inner sides, rounded outward so no halo pixel is lost.
             val stripLeft = ceil(bounds.left + reach).toInt()
             val stripTop = ceil(bounds.top + reach).toInt()
@@ -49,7 +50,8 @@ internal class BloomMask(geometry: GlowGeometry, width: Float, height: Float, st
             val cornerTop = ceil(bounds.top + corner).toInt()
             val cornerRight = floor(bounds.right - corner).toInt()
             val cornerBottom = floor(bounds.bottom - corner).toInt()
-            listOf(
+            // Clips each piece to the bitmap in place, and drops the empty ones.
+            arrayOf(
                 Rect(area.left, area.top, cornerLeft, cornerTop),
                 Rect(cornerRight, area.top, area.right, cornerTop),
                 Rect(area.left, cornerBottom, cornerLeft, area.bottom),
@@ -58,17 +60,17 @@ internal class BloomMask(geometry: GlowGeometry, width: Float, height: Float, st
                 Rect(cornerLeft, stripBottom, cornerRight, area.bottom),
                 Rect(area.left, cornerTop, stripLeft, cornerBottom),
                 Rect(stripRight, cornerTop, area.right, cornerBottom),
-            ).filter { it.intersect(area) } // Clips each piece to the bitmap in place; drops the empty ones.
+            ).filter { it.intersect(area) }.toTypedArray()
         } else {
             // A cutout ring (or tiny outline) is all corner: no empty middle to skip.
-            listOf(area)
+            arrayOf(area)
         }
-        pieces = destinations.map { Rect(it).apply { offset(-area.left, -area.top) } to it }
+        sources = Array(destinations.size) { Rect(destinations[it]).apply { offset(-area.left, -area.top) } }
     }
 
     fun draw(canvas: Canvas, paint: Paint) {
         val bitmap = bitmap ?: return
-        for ((source, destination) in pieces) canvas.drawBitmap(bitmap, source, destination, paint)
+        for (i in destinations.indices) canvas.drawBitmap(bitmap, sources[i], destinations[i], paint)
     }
 
     private fun render(geometry: GlowGeometry, area: Rect, strokePx: Float, blurPx: Float): Bitmap {
