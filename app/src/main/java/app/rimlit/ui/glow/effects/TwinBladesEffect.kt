@@ -79,12 +79,26 @@ internal fun mirrorProgress(laps: Float): Float {
 }
 
 /**
+ * Fraction of a Mirror trip at which a blade's head reaches the meeting point: the same for every leg, however long,
+ * so two legs of different lengths (an asymmetric outline) still meet together (derived from the symmetric case,
+ * where the leg is half a lap).
+ */
+private val MIRROR_MEET_FRACTION = 0.5f / (0.5f + BLADE_TAIL)
+
+/**
  * Unwrapped arc distance of a Mirror blade's head [progress] (0 to 1) through its trip from [start] along [run] (arc
- * length to the meeting point, positive clockwise, negative against): it reaches the meeting point, then runs on by its
- * [tail], so the tail drains into it.
+ * length to the meeting point, positive clockwise, negative against): it reaches the meeting point at
+ * [MIRROR_MEET_FRACTION], then runs on by its [tail] over the trip's remainder, so the tail drains into it. Scaling
+ * the head's speed to [run] (rather than moving every leg at one fixed speed) keeps the meeting fraction the same
+ * regardless of the leg's length, so both blades leave together and meet together even when their legs differ.
  */
 internal fun mirrorHead(progress: Float, start: Float, run: Float, tail: Float): Float =
-    start + progress * (run + tail.withSign(run))
+    if (progress <= MIRROR_MEET_FRACTION) {
+        start + (progress / MIRROR_MEET_FRACTION) * run
+    } else {
+        val drained = (progress - MIRROR_MEET_FRACTION) / (1f - MIRROR_MEET_FRACTION)
+        start + run + drained * tail.withSign(run)
+    }
 
 /** Clockwise arc distance, in [0, [length]), from [from] to [to] on an outline [length] long. */
 internal fun clockwiseArc(from: Float, to: Float, length: Float): Float = ((to - from) % length + length) % length

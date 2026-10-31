@@ -60,6 +60,22 @@ class TwinBladesEffectTest {
     }
 
     @Test
+    fun mirrorBladesOnAnUnevenRingMeetTogether() {
+        // An asymmetric ring: the short way round is 0.3 of the outline, the long way 0.7 — a real cutout ring need
+        // not split evenly either side of the anchor. Both legs must still reach the meeting point at the same
+        // moment, derived (not hardcoded) from the symmetric case's own meeting fraction.
+        val start = 2_200f
+        val halfLap = length / 2f
+        val meetingFraction = halfLap / (halfLap + tail)
+        val run = 0.3f * length
+        val meet = wrap(start + run)
+        val clockwise = mirrorHead(meetingFraction, start, run, tail)
+        val counterclockwise = mirrorHead(meetingFraction, start, run - length, tail)
+        assertEquals(meet, wrap(clockwise), 0.5f)
+        assertEquals(meet, wrap(counterclockwise), 0.5f)
+    }
+
+    @Test
     fun mirrorTripsRepeatAtABladesSpeed() {
         // A trip is half a lap plus a tail, run at a blade's speed.
         val trip = 0.5f + BLADE_TAIL
