@@ -30,8 +30,13 @@ private const val MAX_BURSTS = MAX_SPARKS / SPARKS_PER_BURST
 private const val REACH_THICKNESSES = 6f
 private const val REACH_GLOWS = 1.5f
 
-/** Farthest reach, as a share of the outline's shorter side, so a preview's or the cutout ring's bursts stay close. */
-private const val MAX_REACH_SHARE = 0.12f
+/**
+ * Farthest reach, as a share of the outline's shorter side, so a preview's or the cutout ring's bursts stay close.
+ * Raised (lead's call, 2026-10-31) so bursts still read on a small punch-hole ring: at the old 0.12 a 40 px ring's
+ * reach was only ~5 px; at 0.55 it is about the ring's own size. The screen edge is unaffected: even at the sliders'
+ * highest thickness and glow, its absolute reach stays well under this share of its own (far larger) shorter side.
+ */
+private const val MAX_REACH_SHARE = 0.55f
 
 /** Arc length per burst site, in reaches, so neighbouring bursts barely overlap. */
 private const val SPACING_REACHES = 1.5f
@@ -39,7 +44,13 @@ private const val SPACING_REACHES = 1.5f
 /** Spark radius: line thicknesses plus a share of the glow width, capped to a share of the outline's shorter side. */
 private const val RADIUS_THICKNESSES = 1.5f
 private const val RADIUS_GLOW_SHARE = 0.15f
-private const val MAX_RADIUS_SHARE = 0.03f
+
+/**
+ * Largest spark radius, as a share of the outline's shorter side. Raised (lead's call, 2026-10-31) alongside
+ * [MAX_REACH_SHARE]: at the old 0.03 a 40 px ring's sparks were only ~1 px, too faint to read; at 0.1 they are at
+ * least ~4 px. The screen edge is unaffected for the same reason as the reach share.
+ */
+private const val MAX_RADIUS_SHARE = 0.1f
 
 /** Angle a burst's sparks spread over, centred on the open side, in radians (about 150°): none skims the edge. */
 private const val FAN = 2.6f
@@ -154,18 +165,26 @@ internal class BurstSeeds(val count: Int, val sparks: Int, seed: Int) {
 }
 
 /**
+ * Farthest reach of a burst's fastest spark on [shape]: thicknesses plus glow widths, capped to [MAX_REACH_SHARE] of
+ * the outline's shorter side ([OutlineShape.fit]) so a small outline (the cutout ring, a preview) isn't swamped; at
+ * least 1 px.
+ */
+internal fun burstReach(shape: OutlineShape, thicknessPx: Float, glowPx: Float): Float =
+    shape.fit(thicknessPx * REACH_THICKNESSES + glowPx * REACH_GLOWS, MAX_REACH_SHARE).coerceAtLeast(1f)
+
+/** A burst's spark radius on [shape]: the same capping as [burstReach], to [MAX_RADIUS_SHARE]. */
+internal fun burstRadius(shape: OutlineShape, thicknessPx: Float, glowPx: Float): Float =
+    shape.fit(thicknessPx * RADIUS_THICKNESSES + glowPx * RADIUS_GLOW_SHARE, MAX_RADIUS_SHARE).coerceAtLeast(1f)
+
+/**
  * An outline's burst sites and their sparks' velocities, and the one sprite they all draw, sized against the outline
  * (see [OutlineShape.fit]). Sites sit on its [OutlineShape], and sparks fan out about its normal toward the open side.
  * Built once per layout.
  */
 private class BurstField(outline: GlowOutline) {
     private val shape = outline.geometry.shape
-    val reach = outline.key.let {
-        shape.fit(it.thicknessPx * REACH_THICKNESSES + it.glowPx * REACH_GLOWS, MAX_REACH_SHARE)
-    }.coerceAtLeast(1f)
-    val radius = outline.key.let {
-        shape.fit(it.thicknessPx * RADIUS_THICKNESSES + it.glowPx * RADIUS_GLOW_SHARE, MAX_RADIUS_SHARE)
-    }.coerceAtLeast(1f)
+    val reach = outline.key.let { burstReach(shape, it.thicknessPx, it.glowPx) }
+    val radius = outline.key.let { burstRadius(shape, it.thicknessPx, it.glowPx) }
     val count = (shape.perimeter / (reach * SPACING_REACHES)).roundToInt().coerceIn(MIN_BURSTS, MAX_BURSTS)
     val seeds = BurstSeeds(count, SPARKS_PER_BURST, if (outline.opensInward) SEED else SEED + 1)
     val x = FloatArray(count)

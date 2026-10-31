@@ -16,6 +16,39 @@ import kotlin.test.assertTrue
 class FireworksEffectTest {
 
     @Test
+    fun burstsReadOnASmallPunchHoleRing() {
+        // A square camera 20 px across, its ring 10 px out all round: 40 px, the ring's shorter side (as in the bug
+        // report that raised the shares below).
+        val ring = CutoutRing(floatArrayOf(10f, 10f, 30f, 10f, 30f, 30f, 10f, 30f), radius = 10f)
+        assertEquals(40f, min(ring.width, ring.height))
+        // Thickness and glow wide enough that the absolute size (as on the screen edge) would ask for more than the
+        // ring itself; the shares, not the absolute sizes, size the bursts here (the old 0.12 / 0.03 shares are
+        // exactly the bug report's ~5 px reach and ~1 px sparks).
+        val reach = burstReach(ring, thicknessPx = 20f, glowPx = 40f)
+        val radius = burstRadius(ring, thicknessPx = 20f, glowPx = 40f)
+        assertEquals(40f * 0.55f, reach, "reach is about the ring's own size, not the old ~5 px")
+        assertEquals(40f * 0.1f, radius, "radius reads as a spark, not the old ~1 px")
+        assertTrue(radius >= 3f, "radius $radius reads as a spark, not a stray pixel")
+    }
+
+    @Test
+    fun burstsOnTheScreenEdgeStayAtTheirAbsoluteSize() {
+        // A phone-sized screen edge, and the sliders' highest thickness and glow (Ranges.thicknessDp / glowWidthDp),
+        // at a common density (3x, xxhdpi) — the screen edge this large relative to its glow is the worst case for
+        // the share cap to bite.
+        val screen = RoundRect(0f, 0f, 1_080f, 2_400f, FloatArray(4) { 0f })
+        val density = 3f
+        val thicknessPx = 12f * density
+        val glowPx = 64f * density
+        val expectedReach = thicknessPx * 6f + glowPx * 1.5f
+        val expectedRadius = thicknessPx * 1.5f + glowPx * 0.15f
+        val reach = burstReach(screen, thicknessPx, glowPx)
+        val radius = burstRadius(screen, thicknessPx, glowPx)
+        assertEquals(expectedReach, reach, "the share is well clear of the absolute reach, so it never caps it")
+        assertEquals(expectedRadius, radius, "the share is well clear of the absolute radius, so it never caps it")
+    }
+
+    @Test
     fun theSameLayoutGetsTheSameBursts() {
         val first = BurstSeeds(count = 12, sparks = 10, seed = 7)
         val again = BurstSeeds(count = 12, sparks = 10, seed = 7)
