@@ -13,17 +13,21 @@ import java.util.UUID
  * keyguard: it asks for the dismissal (the user unlocks on the bouncer), runs the pending action once unlocked, while
  * it is still the visible window (its standing lets a notification's pending intent start an activity), and finishes
  * however the dismissal ends. Started by [runUnlocked]; main thread only.
+ *
+ * Each launch carries its own id (set by [runUnlocked]), so it only ever takes its own action from [pending] — a
+ * second launch started before a first one's activity exists can't steal or overwrite it.
  */
 class UnlockActivity : ComponentActivity() {
 
-    /** The action this instance runs once unlocked; taken from [pending] when it starts, so nothing else runs it. */
+    /** The action this instance runs once unlocked; taken from [pending] by its own id, so nothing else runs it. */
     private var action: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Always taken, recreated or not, so a launch that's never kept doesn't linger in pending.
+        val taken = intent.getStringExtra(EXTRA_ID)?.let { pending.take(it) }
         // Recreated (the process or a configuration change), it has nothing to run: the action wasn't kept.
-        action = pending.takeIf { savedInstanceState == null }
-        pending = null
+        action = taken.takeIf { savedInstanceState == null }
         if (action == null) {
             finish()
             return
@@ -64,23 +68,27 @@ class UnlockActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "UnlockActivity"
+        private const val EXTRA_ID = "app.rimlit.UnlockActivity.ID"
 
-        /** The action the next instance takes; at most one, replaced by a newer request. Main thread only. */
-        private var pending: (() -> Unit)? = null
+        /** Actions awaiting their own launch, keyed by that launch's id; see [PendingUnlockActions]. */
+        private val pending = PendingUnlockActions()
 
         /**
-         * Asks the user to unlock, then runs [action]; never if they don't. A newer request replaces one whose activity
-         * hasn't started yet. Rimlit may start it from the background: it holds Display over other apps, or its
-         * accessibility service is bound, and the overlay asking for it is a visible window.
+         * Asks the user to unlock, then runs [action]; never if they don't. Each call generates its own id, so a
+         * second call before a first call's activity exists doesn't overwrite it — both run. Rimlit may start it
+         * from the background: it holds Display over other apps, or its accessibility service is bound, and the
+         * overlay asking for it is a visible window.
          */
         fun runUnlocked(context: Context, action: () -> Unit) {
-            pending = action
+            val id = UUID.randomUUID().toString()
+            pending.add(id, action)
             context.startActivity(
                 Intent(context, UnlockActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(EXTRA_ID, id)
                     // Its own identity per launch, as for the lock-screen glow: an intent equal to a task's root still
                     // waiting on an unlock would only bring that task forward.
-                    .setIdentifier(UUID.randomUUID().toString()),
+                    .setIdentifier(id),
             )
         }
     }
