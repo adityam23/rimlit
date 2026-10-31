@@ -39,8 +39,18 @@ fun isValidParticleImageId(id: String): Boolean = ID_PATTERN.matches(id)
 private val ID_PATTERN = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 /** Every image id any look's particles draw: the imported files to keep. */
-val GlowSettings.particleImageIds: Set<String>
-    get() = looks.flatMapTo(mutableSetOf()) { (it.particles?.picture as? ParticlePicture.Custom)?.ids.orEmpty() }
+val GlowSettings.particleImageIds: Set<String> get() = looks.particleImageIds
+
+/** Every image id these looks' particles draw, in order. */
+val List<Look>.particleImageIds: Set<String>
+    get() = flatMapTo(linkedSetOf()) { (it.particles?.picture as? ParticlePicture.Custom)?.ids.orEmpty() }
+
+/** This look drawing, for each of its own images, the one [ids] maps it to (which must hold them all). */
+fun Look.withImageIds(ids: Map<String, String>): Look {
+    val particles = particles ?: return this
+    val own = (particles.picture as? ParticlePicture.Custom)?.ids ?: return this
+    return copy(particles = particles.copy(picture = ParticlePicture.Custom(own.map(ids::getValue))))
+}
 
 /**
  * These particles drawing [added] images too: after the look's own images, without repeats, up to

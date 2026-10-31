@@ -37,10 +37,11 @@ import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.TextFieldDialog
 import java.util.UUID
 
-/** The looks to pick the one [editing] from, and what can be done to it. */
+/** The looks to pick the one [editing] from, what can be done to it, and their export, share and import. */
 internal fun LazyListScope.lookPickerSection(
     settings: GlowSettings,
     editing: Look,
+    sharing: LookSharing,
     onEdit: (Look) -> Unit,
     onAction: (LookAction) -> Unit,
 ) {
@@ -68,6 +69,15 @@ internal fun LazyListScope.lookPickerSection(
             val canDelete = editing.id != settings.defaultLookId
             OutlinedButton(onClick = { onAction(LookAction.Delete(editing.id)) }, enabled = canDelete) {
                 Text(stringResource(R.string.look_delete))
+            }
+            OutlinedButton(onClick = sharing::export) {
+                Text(stringResource(R.string.looks_export))
+            }
+            OutlinedButton(onClick = sharing::share) {
+                Text(stringResource(R.string.looks_share))
+            }
+            OutlinedButton(onClick = sharing::import, enabled = canAdd) {
+                Text(stringResource(R.string.looks_import))
             }
         }
     }

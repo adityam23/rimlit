@@ -24,13 +24,14 @@ import java.util.Locale
 // the stored string may come from an older or newer version: unknown values fall back to the defaults, numbers are
 // clamped to [Ranges], and anything malformed is skipped, or the whole collection decodes as `null`.
 
+/** [looks] as a JSON array, as stored and as shared in a look file (see `LookArchive.kt`). */
 internal fun encodeLooks(looks: List<Look>): String = JSONArray().apply {
     for (look in looks) put(LookJson.encode(look))
 }.toString()
 
 /**
  * The looks in [json], skipping malformed ones and those repeating an earlier id or name, up to [MAX_LOOKS]; `null`
- * when it is absent, malformed or holds no valid look.
+ * when it is absent, malformed or holds no valid look. The one decoder for stored and for shared looks.
  */
 internal fun decodeLooks(json: String?): List<Look>? {
     val array = json?.let { parsedOrNull { JSONArray(it) } } ?: return null
