@@ -1,6 +1,6 @@
 package app.rimlit.model
 
-/** A built-in particle picture. */
+/** A built-in particle image (see [ParticlePicture.Builtin]). */
 enum class ParticleImage { SNOWFLAKE, PETAL, RAINDROP, STAR, HEART, BUBBLE, CONFETTI, SPARK }
 
 /** How particles move across the screen. */
@@ -32,7 +32,7 @@ enum class ParticleTint {
  * first frame, keeps spawning until its hold ends, and the particles still in flight then fade out with the glow.
  */
 data class ParticleSpec(
-    val image: ParticleImage,
+    val picture: ParticlePicture,
     val motion: ParticleMotion,
     /** Width and height of a particle (the nearest ones; farther ones are drawn smaller). */
     val sizeDp: Float = 16f,
@@ -51,4 +51,7 @@ data class ParticleSpec(
         require(amount in ranges.particleAmount) { "Particle amount out of range: $amount" }
         require(rotationDegPerSecond in ranges.particleRotation) { "Particle rotation out of range" }
     }
+
+    /** The tint particles draw with: an app's icon always keeps its own colours, so it reads as the app's. */
+    val drawnTint: ParticleTint get() = if (picture == ParticlePicture.AppIcon) ParticleTint.IMAGE else tint
 }

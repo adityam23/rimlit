@@ -100,6 +100,20 @@ class GlowSettingsTest {
     }
 
     @Test
+    fun onlyAnAppIconParticleNamesTheNotifyingApp() {
+        val icon = settings.updateLook(settings.defaultLookId) {
+            it.copy(particles = ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.FALL))
+        }
+        assertEquals(app, icon.ready().iconPackage)
+        assertEquals("com.other", icon.ready("com.other").iconPackage)
+        assertNull(icon.previewSpec().iconPackage, "a preview draws Rimlit's own icon")
+        // Any other picture leaves every app's spec the same.
+        val hearts = settings.updateLook(settings.defaultLookId) { it.copy(particles = ParticlePreset.HEARTS.spec) }
+        assertNull(hearts.ready().iconPackage)
+        assertEquals(hearts.ready(), hearts.ready("com.other"))
+    }
+
+    @Test
     fun previewsShowTheLookBeingEdited() {
         assertEquals(GlowStyle.GLOW, settings.previewSpec().style)
         assertEquals(GlowStyle.BLADE, settings.previewSpec(work).style)

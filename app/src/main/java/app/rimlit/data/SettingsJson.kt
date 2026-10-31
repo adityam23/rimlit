@@ -6,11 +6,14 @@ import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.MAX_PALETTE_COLORS
+import app.rimlit.model.MAX_PARTICLE_IMAGES
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
+import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticleSpec
 import app.rimlit.model.Rule
 import app.rimlit.model.isValidLookName
+import app.rimlit.model.isValidParticleImageId
 import app.rimlit.model.lookNameKey
 import org.json.JSONArray
 import org.json.JSONException
@@ -142,8 +145,14 @@ private object LookJson {
     }
 }
 
+/**
+ * A particle's picture is one key: `image` names a built-in image (the only kind before custom images, so older
+ * settings read as they were saved), `images` lists custom image ids, and `appIcon` is `true` for the app's icon.
+ */
 private object ParticleJson {
     private const val IMAGE = "image"
+    private const val IMAGES = "images"
+    private const val APP_ICON = "appIcon"
     private const val MOTION = "motion"
     private const val SIZE_DP = "sizeDp"
     private const val SPEED = "speed"
@@ -152,7 +161,13 @@ private object ParticleJson {
     private const val TINT = "tint"
 
     fun encode(particles: ParticleSpec): JSONObject = JSONObject()
-        .put(IMAGE, particles.image.name)
+        .apply {
+            when (val picture = particles.picture) {
+                is ParticlePicture.Builtin -> put(IMAGE, picture.image.name)
+                is ParticlePicture.Custom -> put(IMAGES, JSONArray(picture.ids))
+                ParticlePicture.AppIcon -> put(APP_ICON, true)
+            }
+        }
         .put(MOTION, particles.motion.name)
         .put(SIZE_DP, particles.sizeDp.toDouble())
         .put(SPEED, particles.speed.toDouble())
@@ -160,11 +175,11 @@ private object ParticleJson {
         .put(ROTATION, particles.rotationDegPerSecond.toDouble())
         .put(TINT, particles.tint.name)
 
-    /** The particles [obj] holds, or `null` without a known image and motion, which have no sensible fallback. */
+    /** The particles [obj] holds, or `null` without a valid picture and a known motion: no sensible fallback. */
     fun decode(obj: JSONObject): ParticleSpec? {
-        val image = obj.string(IMAGE).toEnumOrNull<ParticleImage>() ?: return null
+        val picture = decodePicture(obj) ?: return null
         val motion = obj.string(MOTION).toEnumOrNull<ParticleMotion>() ?: return null
-        val defaults = ParticleSpec(image, motion)
+        val defaults = ParticleSpec(picture, motion)
         return defaults.copy(
             sizeDp = obj.float(SIZE_DP, defaults.sizeDp, Ranges.particleSizeDp),
             speed = obj.float(SPEED, defaults.speed, Ranges.particleSpeed),
@@ -172,6 +187,27 @@ private object ParticleJson {
             rotationDegPerSecond = obj.float(ROTATION, defaults.rotationDegPerSecond, Ranges.particleRotation),
             tint = obj.string(TINT).toEnumOr(defaults.tint),
         )
+    }
+
+    /**
+     * The picture [obj] names, or `null` for none: an unknown built-in image, or custom images with no valid id
+     * (invalid and repeated ids are dropped, and any past [MAX_PARTICLE_IMAGES]).
+     */
+    private fun decodePicture(obj: JSONObject): ParticlePicture? = when {
+        obj.opt(APP_ICON) == true -> ParticlePicture.AppIcon
+
+        obj.has(IMAGES) -> obj.optJSONArray(IMAGES)?.let { array ->
+            (0 until array.length()).asSequence()
+                .mapNotNull { array.opt(it) as? String }
+                .filter(::isValidParticleImageId)
+                .distinct()
+                .take(MAX_PARTICLE_IMAGES)
+                .toList()
+                .ifEmpty { null }
+                ?.let(ParticlePicture::Custom)
+        }
+
+        else -> obj.string(IMAGE).toEnumOrNull<ParticleImage>()?.let(ParticlePicture::Builtin)
     }
 }
 

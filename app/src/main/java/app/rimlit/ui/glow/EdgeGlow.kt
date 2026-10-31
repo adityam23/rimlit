@@ -91,8 +91,8 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                     bloomPx = if (spec.style == GlowStyle.GLOW || spec.style == GlowStyle.BLADE) glowPx else 0f,
                 ),
             )
-            val painter = GlowPainter(spec, playback, layout, thicknessPx, glowPx)
             val particlePainter = particles.painter(spec, playback, size, 1.dp.toPx() * scale, preview)
+            val painter = GlowPainter(spec, playback, layout, thicknessPx, glowPx, particlePainter != null)
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value
@@ -145,6 +145,8 @@ private class GlowPainter(
     layout: GlowLayout,
     thicknessPx: Float,
     private val glowPx: Float,
+    /** Particles draw beneath this edge. */
+    particles: Boolean,
 ) {
     /** The single color of a solid palette; `null` for multicolor palettes, which use a shader. */
     private val solidColor = (spec.palette as? GlowPalette.Colors)?.argb?.singleOrNull()
@@ -160,12 +162,12 @@ private class GlowPainter(
 
     /**
      * A still blade can't race, so it glows: the whole outline lit, with its halo. No edge draws the plain outline when
-     * no particles draw (none in the spec, or none under Remove animations): a glow showing nothing would hide the
-     * notification. Plain, since a NONE layout has no halo mask.
+     * no particles draw (none in the spec, none under Remove animations, or none of their images stored any more): a
+     * glow showing nothing would hide the notification. Plain, since a NONE layout has no halo mask.
      */
     private val style = when {
         playback.still && spec.style == GlowStyle.BLADE -> GlowStyle.GLOW
-        spec.style == GlowStyle.NONE && (spec.particles == null || playback.particleShare == 0f) -> GlowStyle.BASIC
+        spec.style == GlowStyle.NONE && !particles -> GlowStyle.BASIC
         else -> spec.style
     }
 

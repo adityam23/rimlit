@@ -144,7 +144,7 @@ data class GlowSettings(
             ?: look.palette
             ?: extracted?.let(GlowPalette::Colors)
             ?: return Resolution.Extract(look.autoColors)
-        return Resolution.Ready(spec(look, palette))
+        return Resolution.Ready(spec(look, palette, packageName))
     }
 
     /**
@@ -154,8 +154,12 @@ data class GlowSettings(
     fun previewSpec(look: Look = defaultLook): GlowSpec =
         spec(look, look.palette ?: GlowPalette.Colors(PreviewAutoColors.take(look.autoColors.count)))
 
-    /** The one spec builder: [look] painted with [palette], with these settings' global parts. */
-    private fun spec(look: Look, palette: GlowPalette): GlowSpec = GlowSpec(
+    /**
+     * The one spec builder: [look] painted with [palette], with these settings' global parts, for a notification from
+     * [packageName] (`null` for a preview). The spec names the app only when its icon is the particle, so a glow's spec
+     * stays the same for every app that shares its look.
+     */
+    private fun spec(look: Look, palette: GlowPalette, packageName: String? = null): GlowSpec = GlowSpec(
         style = look.style,
         palette = palette,
         region = look.region,
@@ -169,6 +173,7 @@ data class GlowSettings(
         durationMs = durationMs,
         batterySaver = batterySaver,
         particles = look.particles,
+        iconPackage = packageName.takeIf { look.particles?.picture == ParticlePicture.AppIcon },
     )
 
     /** Valid ranges, shared by the UI sliders and the repository's sanitising of stored values. */
