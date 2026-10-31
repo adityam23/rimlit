@@ -13,14 +13,14 @@ import kotlin.math.atan2
 import kotlin.math.min
 
 /**
- * The closed outline a glow is drawn along, plus precomputed samples for painting colors by
- * arc length. Built once per size/shape (never per frame).
+ * The closed outline a glow is drawn along, [path], plus precomputed samples for painting colors by arc length, and
+ * its [shape] in plain floats, which effects move and sample. [path] is [shape] traced clockwise unless given: the
+ * cutout ring draws its exact outline (see [cutoutGeometry]). Built once per size/shape (never per frame).
  */
-internal class GlowGeometry(
-    val path: Path,
-    /** Largest corner radius of [path]: how far its corners curve in from its bounds. */
-    val cornerRadius: Float,
-) {
+internal class GlowGeometry(val shape: OutlineShape, val path: Path = Path().also { shape.trace(it, by = 0f) }) {
+
+    /** How far the corners of [path] curve in from its bounds, at most. */
+    val cornerRadius: Float get() = shape.cornerRadius
 
     private val measure = PathMeasure(path, true)
     val length: Float = measure.length
@@ -38,9 +38,17 @@ internal class GlowGeometry(
 
     /** Angle around [center], in [0, 1), of the outline point at arc [distance] (any real; wraps). */
     fun angleAt(distance: Float): Float {
-        measure.getPosTan((distance % length + length) % length, pos, null)
+        pointAt(distance, pos)
         val angle = atan2(pos[1] - center.y, pos[0] - center.x) / (2 * PI).toFloat()
         return (angle + 1f) % 1f
+    }
+
+    /**
+     * Writes the outline point at arc [distance] (any real; wraps) into [position] as (x, y), and its unit tangent,
+     * clockwise on screen, into [tangent] unless `null`.
+     */
+    fun pointAt(distance: Float, position: FloatArray, tangent: FloatArray? = null) {
+        measure.getPosTan((distance % length + length) % length, position, tangent)
     }
 
     companion object {
@@ -105,15 +113,8 @@ internal data class DisplayShape(
 }
 
 /**
- * Border following the screen's rounded corners, inset so the full stroke stays on-screen. Each radius is capped
- * at half the shorter side, so the outline never overlaps itself.
+ * Border following the screen's rounded corners, inset so the full stroke stays on-screen (see [RoundRect.offset]);
+ * `null` when the stroke is wider than the window.
  */
-internal fun screenEdgeGeometry(width: Float, height: Float, shape: DisplayShape, strokePx: Float): GlowGeometry {
-    val inset = strokePx / 2f
-    val maxRadius = (min(width, height) / 2f - inset).coerceAtLeast(0f)
-    val radii = FloatArray(8) { i -> (shape.cornerRadii[i / 2] - inset).coerceIn(0f, maxRadius) }
-    val path = Path().apply {
-        addRoundRect(RectF(inset, inset, width - inset, height - inset), radii, Path.Direction.CW)
-    }
-    return GlowGeometry(path, cornerRadius = radii.max())
-}
+internal fun screenEdgeGeometry(width: Float, height: Float, shape: DisplayShape, strokePx: Float): GlowGeometry? =
+    RoundRect(0f, 0f, width, height, shape.cornerRadii).offset(by = -strokePx / 2f)?.let { GlowGeometry(it) }
