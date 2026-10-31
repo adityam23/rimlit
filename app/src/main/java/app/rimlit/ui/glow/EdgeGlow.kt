@@ -158,8 +158,16 @@ private class GlowPainter(
 
     private val bloom = Paint(Paint.FILTER_BITMAP_FLAG).apply { solidColor?.let { color = it } }
 
-    /** A still blade can't race, so it glows: the whole outline lit, with its halo. */
-    private val style = if (playback.still && spec.style == GlowStyle.BLADE) GlowStyle.GLOW else spec.style
+    /**
+     * A still blade can't race, so it glows: the whole outline lit, with its halo. No edge draws the plain outline when
+     * no particles draw (none in the spec, or none under Remove animations): a glow showing nothing would hide the
+     * notification. Plain, since a NONE layout has no halo mask.
+     */
+    private val style = when {
+        playback.still && spec.style == GlowStyle.BLADE -> GlowStyle.GLOW
+        spec.style == GlowStyle.NONE && (spec.particles == null || playback.particleShare == 0f) -> GlowStyle.BASIC
+        else -> spec.style
+    }
 
     private val outlines = layout.outlines.map(::OutlinePainter)
 
