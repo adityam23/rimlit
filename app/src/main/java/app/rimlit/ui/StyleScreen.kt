@@ -25,8 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,7 +47,6 @@ import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
-import app.rimlit.ui.glow.DisplayShape
 import app.rimlit.ui.glow.EdgeGlow
 import app.rimlit.ui.glow.Playback
 import app.rimlit.ui.glow.playback
@@ -74,12 +71,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     // The open look dialog, kept across configuration changes like the look being edited.
     var lookAction by rememberSaveable(stateSaver = LookAction.Saver) { mutableStateOf<LookAction?>(null) }
 
-    val view = LocalView.current
-    val density = LocalDensity.current
-    // Where the corner slider starts when the user stops matching the display: the display's own radius.
-    val displayCornerDp = remember(view, density) {
-        with(density) { DisplayShape.of(view).cornerRadii.max().toDp().value }
-    }
+    val displayCornerDp = rememberDisplayCornerDp()
     val cutoutSeed = rememberCutoutSeed()
     val hasCutout = cutoutSeed != null
     // Preview what this device will really show: the renderer falls back to the full edge without a cutout.
@@ -87,6 +79,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     // While the screen-off brightness slider is dragged, the preview plays as the lock screen would, to show it.
     var draggingScreenOff by remember { mutableStateOf(false) }
     val playback = spec.playback(lockScreen = draggingScreenOff, rememberDeviceConditions())
+    val addParticleImages = rememberAddParticleImages(viewModel, look)
 
     SubScreenScaffold(title = stringResource(R.string.nav_style_title), onBack = onBack, modifier = modifier) {
         SettingsList(it) {
@@ -102,7 +95,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             }
             // The picked look's own sections, then the settings every look shares.
             styleSection(look, spec, playback, editor)
-            particlesSection(look, editor)
+            particlesSection(look, editor, addParticleImages)
             regionSection(look, hasCutout, editor)
             colorSection(look, editor)
             tuningSection(look, editor)

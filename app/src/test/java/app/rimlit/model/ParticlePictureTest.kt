@@ -76,6 +76,13 @@ class ParticlePictureTest {
     }
 
     @Test
+    fun pickingTheAppIconKeepsTheMotionAndTuning() {
+        val rain = ParticlePreset.RAIN.spec
+        assertEquals(rain.copy(picture = ParticlePicture.AppIcon), rain.withAppIcon())
+        assertEquals(ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.FALL), null.withAppIcon())
+    }
+
+    @Test
     fun theAppIconNeverTakesThePalettesTint() {
         val icon = ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.FALL, tint = ParticleTint.PALETTE)
         assertEquals(ParticleTint.IMAGE, icon.drawnTint)

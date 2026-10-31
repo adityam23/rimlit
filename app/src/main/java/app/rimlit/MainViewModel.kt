@@ -1,6 +1,7 @@
 package app.rimlit
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -9,12 +10,16 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.rimlit.data.AppInfo
 import app.rimlit.data.AppListRepository
+import app.rimlit.data.ParticleImageStore
 import app.rimlit.data.SettingsRepository
 import app.rimlit.engine.GlowEvent
 import app.rimlit.engine.PreviewTarget
 import app.rimlit.engine.onScreenOverlay
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
+import app.rimlit.model.MAX_PARTICLE_IMAGES
+import app.rimlit.model.particleImageIds
+import app.rimlit.model.withImages
 import app.rimlit.notify.GlowNotifications
 import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionKind
@@ -30,17 +35,36 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher = Dispatchers.IO) :
     AndroidViewModel(application) {
 
     private val repository = SettingsRepository(application)
     private val appListRepository = AppListRepository(application)
+    private val particleImages = ParticleImageStore(application, ioDispatcher)
+
+    /**
+     * Held while particle image files change: an import holds it until its look saves the new ids, so a clean-up
+     * never deletes an image its look is about to reference.
+     */
+    private val particleImageFiles = Mutex()
+
+    init {
+        // Whenever a look stops drawing an image (it is removed, its look edited or deleted), its file goes.
+        viewModelScope.launch {
+            repository.settings.map { it.particleImageIds }.distinctUntilChanged().collect {
+                particleImageFiles.withLock { deleteUnusedParticleImages() }
+            }
+        }
+    }
 
     val settings: StateFlow<GlowSettings> = repository.settings.stateIn(
         scope = viewModelScope,
@@ -77,6 +101,29 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
 
     /** Persists a settings change (atomic read-modify-write); the job completes once it is written. */
     fun update(transform: (GlowSettings) -> GlowSettings): Job = viewModelScope.launch { repository.update(transform) }
+
+    /**
+     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]) as particles of the look [lookId],
+     * after its own up to [MAX_PARTICLE_IMAGES]; [onDone] gets how many couldn't be added.
+     */
+    fun addParticleImages(lookId: String, uris: List<Uri>, onDone: (rejected: Int) -> Unit) {
+        viewModelScope.launch {
+            val added = particleImageFiles.withLock {
+                val ids = uris.take(MAX_PARTICLE_IMAGES).mapNotNull { particleImages.import(it) }
+                repository.update { settings ->
+                    settings.updateLook(lookId) { it.copy(particles = it.particles.withImages(ids)) }
+                }
+                // Any past the limit, or for a look deleted meanwhile, are no look's.
+                val kept = deleteUnusedParticleImages()
+                ids.count { it in kept }
+            }
+            onDone(uris.size - added)
+        }
+    }
+
+    /** Deletes the image files no look draws; the ids of those kept. Only while holding [particleImageFiles]. */
+    private suspend fun deleteUnusedParticleImages(): Set<String> =
+        repository.settings.first().particleImageIds.also { particleImages.retainOnly(it) }
 
     fun openPermission(kind: PermissionKind) {
         Permissions.open(getApplication(), kind)

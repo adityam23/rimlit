@@ -55,6 +55,10 @@ fun ParticleSpec?.withImages(added: List<String>): ParticleSpec? {
         ?: ParticleSpec(picture, ParticleMotion.FALL, tint = ParticleTint.IMAGE)
 }
 
+/** These particles drawing the app's icon, keeping their motion and tuning; falling, for no particles. */
+fun ParticleSpec?.withAppIcon(): ParticleSpec =
+    this?.copy(picture = ParticlePicture.AppIcon) ?: ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.FALL)
+
 /** These particles without the image [id]; unchanged when it is their only one (a picture needs one). */
 fun ParticleSpec.withoutImage(id: String): ParticleSpec {
     val ids = (picture as? ParticlePicture.Custom)?.ids ?: return this
