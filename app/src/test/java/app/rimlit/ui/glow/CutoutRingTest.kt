@@ -21,6 +21,21 @@ class CutoutRingTest {
     }
 
     @Test
+    fun coincidentPointsCollapseToOnePointAndTwoToASide() {
+        assertContentEquals(floatArrayOf(5f, 5f), convexHull(floatArrayOf(5f, 5f, 5f, 5f, 5f, 5f)))
+        assertContentEquals(floatArrayOf(0f, 5f, 10f, 5f), convexHull(floatArrayOf(10f, 5f, 0f, 5f, 10f, 5f)))
+        // A lone point grows into a full circle of the ring's radius: walked round, every point is that far out.
+        val ring = CutoutRing(floatArrayOf(5f, 5f, 5f, 5f, 5f, 5f), 3f)
+        val point = FloatArray(4)
+        val seen = (0 until 8).map { step ->
+            ring.pointAt(ring.perimeter * step / 8, point)
+            assertEquals(3f, hypot(point[0] - 5f, point[1] - 5f), 1e-3f, "step $step")
+            point[0] to point[1]
+        }
+        assertEquals(8, seen.distinct().size, "the walk goes round, not stuck on one point")
+    }
+
+    @Test
     fun aNotchWithFlaredShouldersIsBridgedAcrossItsHollows() {
         // Hangs from the top edge: shoulders flare out along it, curving in to a narrower notch.
         val flared = floatArrayOf(0f, 0f, 100f, 0f, 80f, 5f, 75f, 30f, 25f, 30f, 20f, 5f)

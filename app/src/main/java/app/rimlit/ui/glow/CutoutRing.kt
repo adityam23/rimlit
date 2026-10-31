@@ -122,7 +122,11 @@ internal class CutoutRing(polygon: FloatArray, val radius: Float) : OutlineShape
  * on a side. Monotone chain: the lower and upper chains of the points sorted by x, then y.
  */
 internal fun convexHull(polygon: FloatArray): FloatArray {
-    val order = (0 until polygon.size / 2).sortedWith(compareBy({ polygon[2 * it] }, { polygon[2 * it + 1] }))
+    val sorted = (0 until polygon.size / 2).sortedWith(compareBy({ polygon[2 * it] }, { polygon[2 * it + 1] }))
+    // Repeats dropped: coincident points would otherwise leave a lone point as two equal corners, a ring of no length.
+    val order = sorted.filterIndexed { i, p ->
+        i == 0 || polygon[2 * p] != polygon[2 * sorted[i - 1]] || polygon[2 * p + 1] != polygon[2 * sorted[i - 1] + 1]
+    }
     val chain = IntArray(2 * order.size + 1)
     var size = 0
 
