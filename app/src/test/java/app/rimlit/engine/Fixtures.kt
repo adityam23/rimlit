@@ -59,6 +59,7 @@ internal object Fixtures {
         AUTO.copy(showOnLockScreen = false),
         AUTO.copy(showWhenUnlocked = false),
         AUTO.copy(openOnDoubleTap = false),
+        AUTO.copy(swipeClears = true),
         quiet(QuietScope.ALL),
         quiet(QuietScope.SCREEN_OFF),
     )

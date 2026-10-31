@@ -4,7 +4,9 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MobileOff
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -146,9 +148,18 @@ private fun LazyListScope.quietHoursSection(quiet: QuietHours, update: ((QuietHo
     }
 }
 
-/** What touching the screen-off glow does. */
+/** The app pill, and what touching the screen-off glow or the pill does. */
 private fun LazyListScope.gesturesSection(settings: GlowSettings, update: ((GlowSettings) -> GlowSettings) -> Unit) {
     item { SectionTitle(stringResource(R.string.gestures_section)) }
+    item {
+        SwitchCard(
+            title = stringResource(R.string.show_pill_title),
+            checked = settings.showPill,
+            onCheckedChange = { show -> update { it.copy(showPill = show) } },
+            subtitle = stringResource(R.string.show_pill_desc),
+            leading = { SettingIcon(Icons.Filled.Apps) },
+        )
+    }
     item {
         SwitchCard(
             title = stringResource(R.string.open_on_double_tap_title),
@@ -156,6 +167,15 @@ private fun LazyListScope.gesturesSection(settings: GlowSettings, update: ((Glow
             onCheckedChange = { open -> update { it.copy(openOnDoubleTap = open) } },
             subtitle = stringResource(R.string.open_on_double_tap_desc),
             leading = { SettingIcon(Icons.Filled.TouchApp) },
+        )
+    }
+    item {
+        SwitchCard(
+            title = stringResource(R.string.swipe_clears_title),
+            checked = settings.swipeClears,
+            onCheckedChange = { clears -> update { it.copy(swipeClears = clears) } },
+            subtitle = stringResource(R.string.swipe_clears_desc),
+            leading = { SettingIcon(Icons.Filled.ClearAll) },
         )
     }
 }
