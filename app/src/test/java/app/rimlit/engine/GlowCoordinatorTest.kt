@@ -5,9 +5,9 @@ import app.rimlit.engine.Fixtures.CUSTOM
 import app.rimlit.engine.Fixtures.LOCK_SCREEN
 import app.rimlit.engine.Fixtures.SCREEN_OFF
 import app.rimlit.engine.Fixtures.UNLOCKED
+import app.rimlit.engine.Fixtures.custom
 import app.rimlit.engine.Fixtures.post
 import app.rimlit.model.AutoColors
-import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.QuietScope
 import app.rimlit.model.GlowSpec
@@ -159,7 +159,7 @@ class GlowCoordinatorTest {
 
     @Test
     fun quietHoursFollowTheClockSampledAtEachPost() {
-        coordinator.settingsChanged(Fixtures.quiet(QuietScope.ALL).copy(colorMode = ColorMode.CUSTOM))
+        coordinator.settingsChanged(Fixtures.quiet(QuietScope.ALL).custom())
         driver.environment = UNLOCKED.copy(minuteOfDay = Fixtures.NIGHT)
         posted("a")
         assertNull(glow)
@@ -201,7 +201,7 @@ class GlowCoordinatorTest {
     fun theDriverExtractsWithThePostsAutoColours() {
         coordinator.settingsChanged(AUTO)
         posted("a")
-        assertEquals(listOf(AUTO.autoColors), driver.extractedWith)
+        assertEquals(listOf(AUTO.defaultLook.autoColors), driver.extractedWith)
     }
 
     @Test

@@ -18,7 +18,7 @@ android {
         targetSdk = 36
         // CI passes its run number so every release has a higher versionCode and installs as an update.
         versionCode = providers.environmentVariable("RELEASE_VERSION_CODE").orNull?.toInt() ?: 1
-        versionName = "0.1.1"
+        versionName = "0.1.4"
     }
 
     // Release signing comes only from environment variables (GitHub secrets in CI); nothing secret lives
@@ -64,7 +64,7 @@ android {
     testOptions {
         unitTests.all {
             // The state machine's model check holds every reachable state as a packed code, and its parallel search
-            // keeps a level's temporaries alive (22 M states fit in 2 GB, not in 1 GB); its inputs must never be
+            // keeps a level's temporaries alive (46 M states fit in 2 GB, not in 1.5 GB); its inputs must never be
             // trimmed to fit.
             it.maxHeapSize = providers.gradleProperty("testMaxHeap").getOrElse("2g")
         }
@@ -107,6 +107,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test.junit)
+    // The real org.json for JVM tests of the settings' JSON; the app uses the platform's.
+    testImplementation(libs.org.json)
 
     detektPlugins(libs.detekt.rules.ktlint.wrapper)
     detektPlugins(libs.compose.rules.detekt)
