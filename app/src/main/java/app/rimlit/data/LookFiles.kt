@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.util.UUID
 
 /** The MIME type of a look file: it is a zip. */
 const val LOOK_FILE_MIME = "application/zip"
@@ -54,11 +55,14 @@ class LookFiles(
             ?: throw IOException("Couldn't open the document")
     }
 
-    /** Writes [looks], with their images, to the shared cache file; its content URI, readable by whom it is granted. */
+    /**
+     * Writes [looks], with their images, to a fresh file under the shared cache directory, clearing whatever an
+     * earlier share left there; its content URI, readable by whom it is granted. A fresh file each time means a
+     * grant an earlier receiver still holds can never see a later share's content.
+     */
     suspend fun shareable(looks: List<Look>): Uri = withContext(io) {
         val archive = archiveOf(looks)
-        val dir = File(context.cacheDir, SHARED_DIR).apply { mkdirs() }
-        val file = File(dir, LOOK_FILE_NAME)
+        val file = freshShareFile(File(context.cacheDir, SHARED_DIR))
         file.outputStream().use { writeLookArchive(archive, it) }
         FileProvider.getUriForFile(context, "${context.packageName}.files", file)
     }
@@ -72,4 +76,20 @@ class LookFiles(
         looks = looks,
         images = looks.particleImageIds.associateWith { images.read(it) ?: throw IOException("An image is missing") },
     )
+}
+
+/**
+ * Deletes everything under [dir] — nothing in the app reads a share back, so it is only ever cache the share sheet
+ * might still hold open — and returns a file for a fresh share within it, under a newly made unique subdirectory
+ * named [name], so the file a grant points at is never the one a later share writes to.
+ */
+internal fun freshShareFile(dir: File, name: String = LOOK_FILE_NAME): File {
+    dir.deleteRecursively()
+    val holder = File(dir, UUID.randomUUID().toString()).apply { mkdirs() }
+    return File(holder, name)
+}
+
+/** Clears the shared cache directory of anything an earlier run left there. Blocking: call it off the main thread. */
+fun clearSharedLookFiles(context: Context) {
+    File(context.cacheDir, SHARED_DIR).deleteRecursively()
 }
