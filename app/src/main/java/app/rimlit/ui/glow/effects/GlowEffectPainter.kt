@@ -26,4 +26,6 @@ internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (t
     GlowStyle.GLITTER -> GlitterEffect(brush)
 
     GlowStyle.ECHO -> EchoEffect(brush)
+
+    GlowStyle.FIREWORKS -> FireworksEffect(brush)
 }
