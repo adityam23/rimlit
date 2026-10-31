@@ -26,4 +26,9 @@ internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (t
     GlowStyle.GLITTER -> GlitterEffect(brush)
 
     GlowStyle.ECHO -> EchoEffect(brush)
+
+    // Still blades glow, like Blade.
+    GlowStyle.LOOP -> if (brush.still) GlowEffect(brush) else TwinBladesEffect(brush, TwinMode.LOOP)
+
+    GlowStyle.MIRROR -> if (brush.still) GlowEffect(brush) else TwinBladesEffect(brush, TwinMode.MIRROR)
 }
