@@ -53,7 +53,7 @@
     <!-- Apps (blocklist) screen -->
     <string name="apps_search_hint">Search apps</string>
     <string name="apps_empty">No apps found</string>
-    <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own colors.</string>
+    <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own look or colors.</string>
 
     <!-- Style screen -->
     <string name="style_section">Glow style</string>
@@ -79,6 +79,7 @@
 
     <!-- Tuning -->
     <string name="tuning_section">Tuning</string>
+    <string name="every_look_section">For every look</string>
     <string name="thickness_label">Thickness</string>
     <string name="glow_width_label">Glow width</string>
     <string name="speed_label">Speed</string>
@@ -113,11 +114,45 @@
     <string name="palette_remove">Remove selected color</string>
     <string name="palette_hue">Hue</string>
 
-    <!-- Per-app palette -->
-    <string name="app_palette_edit">Edit app colors</string>
-    <string name="app_palette_title">Colors for %1$s</string>
-    <string name="app_palette_use_default">Use default</string>
+    <!-- Per-app look -->
+    <string name="app_look_edit">Choose the app\'s look</string>
+    <string name="app_look_title">Look for %1$s</string>
+    <string name="app_look_default_title">Default look</string>
+    <string name="app_look_palette_title">Custom colors</string>
+    <string name="app_look_palette_desc">The default look, in colors of its own</string>
+    <string name="app_rule_look">Look: %1$s</string>
+    <string name="app_rule_palette">Own colors</string>
     <string name="save">Save</string>
+
+    <!-- Looks (Style screen) -->
+    <string name="looks_section">Looks</string>
+    <string name="look_default_desc">Default: every app glows with it unless it has its own look</string>
+    <string name="look_unused_desc">No app uses this look yet</string>
+    <plurals name="look_used_desc">
+        <item quantity="one">Used by %1$d app</item>
+        <item quantity="other">Used by %1$d apps</item>
+    </plurals>
+    <string name="look_new">New</string>
+    <string name="look_duplicate">Duplicate</string>
+    <string name="look_rename">Rename</string>
+    <string name="look_delete">Delete</string>
+    <string name="look_new_title">New look</string>
+    <string name="look_duplicate_title">Duplicate look</string>
+    <string name="look_rename_title">Rename look</string>
+    <string name="look_name_label">Name</string>
+    <string name="look_new_name">Look %1$d</string>
+    <string name="look_copy_name">%1$s copy</string>
+    <plurals name="look_name_invalid">
+        <item quantity="one">Use 1 to %1$d character</item>
+        <item quantity="other">Use 1 to %1$d characters</item>
+    </plurals>
+    <string name="look_name_taken">Another look already has this name</string>
+    <plurals name="look_limit">
+        <item quantity="one">You can keep up to %1$d look</item>
+        <item quantity="other">You can keep up to %1$d looks</item>
+    </plurals>
+    <string name="look_delete_title">Delete %1$s?</string>
+    <string name="look_delete_desc">Apps that use it go back to the default look.</string>
 
     <!-- Glow area -->
     <string name="region_section">Glow area</string>
