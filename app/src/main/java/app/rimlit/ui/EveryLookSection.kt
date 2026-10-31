@@ -4,6 +4,9 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
@@ -17,6 +20,7 @@ import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.glow.BATTERY_SAVER_FPS
+import app.rimlit.ui.glow.DisplayShape
 import kotlin.math.roundToInt
 
 /**
@@ -49,6 +53,16 @@ internal fun LazyListScope.everyLookSection(
         )
     }
     batterySaverSection(draft, editor)
+}
+
+/** Where the corner slider starts when the user stops matching the display: the display's own radius, in dp. */
+@Composable
+internal fun rememberDisplayCornerDp(): Float {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    return remember(view, density) {
+        with(density) { DisplayShape.of(view).cornerRadii.max().toDp().value }
+    }
 }
 
 /**

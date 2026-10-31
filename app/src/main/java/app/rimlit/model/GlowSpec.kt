@@ -42,4 +42,9 @@ data class GlowSpec(
     val batterySaver: BatterySaver,
     /** Particles drawn beneath the edge; `null` for none. */
     val particles: ParticleSpec? = null,
+    /**
+     * The notifying app, whose icon [ParticlePicture.AppIcon] particles draw; `null` for any other picture, and for a
+     * preview, which draws Rimlit's own icon.
+     */
+    val iconPackage: String? = null,
 )

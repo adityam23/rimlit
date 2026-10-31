@@ -3,6 +3,7 @@ package app.rimlit.model
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ParticlePresetTest {
 
@@ -10,11 +11,8 @@ class ParticlePresetTest {
     fun everyPresetIsValidAndHasItsOwnPictureAndMotion() {
         // Each spec checks its ranges as it is built, so loading the entries validates them.
         assertEquals(8, ParticlePreset.entries.size)
-        assertEquals(ParticlePreset.entries.size, ParticlePreset.entries.distinctBy { it.spec.image }.size)
-        assertEquals(
-            ParticlePreset.entries.size,
-            ParticlePreset.entries.distinctBy { it.spec.image to it.spec.motion }.size,
-        )
+        assertEquals(ParticlePreset.entries.size, ParticlePreset.entries.distinctBy { it.spec.picture }.size)
+        assertTrue(ParticlePreset.entries.all { it.spec.picture is ParticlePicture.Builtin }, "presets are built in")
     }
 
     @Test
@@ -29,6 +27,13 @@ class ParticlePresetTest {
     @Test
     fun noParticlesOrAnotherMotionIsNoPreset() {
         assertNull(ParticlePreset.of(null))
-        assertNull(ParticlePreset.of(ParticleSpec(ParticleImage.SNOWFLAKE, ParticleMotion.POP)))
+        assertNull(ParticlePreset.of(ParticleSpec(ParticlePicture.Builtin(ParticleImage.SNOWFLAKE), ParticleMotion.POP)))
+    }
+
+    @Test
+    fun yourImagesAndTheAppIconAreNoPreset() {
+        for (picture in listOf(ParticlePicture.AppIcon, ParticlePicture.Custom(listOf(newParticleImageId())))) {
+            assertNull(ParticlePreset.of(ParticleSpec(picture, ParticleMotion.FALL)), "$picture")
+        }
     }
 }
