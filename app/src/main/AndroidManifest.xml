@@ -53,6 +53,17 @@
             android:theme="@style/Theme.App.LockScreenGlow"
             android:turnScreenOn="true" />
 
+        <!-- Serves a shared look file to the app it is shared with, by a read grant on its URI only. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Detects notifications from all apps. Bound by the system once the user grants access. -->
         <service
             android:name=".GlowListenerService"

@@ -2,6 +2,7 @@ package app.rimlit
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -10,6 +11,16 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.rimlit.data.AppInfo
 import app.rimlit.data.AppListRepository
+import app.rimlit.data.LookArchive
+import app.rimlit.data.LookArchiveException
+import app.rimlit.data.LookFileResult
+import app.rimlit.data.LookFileResult.Exported
+import app.rimlit.data.LookFileResult.Failed
+import app.rimlit.data.LookFileResult.Imported
+import app.rimlit.data.LookFileResult.NoRoom
+import app.rimlit.data.LookFileResult.Shareable
+import app.rimlit.data.LookFiles
+import app.rimlit.data.LookLibrary
 import app.rimlit.data.ParticleImageStore
 import app.rimlit.data.SettingsRepository
 import app.rimlit.engine.GlowEvent
@@ -18,8 +29,6 @@ import app.rimlit.engine.onScreenOverlay
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.MAX_PARTICLE_IMAGES
-import app.rimlit.model.particleImageIds
-import app.rimlit.model.withImages
 import app.rimlit.notify.GlowNotifications
 import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionKind
@@ -35,14 +44,28 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import java.io.IOException
+
+private const val TAG = "MainViewModel"
+
+/** [block]'s result, or why it failed reading or writing a look file. */
+private suspend fun lookFileResult(block: suspend () -> LookFileResult?): LookFileResult? = try {
+    block()
+} catch (e: IOException) {
+    Log.w(TAG, "A look file failed", e)
+    Failed((e as? LookArchiveException)?.problem)
+} catch (e: SecurityException) {
+    Log.w(TAG, "A look file Rimlit may no longer use", e)
+    Failed(null)
+}
+
+/** The result of importing [added] looks: none means the library filled up meanwhile. */
+private fun imported(added: Int): LookFileResult = if (added == 0) NoRoom else Imported(added)
 
 class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher = Dispatchers.IO) :
     AndroidViewModel(application) {
@@ -50,20 +73,16 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     private val repository = SettingsRepository(application)
     private val appListRepository = AppListRepository(application)
     private val particleImages = ParticleImageStore(application, ioDispatcher)
+    private val lookFiles = LookFiles(application, particleImages, ioDispatcher)
+    private val library = LookLibrary(repository, particleImages, lookFiles)
 
-    /**
-     * Held while particle image files change: an import holds it until its look saves the new ids, so a clean-up
-     * never deletes an image its look is about to reference.
-     */
-    private val particleImageFiles = Mutex()
+    private val _pendingImport = MutableStateFlow<LookArchive?>(null)
+
+    /** A look file read for import whose looks don't all fit, while the user picks which to add. */
+    val pendingImport: StateFlow<LookArchive?> = _pendingImport.asStateFlow()
 
     init {
-        // Whenever a look stops drawing an image (it is removed, its look edited or deleted), its file goes.
-        viewModelScope.launch {
-            repository.settings.map { it.particleImageIds }.distinctUntilChanged().collect {
-                particleImageFiles.withLock { deleteUnusedParticleImages() }
-            }
-        }
+        viewModelScope.launch { library.deleteUnusedImagesOnChange() }
     }
 
     val settings: StateFlow<GlowSettings> = repository.settings.stateIn(
@@ -107,23 +126,49 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
      * after its own up to [MAX_PARTICLE_IMAGES]; [onDone] gets how many couldn't be added.
      */
     fun addParticleImages(lookId: String, uris: List<Uri>, onDone: (rejected: Int) -> Unit) {
+        viewModelScope.launch { onDone(uris.size - library.addParticleImages(lookId, uris)) }
+    }
+
+    /** Writes the looks [ids] (all or picked), with their images, to the document [uri]. */
+    fun exportLooks(ids: Set<String>, uri: Uri, onDone: (LookFileResult) -> Unit) {
+        viewModelScope.launch { lookFileResult { Exported(library.export(ids, uri)) }?.let(onDone) }
+    }
+
+    /** Writes the looks [ids], with their images, to a file for the share sheet; [onDone] gets its URI. */
+    fun shareLooks(ids: Set<String>, onDone: (LookFileResult) -> Unit) {
+        viewModelScope.launch { lookFileResult { Shareable(library.shareable(ids)) }?.let(onDone) }
+    }
+
+    /**
+     * Reads the look file at [uri] and adds its looks; when they don't all fit, it waits in [pendingImport] for the
+     * user to pick ([importPicked]) or cancel ([cancelImport]), and [onDone] is called then.
+     */
+    fun importLooks(uri: Uri, onDone: (LookFileResult) -> Unit) {
         viewModelScope.launch {
-            val added = particleImageFiles.withLock {
-                val ids = uris.take(MAX_PARTICLE_IMAGES).mapNotNull { particleImages.import(it) }
-                repository.update { settings ->
-                    settings.updateLook(lookId) { it.copy(particles = it.particles.withImages(ids)) }
+            lookFileResult {
+                val archive = lookFiles.read(uri)
+                val room = library.room()
+                when {
+                    room <= 0 -> NoRoom
+                    archive.looks.size <= room -> imported(library.add(archive, archive.looks))
+                    else -> null.also { _pendingImport.value = archive }
                 }
-                // Any past the limit, or for a look deleted meanwhile, are no look's.
-                val kept = deleteUnusedParticleImages()
-                ids.count { it in kept }
-            }
-            onDone(uris.size - added)
+            }?.let(onDone)
         }
     }
 
-    /** Deletes the image files no look draws; the ids of those kept. Only while holding [particleImageFiles]. */
-    private suspend fun deleteUnusedParticleImages(): Set<String> =
-        repository.settings.first().particleImageIds.also { particleImages.retainOnly(it) }
+    /** Adds the looks [ids] of the [pendingImport], as many as fit. */
+    fun importPicked(ids: Set<String>, onDone: (LookFileResult) -> Unit) {
+        val archive = _pendingImport.value ?: return
+        _pendingImport.value = null
+        viewModelScope.launch {
+            lookFileResult { imported(library.add(archive, archive.looks.filter { it.id in ids })) }?.let(onDone)
+        }
+    }
+
+    fun cancelImport() {
+        _pendingImport.value = null
+    }
 
     fun openPermission(kind: PermissionKind) {
         Permissions.open(getApplication(), kind)
