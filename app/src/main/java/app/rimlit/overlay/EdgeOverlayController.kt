@@ -26,6 +26,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import app.rimlit.UnlockActivity
 import app.rimlit.engine.GlowCoordinator
 import app.rimlit.engine.Surface
 import app.rimlit.engine.SurfaceInstance
@@ -169,12 +170,13 @@ class EdgeOverlayController(private val context: Context, private val surface: S
         }
 
         /**
-         * Reached by the pill's double tap. A window can't dismiss the keyguard (only an activity can), so above a
-         * locked one (the accessibility overlay) nothing opens: the glow only ends.
+         * Reached by the pill's double tap. Unlocked, [action] runs at once, while these windows are still visible.
+         * Above a locked keyguard (only the accessibility overlay draws there), [UnlockActivity] asks for the unlock
+         * and runs it, since a window can't dismiss the keyguard; it is started first, while these windows are up.
          */
         override fun runUnlocked(action: () -> Unit) {
             if (context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true) {
-                Log.w(TAG, "Can't unlock from an overlay; not opening")
+                UnlockActivity.runUnlocked(context, action)
             } else {
                 action()
             }

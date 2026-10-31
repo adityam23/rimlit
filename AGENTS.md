@@ -19,7 +19,7 @@ State flows one way: repository emits `Flow<GlowSettings>` → ViewModel `stateI
 
 ## Key Directories
 
-- `app/src/main/java/app/rimlit/` — `RimlitApp` (owns the coordinator; `Context.glowCoordinator`), `MainActivity`, `MainViewModel`, `GlowListenerService` (builds `Post`s and forwards events), `LockScreenGlowActivity` (the AOD lock-screen surface)
+- `app/src/main/java/app/rimlit/` — `RimlitApp` (owns the coordinator; `Context.glowCoordinator`), `MainActivity`, `MainViewModel`, `GlowListenerService` (builds `Post`s and forwards events), `LockScreenGlowActivity` (the AOD lock-screen surface), `UnlockActivity` (transparent, no UI: unlocks for the pill's double tap above the lock screen, then opens)
 - `.../model/` — `GlowSettings.kt` (settings, enums, `Ranges`, `paletteFor`, `toGlowSpec`, `previewSpec`), `QuietHours.kt` (`QuietHours`, `QuietScope`: when glows are muted), `GlowSpec.kt` (render input, `GlowPalette`), `ParticleSpec.kt` (a glow's particles: image, motion, size, speed, amount, rotation, tint)
 - `.../engine/` — the notification → glow state machine: `GlowMachine.kt` (pure `GlowState.on(event)` → next state + effects; states, events, effects, executor contracts, transition table), `Transition.kt` (the reducer), `Route.kt` (the one placement policy), `Open.kt` (the gesture policies: what an open request opens, and what a dismissal also clears from the shade), `Post.kt` (notification facts and the filter), `GlowCoordinator.kt` (serial queue gated on settings, environment sampling), `GlowExecutor.kt` + `SurfaceSlot.kt` + `LatestHandle.kt` (run effects and hold the executor contracts), `GlowDriver.kt` (the platform port)
 - `.../data/` — `SettingsRepository.kt` (DataStore, single `update {}`), `AppListRepository.kt`
@@ -64,7 +64,7 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 
 ## Important Files
 
-- `app/src/main/AndroidManifest.xml` — permissions (`POST_NOTIFICATIONS`, `USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) and components (application `RimlitApp`, `MainActivity`, `LockScreenGlowActivity`, `GlowListenerService`, `GlowAccessibilityService` + `res/xml/glow_accessibility_service.xml`).
+- `app/src/main/AndroidManifest.xml` — permissions (`POST_NOTIFICATIONS`, `USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) and components (application `RimlitApp`, `MainActivity`, `LockScreenGlowActivity`, `UnlockActivity`, `GlowListenerService`, `GlowAccessibilityService` + `res/xml/glow_accessibility_service.xml`).
 - `app/src/main/java/app/rimlit/MainActivity.kt` — entry point; requests `POST_NOTIFICATIONS`; refreshes permission state in `onResume`.
 - `app/build.gradle.kts` — module config (SDK levels, deps, Java 11 / Kotlin jvmTarget 11, lint config). Release signing and `versionCode` come only from `RELEASE_*` environment variables.
 - `build.gradle.kts` — root; bumps KGP to the catalog `kotlin` version (2.4.21) via `buildscript classpath` (JDK 25 support).

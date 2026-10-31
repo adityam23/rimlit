@@ -53,6 +53,19 @@
             android:theme="@style/Theme.App.LockScreenGlow"
             android:turnScreenOn="true" />
 
+        <!-- Transparent, no UI: unlocks the device for the pill's double tap above the lock screen (only an activity
+             can dismiss the keyguard), then opens the notification. Handles configuration changes in place: being
+             recreated would drop the open it is waiting to run. -->
+        <activity
+            android:name=".UnlockActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboard|keyboardHidden|navigation"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:showWhenLocked="true"
+            android:taskAffinity="${applicationId}.unlock"
+            android:theme="@style/Theme.App.Unlock" />
+
         <!-- Detects notifications from all apps. Bound by the system once the user grants access. -->
         <service
             android:name=".GlowListenerService"
