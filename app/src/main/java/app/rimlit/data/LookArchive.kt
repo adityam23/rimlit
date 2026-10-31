@@ -8,7 +8,6 @@ import app.rimlit.model.particleImageIds
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -52,7 +51,6 @@ private val IMAGE_ENTRY = Regex("images/(0|[1-9][0-9]?)\\.png")
 private const val VERSION = "version"
 private const val LOOKS = "looks"
 private const val IMAGES = "images"
-private const val COPY_BUFFER_BYTES = 8 * 1024
 
 /** Looks to share, and the PNG bytes of every custom image their particles draw, by the id the looks use. */
 class LookArchive(val looks: List<Look>, val images: Map<String, ByteArray>) {
@@ -124,7 +122,8 @@ private fun readEntries(zip: ZipInputStream): Pair<ByteArray?, Map<Int, ByteArra
         val entry = zip.nextEntry ?: break
         if (++entries > MAX_ARCHIVE_ENTRIES) tooLarge("More than $MAX_ARCHIVE_ENTRIES entries")
         val index = IMAGE_ENTRY.matchEntire(entry.name)?.groupValues?.get(1)?.toInt()
-        val bytes = zip.readAtMost(if (entry.name == LOOKS_ENTRY) MAX_LOOKS_JSON_BYTES else MAX_STORED_BYTES)
+        val cap = if (entry.name == LOOKS_ENTRY) MAX_LOOKS_JSON_BYTES else MAX_STORED_BYTES
+        val bytes = zip.readCapped(cap) ?: tooLarge("An entry expands past $cap bytes")
         expanded += bytes.size
         if (expanded > MAX_ARCHIVE_EXPANDED_BYTES) tooLarge("Expands past $MAX_ARCHIVE_EXPANDED_BYTES bytes")
         when {
@@ -181,18 +180,6 @@ private fun jsonDepth(json: String): Int {
         }
     }
     return deepest
-}
-
-/** The rest of this stream's bytes, counted as they are read; a [LookArchiveException] past [cap]. */
-private fun InputStream.readAtMost(cap: Int): ByteArray {
-    val out = ByteArrayOutputStream()
-    val chunk = ByteArray(COPY_BUFFER_BYTES)
-    while (true) {
-        val read = read(chunk)
-        if (read < 0) return out.toByteArray()
-        if (out.size() + read > cap) tooLarge("An entry expands past $cap bytes")
-        out.write(chunk, 0, read)
-    }
 }
 
 /** [input], failing with a [LookArchiveException] once more than [cap] bytes are read from it. */

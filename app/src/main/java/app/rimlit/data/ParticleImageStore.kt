@@ -15,10 +15,8 @@ import app.rimlit.model.newParticleImageId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
-import java.io.InputStream
 import java.nio.ByteBuffer
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -38,8 +36,6 @@ internal const val MAX_IMPORT_PIXELS = 100_000_000L
 /** A stored image larger than this isn't one of ours (a 128 px PNG is well under it): it is never decoded. */
 internal const val MAX_STORED_BYTES = 512 * 1024
 
-private const val COPY_BUFFER_BYTES = 8 * 1024
-
 /** PNG is lossless: the quality is ignored. */
 private const val PNG_QUALITY = 100
 private const val EXTENSION = ".png"
@@ -56,9 +52,9 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
     /** Imports the image at [uri]; its id, or `null` when it can't be read, is too large, or doesn't decode. */
     suspend fun import(uri: Uri): String? = withContext(io) {
         try {
-            val bytes = resolver.openInputStream(uri)?.use(::readCapped)
+            val bytes = resolver.openInputStream(uri)?.use { it.readCapped(MAX_IMPORT_BYTES) }
                 ?: throw IOException("Unreadable, or past $MAX_IMPORT_BYTES bytes")
-            save(decodeSquare(bytes))
+            save(decodeSquare(ByteBuffer.wrap(bytes)))
         } catch (e: IOException) {
             Log.w(TAG, "Skipping a picked image", e)
             null
@@ -115,23 +111,6 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
             bitmap.recycle()
         }
         return id
-    }
-}
-
-/** A byte buffer read in place, without the copy [toByteArray] makes. */
-private class ReadBuffer : ByteArrayOutputStream() {
-    fun bytes(): ByteBuffer = ByteBuffer.wrap(buf, 0, count)
-}
-
-/** All of [input], or `null` past [MAX_IMPORT_BYTES]. */
-private fun readCapped(input: InputStream): ByteBuffer? {
-    val out = ReadBuffer()
-    val chunk = ByteArray(COPY_BUFFER_BYTES)
-    while (true) {
-        val read = input.read(chunk)
-        if (read < 0) return out.bytes()
-        if (out.size() + read > MAX_IMPORT_BYTES) return null
-        out.write(chunk, 0, read)
     }
 }
 
