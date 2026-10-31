@@ -31,4 +31,6 @@ internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (t
     GlowStyle.LOOP -> if (brush.still) GlowEffect(brush) else TwinBladesEffect(brush, TwinMode.LOOP)
 
     GlowStyle.MIRROR -> if (brush.still) GlowEffect(brush) else TwinBladesEffect(brush, TwinMode.MIRROR)
+
+    GlowStyle.BOOMERANG -> if (brush.still) GlowEffect(brush) else BoomerangEffect(brush)
 }
