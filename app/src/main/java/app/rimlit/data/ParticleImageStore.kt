@@ -36,7 +36,7 @@ internal const val MAX_IMPORT_SIDE = 16_384
 internal const val MAX_IMPORT_PIXELS = 100_000_000L
 
 /** A stored image larger than this isn't one of ours (a 128 px PNG is well under it): it is never decoded. */
-private const val MAX_STORED_BYTES = 512 * 1024
+internal const val MAX_STORED_BYTES = 512 * 1024
 
 private const val COPY_BUFFER_BYTES = 8 * 1024
 
@@ -68,13 +68,30 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
         }
     }
 
+    /**
+     * Imports the image [bytes] (untrusted: from a shared look file) as a picked image is imported; its id, or `null`
+     * when it doesn't decode.
+     */
+    suspend fun import(bytes: ByteArray): String? = withContext(io) {
+        try {
+            save(decodeSquare(ByteBuffer.wrap(bytes)))
+        } catch (e: IOException) {
+            Log.w(TAG, "Skipping a shared image", e)
+            null
+        }
+    }
+
     /** The stored image [id], or `null` when there is none (or it isn't one of ours). Small enough to load anywhere. */
-    fun load(id: String): Bitmap? {
+    fun load(id: String): Bitmap? = storedFile(id)?.let { BitmapFactory.decodeFile(it.path) }
+        ?.takeIf { it.width == PARTICLE_IMAGE_PX && it.height == PARTICLE_IMAGE_PX }
+
+    /** The stored image [id]'s PNG bytes, to share; `null` when there is none (or it isn't one of ours). */
+    suspend fun read(id: String): ByteArray? = withContext(io) { storedFile(id)?.readBytes() }
+
+    /** The file of the stored image [id], or `null` when there is none, or it is too large to be one of ours. */
+    private fun storedFile(id: String): File? {
         if (!isValidParticleImageId(id)) return null
-        val file = File(dir, id + EXTENSION)
-        if (!file.isFile || file.length() > MAX_STORED_BYTES) return null
-        return BitmapFactory.decodeFile(file.path)
-            ?.takeIf { it.width == PARTICLE_IMAGE_PX && it.height == PARTICLE_IMAGE_PX }
+        return File(dir, id + EXTENSION).takeIf { it.isFile && it.length() <= MAX_STORED_BYTES }
     }
 
     /** Deletes every stored file but the images [keep] names. */
