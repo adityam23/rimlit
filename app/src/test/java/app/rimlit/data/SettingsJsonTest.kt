@@ -47,7 +47,8 @@ class SettingsJsonTest {
                 tint = ParticleTint.IMAGE,
             ),
         ),
-        Look(id = "snow", name = "Snow", particles = ParticlePreset.SNOW.spec),
+        // Particles alone, with no edge.
+        Look(id = "snow", name = "Snow", style = GlowStyle.NONE, particles = ParticlePreset.SNOW.spec),
     )
 
     /** One look with [fields] after its id and name, decoded. */

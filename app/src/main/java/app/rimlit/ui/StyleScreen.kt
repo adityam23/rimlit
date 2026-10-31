@@ -102,6 +102,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             }
             // The picked look's own sections, then the settings every look shares.
             styleSection(look, spec, playback, editor)
+            particlesSection(look, editor)
             regionSection(look, hasCutout, editor)
             colorSection(look, editor)
             tuningSection(look, editor)
@@ -133,14 +134,17 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     )
 }
 
+/** The edge styles; no edge ([GlowStyle.NONE]) only with particles, so a look always shows something. */
 private fun LazyListScope.styleSection(look: Look, spec: GlowSpec, playback: Playback, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.style_section)) }
     items(GlowStyle.entries, key = { it.name }) { style ->
+        val available = style != GlowStyle.NONE || look.particles != null
         RadioCard(
             title = stringResource(style.titleRes),
             selected = look.style == style,
             onSelect = { editor.commit(look.edit { it.copy(style = style) }) },
-            subtitle = stringResource(style.descRes),
+            subtitle = stringResource(if (available) style.descRes else R.string.style_none_unavailable),
+            enabled = available,
             leading = {
                 Box(
                     modifier = Modifier
@@ -149,7 +153,13 @@ private fun LazyListScope.styleSection(look: Look, spec: GlowSpec, playback: Pla
                         .background(PreviewBackground),
                 ) {
                     EdgeGlow(
-                        spec = spec.copy(style = style, region = EdgeRegion.FULL_SCREEN, thicknessDp = 2f),
+                        // The edge alone: a particle field in every 40 × 64 dp row would cost much, show little.
+                        spec = spec.copy(
+                            style = style,
+                            region = EdgeRegion.FULL_SCREEN,
+                            thicknessDp = 2f,
+                            particles = null,
+                        ),
                         // Always moving, so each style shows what it is; a still Blade would look like Glow.
                         playback = playback.copy(still = false),
                         preview = true,
@@ -307,6 +317,7 @@ private val GlowStyle.titleRes
         GlowStyle.BASIC -> R.string.style_basic_title
         GlowStyle.GLOW -> R.string.style_glow_title
         GlowStyle.BLADE -> R.string.style_blade_title
+        GlowStyle.NONE -> R.string.style_none_title
     }
 
 private val GlowStyle.descRes
@@ -314,6 +325,7 @@ private val GlowStyle.descRes
         GlowStyle.BASIC -> R.string.style_basic_desc
         GlowStyle.GLOW -> R.string.style_glow_desc
         GlowStyle.BLADE -> R.string.style_blade_desc
+        GlowStyle.NONE -> R.string.style_none_desc
     }
 
 private val EdgeRegion.titleRes

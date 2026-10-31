@@ -91,9 +91,10 @@ class GlowSettingsTest {
     @Test
     fun theSpecCarriesTheResolvedLooksParticles() {
         val hearts = ParticlePreset.HEARTS.spec
-        val withHearts = settings.updateLook("work") { it.copy(particles = hearts) }
+        val withHearts = settings.updateLook("work") { it.copy(style = GlowStyle.NONE, particles = hearts) }
         val spec = withHearts.copy(appRules = mapOf(app to Rule.UseLook("work"))).ready()
         assertEquals(hearts, spec.particles)
+        assertEquals(GlowStyle.NONE, spec.style, "a look may show its particles alone")
         assertEquals(hearts, withHearts.previewSpec(withHearts.look("work")!!).particles)
         assertNull(withHearts.ready().particles, "the default look has none")
     }
