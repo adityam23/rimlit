@@ -165,8 +165,7 @@ data class GlowSettings(
         screenOffBrightness = screenOffBrightness ?: look.brightness,
         durationMs = durationMs,
         batterySaver = batterySaver,
-        // No look asks for particles yet.
-        particles = null,
+        particles = look.particles,
     )
 
     /** Valid ranges, shared by the UI sliders and the repository's sanitising of stored values. */
