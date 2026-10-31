@@ -1,7 +1,10 @@
 package app.rimlit.model
 
-/** Visual treatment of the edge glow shown when a notification arrives. */
-enum class GlowStyle { BASIC, GLOW, BLADE }
+/**
+ * Visual treatment of the edge glow shown when a notification arrives. [NONE] draws no edge, so a look can show its
+ * particles alone.
+ */
+enum class GlowStyle { BASIC, GLOW, BLADE, NONE }
 
 /**
  * Where the glow is drawn: around the screen edge, the camera cutout, or both. Without a camera cutout, the
@@ -165,8 +168,7 @@ data class GlowSettings(
         screenOffBrightness = screenOffBrightness ?: look.brightness,
         durationMs = durationMs,
         batterySaver = batterySaver,
-        // No look asks for particles yet.
-        particles = null,
+        particles = look.particles,
     )
 
     /** Valid ranges, shared by the UI sliders and the repository's sanitising of stored values. */

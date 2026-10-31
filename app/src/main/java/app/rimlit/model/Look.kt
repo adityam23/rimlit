@@ -12,9 +12,9 @@ const val DEFAULT_LOOK_NAME = "Default"
 const val MAX_LOOKS = 10
 
 /**
- * A named, saved bundle of how a glow looks: its style, colours, region and tuning. Notifications glow with the
- * default look unless their app's [Rule] picks another (see [GlowSettings.resolve]); how long and where glows show
- * stays global in [GlowSettings].
+ * A named, saved bundle of how a glow looks: its style, colours, region, tuning and particles. Notifications glow
+ * with the default look unless their app's [Rule] picks another (see [GlowSettings.resolve]); how long and where
+ * glows show stays global in [GlowSettings].
  */
 data class Look(
     val id: String = DEFAULT_LOOK_ID,
@@ -29,6 +29,8 @@ data class Look(
     val glowWidthDp: Float = 24f,
     val speed: Float = 1f,
     val brightness: Float = 1f,
+    /** Particles drawn beneath the edge (see [ParticlePreset]); `null` for none. */
+    val particles: ParticleSpec? = null,
 ) {
     init {
         require(id.isNotEmpty()) { "A look needs an id" }

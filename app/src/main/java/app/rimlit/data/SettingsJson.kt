@@ -6,6 +6,9 @@ import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.MAX_PALETTE_COLORS
+import app.rimlit.model.ParticleImage
+import app.rimlit.model.ParticleMotion
+import app.rimlit.model.ParticleSpec
 import app.rimlit.model.Rule
 import app.rimlit.model.isValidLookName
 import app.rimlit.model.lookNameKey
@@ -59,8 +62,11 @@ internal fun decodePalette(colors: Sequence<String>): GlowPalette.Colors? =
     colors.mapNotNull(PaletteJson::decodeColor).take(MAX_PALETTE_COLORS).toList().ifEmpty { null }
         ?.let(GlowPalette::Colors)
 
-internal inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E =
-    this?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
+internal inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E = toEnumOrNull<E>() ?: default
+
+/** The value of [E] named this; `null` when there is none, for a value with no fallback. */
+internal inline fun <reified E : Enum<E>> String?.toEnumOrNull(): E? =
+    this?.let { name -> enumValues<E>().firstOrNull { it.name == name } }
 
 /** [parse]'s result, or `null` when the JSON is malformed: the caller falls back. */
 private inline fun <T> parsedOrNull(parse: () -> T): T? = try {
@@ -72,6 +78,10 @@ private inline fun <T> parsedOrNull(parse: () -> T): T? = try {
 private fun JSONObject.string(key: String): String? = opt(key) as? String
 
 private fun JSONObject.number(key: String): Number? = opt(key) as? Number
+
+/** The finite number at [key] clamped to [range], or [default] when there is none. */
+private fun JSONObject.float(key: String, default: Float, range: ClosedFloatingPointRange<Float>): Float =
+    (number(key)?.toFloat()?.takeIf { it.isFinite() } ?: default).coerceIn(range)
 
 private object LookJson {
     private const val ID = "id"
@@ -86,6 +96,9 @@ private object LookJson {
     private const val GLOW_WIDTH_DP = "glowWidthDp"
     private const val SPEED = "speed"
     private const val BRIGHTNESS = "brightness"
+
+    /** An object, absent for no particles. */
+    private const val PARTICLES = "particles"
 
     private val defaults = Look()
 
@@ -102,6 +115,7 @@ private object LookJson {
         .put(GLOW_WIDTH_DP, look.glowWidthDp.toDouble())
         .put(SPEED, look.speed.toDouble())
         .put(BRIGHTNESS, look.brightness.toDouble())
+        .apply { look.particles?.let { put(PARTICLES, ParticleJson.encode(it)) } }
 
     /** The look [obj] holds, or `null` without an id or a valid name (see [isValidLookName]). */
     fun decode(obj: JSONObject): Look? {
@@ -123,12 +137,42 @@ private object LookJson {
             glowWidthDp = obj.float(GLOW_WIDTH_DP, defaults.glowWidthDp, Ranges.glowWidthDp),
             speed = obj.float(SPEED, defaults.speed, Ranges.speed),
             brightness = obj.float(BRIGHTNESS, defaults.brightness, Ranges.brightness),
+            particles = obj.optJSONObject(PARTICLES)?.let(ParticleJson::decode),
         )
     }
+}
 
-    /** The finite number at [key] clamped to [range], or [default] when there is none. */
-    private fun JSONObject.float(key: String, default: Float, range: ClosedFloatingPointRange<Float>): Float =
-        (number(key)?.toFloat()?.takeIf { it.isFinite() } ?: default).coerceIn(range)
+private object ParticleJson {
+    private const val IMAGE = "image"
+    private const val MOTION = "motion"
+    private const val SIZE_DP = "sizeDp"
+    private const val SPEED = "speed"
+    private const val AMOUNT = "amount"
+    private const val ROTATION = "rotationDegPerSecond"
+    private const val TINT = "tint"
+
+    fun encode(particles: ParticleSpec): JSONObject = JSONObject()
+        .put(IMAGE, particles.image.name)
+        .put(MOTION, particles.motion.name)
+        .put(SIZE_DP, particles.sizeDp.toDouble())
+        .put(SPEED, particles.speed.toDouble())
+        .put(AMOUNT, particles.amount.toDouble())
+        .put(ROTATION, particles.rotationDegPerSecond.toDouble())
+        .put(TINT, particles.tint.name)
+
+    /** The particles [obj] holds, or `null` without a known image and motion, which have no sensible fallback. */
+    fun decode(obj: JSONObject): ParticleSpec? {
+        val image = obj.string(IMAGE).toEnumOrNull<ParticleImage>() ?: return null
+        val motion = obj.string(MOTION).toEnumOrNull<ParticleMotion>() ?: return null
+        val defaults = ParticleSpec(image, motion)
+        return defaults.copy(
+            sizeDp = obj.float(SIZE_DP, defaults.sizeDp, Ranges.particleSizeDp),
+            speed = obj.float(SPEED, defaults.speed, Ranges.particleSpeed),
+            amount = obj.float(AMOUNT, defaults.amount, Ranges.particleAmount),
+            rotationDegPerSecond = obj.float(ROTATION, defaults.rotationDegPerSecond, Ranges.particleRotation),
+            tint = obj.string(TINT).toEnumOr(defaults.tint),
+        )
+    }
 }
 
 private object RuleJson {

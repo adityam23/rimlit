@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -58,6 +59,11 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
     val seconds = rememberFrameSeconds(running = !playback.still, maxFps = playback.maxFps)
     val layouts = remember { BuildCache(::GlowLayout) }
     val particles = rememberParticleLayer()
+    // A preview's particles start over with each new duration: it sets their cycle, so on the running clock every
+    // particle would jump (each tick of the duration slider). On a surface the duration never changes mid-glow.
+    val particleStart = remember(if (preview) spec.durationMs else null) {
+        Snapshot.withoutReadObservation { seconds.value }
+    }
     Spacer(
         modifier.drawWithCache {
             val thicknessPx = spec.thicknessDp.dp.toPx()
@@ -81,7 +87,8 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                     region = spec.region,
                     thicknessPx = thicknessPx,
                     cutoutGapPx = 4.dp.toPx(),
-                    bloomPx = if (spec.style == GlowStyle.BASIC) 0f else glowPx,
+                    // Only GLOW and BLADE draw a halo: no other style needs its blurred mask.
+                    bloomPx = if (spec.style == GlowStyle.GLOW || spec.style == GlowStyle.BLADE) glowPx else 0f,
                 ),
             )
             val painter = GlowPainter(spec, playback, layout, thicknessPx, glowPx)
@@ -91,7 +98,7 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                 val t = seconds.value
                 drawIntoCanvas {
                     // Particles go beneath the edge.
-                    particlePainter?.draw(it.nativeCanvas, t)
+                    particlePainter?.draw(it.nativeCanvas, t - particleStart)
                     painter.draw(it.nativeCanvas, t)
                 }
             }
@@ -151,8 +158,16 @@ private class GlowPainter(
 
     private val bloom = Paint(Paint.FILTER_BITMAP_FLAG).apply { solidColor?.let { color = it } }
 
-    /** A still blade can't race, so it glows: the whole outline lit, with its halo. */
-    private val style = if (playback.still && spec.style == GlowStyle.BLADE) GlowStyle.GLOW else spec.style
+    /**
+     * A still blade can't race, so it glows: the whole outline lit, with its halo. No edge draws the plain outline when
+     * no particles draw (none in the spec, or none under Remove animations): a glow showing nothing would hide the
+     * notification. Plain, since a NONE layout has no halo mask.
+     */
+    private val style = when {
+        playback.still && spec.style == GlowStyle.BLADE -> GlowStyle.GLOW
+        spec.style == GlowStyle.NONE && (spec.particles == null || playback.particleShare == 0f) -> GlowStyle.BASIC
+        else -> spec.style
+    }
 
     private val outlines = layout.outlines.map(::OutlinePainter)
 
@@ -210,6 +225,9 @@ private class GlowPainter(
                     drawBloom(canvas, comet(blade.shader(edge = glowPx), palette), 0.8f)
                     drawOutline(canvas, comet(blade.shader(edge = CRISP_EDGE_PX), palette), 1f)
                 }
+
+                // No edge: the look shows its particles alone.
+                GlowStyle.NONE -> Unit
             }
         }
 
