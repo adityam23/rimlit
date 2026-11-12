@@ -111,7 +111,8 @@ internal fun Path.polygon(): FloatArray {
 
 /**
  * The ring around [cutout]: its outline grown by [gapPx] plus half of [strokePx] (the outline united with a stroke
- * that wide on each side), so the glow's stroke sits [gapPx] clear of the camera all the way round.
+ * that wide on each side), so the glow's stroke sits [gapPx] clear of the camera all the way round. Effects move and
+ * sample its [CutoutRing], the same for a convex cutout.
  */
 internal fun cutoutGeometry(cutout: Cutout, gapPx: Float, strokePx: Float): GlowGeometry {
     val pad = gapPx + strokePx / 2f
@@ -125,8 +126,7 @@ internal fun cutoutGeometry(cutout: Cutout, gapPx: Float, strokePx: Float): Glow
         grow.getFillPath(hole, this)
         op(hole, Path.Op.UNION)
     }
-    val bounds = cutout.bounds
-    return GlowGeometry(ring, cornerRadius = min(bounds.width(), bounds.height()) / 2f + pad)
+    return GlowGeometry(CutoutRing(cutout.outline, radius = pad), path = ring)
 }
 
 /**

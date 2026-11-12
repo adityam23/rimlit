@@ -1,8 +1,8 @@
 package app.rimlit.engine
 
-import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
+import app.rimlit.model.Resolution
 
 /**
  * One step of the machine: the handlers update [state] and collect the effects in the order the executor runs them,
@@ -85,13 +85,16 @@ internal class Transition(private var state: GlowState) {
         if (!settings.wants(post) || !post.alerts(isUpdate)) return
         val source = GlowSource.Notification(post)
         val target = routed(state.route(source, settings, lockScreenUp)) ?: return
-        val palette = settings.paletteFor(post.packageName)
-        if (palette == null) {
-            state = state.copy(pending = Pending(post, settings))
-            effects += GlowEffect.ExtractPalette(post, settings.autoColors)
-        } else {
-            dropPending()
-            show(source, settings.toGlowSpec(palette), target)
+        when (val resolution = settings.resolve(post.packageName)) {
+            is Resolution.Extract -> {
+                state = state.copy(pending = Pending(post, settings))
+                effects += GlowEffect.ExtractPalette(post, resolution.autoColors)
+            }
+
+            is Resolution.Ready -> {
+                dropPending()
+                show(source, resolution.spec, target)
+            }
         }
     }
 
@@ -118,7 +121,9 @@ internal class Transition(private var state: GlowState) {
         state = state.copy(pending = null)
         val source = GlowSource.Notification(pending.post)
         val target = routed(state.route(source, pending.settings, lockScreenUp)) ?: return
-        show(source, pending.settings.toGlowSpec(GlowPalette.Colors(colors)), target)
+        val resolution = pending.settings.resolve(pending.post.packageName, extracted = colors)
+        val spec = checkNotNull((resolution as? Resolution.Ready)?.spec) { "Extracted colors always resolve" }
+        show(source, spec, target)
     }
 
     private fun removed(key: String) {

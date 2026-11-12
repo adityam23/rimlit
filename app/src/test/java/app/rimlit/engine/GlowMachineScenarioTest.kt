@@ -1,16 +1,20 @@
 package app.rimlit.engine
 
 import app.rimlit.engine.Fixtures.AUTO
+import app.rimlit.engine.Fixtures.CHAT_LOOK
 import app.rimlit.engine.Fixtures.CUSTOM
 import app.rimlit.engine.Fixtures.EXTRACTED
 import app.rimlit.engine.Fixtures.LOCK_SCREEN
 import app.rimlit.engine.Fixtures.NIGHT
 import app.rimlit.engine.Fixtures.OTHER_APP
 import app.rimlit.engine.Fixtures.PREVIEW_SPEC
+import app.rimlit.engine.Fixtures.RULED
 import app.rimlit.engine.Fixtures.SCREEN_OFF
 import app.rimlit.engine.Fixtures.UNLOCKED
+import app.rimlit.engine.Fixtures.custom
 import app.rimlit.engine.Fixtures.post
 import app.rimlit.engine.Fixtures.quiet
+import app.rimlit.engine.Fixtures.withDefaultLook
 import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
@@ -121,9 +125,10 @@ class GlowMachineScenarioTest {
 
     @Test
     fun autoColoursAreExtractedAsThePostTimeSettingsSay() {
-        val image = AUTO.copy(autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 3))
+        val auto = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 3)
+        val image = AUTO.withDefaultLook { it.copy(autoColors = auto) }
         val run = run(settings = image).send(posted("a"))
-        assertEquals(listOf(GlowEffect.ExtractPalette(post("a"), image.autoColors)), run.effects)
+        assertEquals(listOf(GlowEffect.ExtractPalette(post("a"), auto)), run.effects)
 
         run.send(GlowEvent.SettingsChanged(AUTO))
         assertEquals(emptyList(), run.effects, "a later change doesn't restart the extraction")
@@ -250,6 +255,25 @@ class GlowMachineScenarioTest {
     }
 
     @Test
+    fun anAppsRuleChoosesItsLooksColoursPerPost() {
+        val mail = GlowEvent.Posted(post("m").copy(packageName = "com.example.mail"))
+        val run = run(settings = RULED).send(mail)
+        assertEquals(listOf(GlowEffect.ExtractPalette(mail.post, AUTO.defaultLook.autoColors)), run.effects)
+
+        run.send(posted("a"))
+        assertEquals(listOf(GlowEffect.ExtractPalette(post("a"), CHAT_LOOK.autoColors)), run.effects, "its rule's look")
+
+        // The rule's look with fixed colours: the app's post shows at once, superseding the one still pending.
+        val palette = GlowPalette.Colors(EXTRACTED)
+        val fixed = RULED.updateLook(CHAT_LOOK.id) { it.copy(colorMode = ColorMode.CUSTOM, customColors = palette) }
+        run.send(GlowEvent.SettingsChanged(fixed), mail, posted("b"))
+        assertNull(run.state.pending)
+        assertTrue(GlowEffect.CancelExtraction in run.effects)
+        assertEquals("b", run.glow.source.post?.key)
+        assertEquals(palette, run.glow.spec.palette)
+    }
+
+    @Test
     fun aNewerPostSupersedesAPendingOne() {
         val run = run(settings = AUTO).send(posted("a"), posted("b"))
         assertEquals("b", run.state.pending?.post?.key)
@@ -358,7 +382,7 @@ class GlowMachineScenarioTest {
 
     @Test
     fun quietHoursMuteEveryGlowButARingingOne() {
-        val quiet = quiet(QuietScope.ALL).copy(colorMode = ColorMode.CUSTOM)
+        val quiet = quiet(QuietScope.ALL).custom()
         assertNull(run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT)).send(posted("a")).state.glow)
         assertNull(run(quiet, SCREEN_OFF.copy(minuteOfDay = NIGHT)).send(posted("a")).state.glow)
         assertEquals(Surface.APP_OVERLAY, run(quiet, UNLOCKED).send(posted("a")).glow.surface, "outside quiet hours")
@@ -377,7 +401,7 @@ class GlowMachineScenarioTest {
 
     @Test
     fun screenOffQuietHoursMuteOnlyTheLockScreenGlow() {
-        val quiet = quiet(QuietScope.SCREEN_OFF).copy(colorMode = ColorMode.CUSTOM)
+        val quiet = quiet(QuietScope.SCREEN_OFF).custom()
         assertNull(run(quiet, SCREEN_OFF.copy(minuteOfDay = NIGHT)).send(posted("a")).state.glow)
         assertEquals(Surface.APP_OVERLAY, run(quiet, UNLOCKED.copy(minuteOfDay = NIGHT)).send(posted("a")).glow.surface)
 
@@ -390,7 +414,7 @@ class GlowMachineScenarioTest {
     @Test
     fun theClockIsReadOnlyWhenAGlowIsPlaced() {
         // A glow up when quiet hours start finishes normally: it is at most a hold long.
-        val run = run(quiet(QuietScope.ALL).copy(colorMode = ColorMode.CUSTOM)).send(posted("a"), opened(Surface.APP_OVERLAY))
+        val run = run(quiet(QuietScope.ALL).custom()).send(posted("a"), opened(Surface.APP_OVERLAY))
             .environment(UNLOCKED.copy(minuteOfDay = NIGHT))
         assertEquals(Phase.FADING_IN, run.glow.phase)
         assertTrue(run.effects.isEmpty())
@@ -411,9 +435,10 @@ class GlowMachineScenarioTest {
 
     @Test
     fun otherSettingsChangesLeaveTheGlowAlone() {
-        val restyled = holding("a").send(GlowEvent.SettingsChanged(CUSTOM.copy(glowStyle = GlowStyle.BLADE)))
+        val blade = CUSTOM.withDefaultLook { it.copy(style = GlowStyle.BLADE) }
+        val restyled = holding("a").send(GlowEvent.SettingsChanged(blade))
         assertEquals(Phase.HOLDING, restyled.glow.phase)
-        assertEquals(CUSTOM.glowStyle, restyled.glow.spec.style, "the glow keeps the look it started with")
+        assertEquals(CUSTOM.defaultLook.style, restyled.glow.spec.style, "the glow keeps the look it started with")
 
         val test = run().send(GlowEvent.Posted(post("t", own = true, test = true)), opened(Surface.APP_OVERLAY))
             .send(GlowEvent.SettingsChanged(CUSTOM.copy(enabled = false)))
