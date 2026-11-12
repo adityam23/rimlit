@@ -59,6 +59,8 @@ private object Keys {
     val SHOW_ON_LOCK_SCREEN = booleanPreferencesKey("show_on_lock_screen")
     val SHOW_WHEN_UNLOCKED = booleanPreferencesKey("show_when_unlocked")
     val OPEN_ON_DOUBLE_TAP = booleanPreferencesKey("open_on_double_tap")
+    val SHOW_PILL = booleanPreferencesKey("show_pill")
+    val SWIPE_CLEARS = booleanPreferencesKey("swipe_clears")
     val QUIET_ENABLED = booleanPreferencesKey("quiet_enabled")
     val QUIET_START_MINUTE = intPreferencesKey("quiet_start_minute")
     val QUIET_END_MINUTE = intPreferencesKey("quiet_end_minute")
@@ -127,89 +129,53 @@ class SettingsRepository(private val context: Context) {
 private val defaults = GlowSettings()
 private val cutoutDefaults = CustomCutout()
 
-/**
- * Tolerant decode: unknown or out-of-range stored values fall back to defaults or are clamped. Settings from before
- * looks migrate: the global look becomes the default look, and per-app palettes become palette rules.
- */
-internal fun Preferences.toSettings(): GlowSettings {
-    val looks = decoded(Keys.LOOKS, ::decodeLooks) ?: listOf(preLooksLook())
-    return GlowSettings(
-        enabled = valueOr(Keys.ENABLED, defaults.enabled),
-        looks = looks,
-        defaultLookId = this[Keys.DEFAULT_LOOK]?.takeIf { id -> looks.any { it.id == id } } ?: looks.first().id,
-        appRules = decoded(Keys.APP_RULES, ::decodeRules) ?: preLooksRules(),
-        screenOffBrightness = clampedOrNull(
-            Keys.SCREEN_OFF_BRIGHTNESS,
-            defaults.screenOffBrightness,
-            Ranges.brightness,
-        ),
-        durationMs = clamped(Keys.DURATION_MS, defaults.durationMs, Ranges.durationMs),
-        batterySaver = this[Keys.BATTERY_SAVER].toEnumOr(defaults.batterySaver),
-        showWhenScreenOff = lockedToggle(Keys.SHOW_WHEN_SCREEN_OFF, defaults.showWhenScreenOff),
-        showOnLockScreen = lockedToggle(Keys.SHOW_ON_LOCK_SCREEN, defaults.showOnLockScreen),
-        showWhenUnlocked = valueOr(Keys.SHOW_WHEN_UNLOCKED, defaults.showWhenUnlocked),
-        openOnDoubleTap = valueOr(Keys.OPEN_ON_DOUBLE_TAP, defaults.openOnDoubleTap),
-        quietHours = QuietHours(
-            enabled = valueOr(Keys.QUIET_ENABLED, defaults.quietHours.enabled),
-            startMinute = clamped(Keys.QUIET_START_MINUTE, defaults.quietHours.startMinute, Ranges.minuteOfDay),
-            endMinute = clamped(Keys.QUIET_END_MINUTE, defaults.quietHours.endMinute, Ranges.minuteOfDay),
-            scope = this[Keys.QUIET_SCOPE].toEnumOr(defaults.quietHours.scope),
-        ),
-        cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
-        customCutout = customCutout(),
-        blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
-    )
-}
-
-/** The cutout drawn by hand, only while its shape is stored; a missing field starts as in a new [CustomCutout]. */
-private fun Preferences.customCutout(): CustomCutout? = this[Keys.CUTOUT_SHAPE]?.let { shape ->
-    CustomCutout(
-        shape = shape.toEnumOr(cutoutDefaults.shape),
-        widthDp = clamped(Keys.CUTOUT_WIDTH_DP, cutoutDefaults.widthDp, Ranges.cutoutSizeDp),
-        heightDp = clamped(Keys.CUTOUT_HEIGHT_DP, cutoutDefaults.heightDp, Ranges.cutoutSizeDp),
-        radiusDp = clamped(Keys.CUTOUT_RADIUS_DP, cutoutDefaults.radiusDp, Ranges.cutoutRadiusDp),
-        offsetXDp = clamped(Keys.CUTOUT_OFFSET_X_DP, cutoutDefaults.offsetXDp, Ranges.cutoutOffsetDp),
-        offsetYDp = clamped(Keys.CUTOUT_OFFSET_Y_DP, cutoutDefaults.offsetYDp, Ranges.cutoutOffsetDp),
-    )
-} ?: defaults.customCutout
-
-/** [key]'s JSON decoded by [decode]; `null` when it was never written, or (logged) when it doesn't decode. */
-private fun <T : Any> Preferences.decoded(key: Preferences.Key<String>, decode: (String) -> T?): T? {
-    val json = this[key] ?: return null
-    val value = decode(json)
-    if (value == null) Log.w(TAG, "Stored ${key.name} doesn't decode; using the fallback")
-    return value
-}
-
-/** The default look as the global look settings before looks stored it. */
-private fun Preferences.preLooksLook(): Look {
-    val look = defaults.defaultLook
-    return look.copy(
-        style = this[Keys.PreLooks.GLOW_STYLE].toEnumOr(look.style),
-        colorMode = this[Keys.PreLooks.COLOR_MODE].toEnumOr(look.colorMode),
-        autoColors = AutoColors(
-            source = this[Keys.PreLooks.AUTO_COLOR_SOURCE].toEnumOr(look.autoColors.source),
-            count = clamped(Keys.PreLooks.AUTO_COLOR_COUNT, look.autoColors.count, Ranges.autoColorCount),
-        ),
-        customColors = this[Keys.PreLooks.CUSTOM_COLORS]?.let { decodePalette(it.splitToSequence(',')) }
-            ?: this[Keys.PreLooks.CUSTOM_COLOR]?.let { GlowPalette.Colors(listOf(it.toInt())) }
-            ?: look.customColors,
-        region = this[Keys.PreLooks.REGION].toEnumOr(look.region),
-        thicknessDp = clamped(Keys.PreLooks.THICKNESS_DP, look.thicknessDp, Ranges.thicknessDp),
-        glowWidthDp = clamped(Keys.PreLooks.GLOW_WIDTH_DP, look.glowWidthDp, Ranges.glowWidthDp),
-        speed = clamped(Keys.PreLooks.SPEED, look.speed, Ranges.speed),
-        brightness = clamped(Keys.PreLooks.BRIGHTNESS, look.brightness, Ranges.brightness),
-    )
-}
-
-/** Palette rules from the per-app palettes stored before looks, as `package=ff00bcd4,ffe040fb` entries. */
-private fun Preferences.preLooksRules(): Map<String, Rule> =
-    valueOr(Keys.PreLooks.APP_PALETTES, emptySet()).mapNotNull { entry ->
-        // Package names never contain `=`.
-        val pkg = entry.substringBefore('=', missingDelimiterValue = "")
-        val palette = decodePalette(entry.substringAfter('=').splitToSequence(','))
-        if (pkg.isEmpty() || palette == null) null else pkg to Rule.UsePalette(palette)
-    }.toMap()
+/** Tolerant decode: unknown or out-of-range stored values fall back to defaults or are clamped. */
+private fun Preferences.toSettings() = GlowSettings(
+    enabled = valueOr(Keys.ENABLED, defaults.enabled),
+    glowStyle = this[Keys.GLOW_STYLE].toEnumOr(defaults.glowStyle),
+    colorMode = this[Keys.COLOR_MODE].toEnumOr(defaults.colorMode),
+    autoColors = AutoColors(
+        source = this[Keys.AUTO_COLOR_SOURCE].toEnumOr(defaults.autoColors.source),
+        count = clamped(Keys.AUTO_COLOR_COUNT, defaults.autoColors.count, Ranges.autoColorCount),
+    ),
+    customColors = this[Keys.CUSTOM_COLORS]?.let(::decodePalette)
+        ?: this[Keys.LEGACY_CUSTOM_COLOR]?.let { listOf(it.toInt()) }
+        ?: defaults.customColors,
+    thicknessDp = clamped(Keys.THICKNESS_DP, defaults.thicknessDp, Ranges.thicknessDp),
+    glowWidthDp = clamped(Keys.GLOW_WIDTH_DP, defaults.glowWidthDp, Ranges.glowWidthDp),
+    speed = clamped(Keys.SPEED, defaults.speed, Ranges.speed),
+    brightness = clamped(Keys.BRIGHTNESS, defaults.brightness, Ranges.brightness),
+    screenOffBrightness = clampedOrNull(Keys.SCREEN_OFF_BRIGHTNESS, defaults.screenOffBrightness, Ranges.brightness),
+    durationMs = clamped(Keys.DURATION_MS, defaults.durationMs, Ranges.durationMs),
+    batterySaver = this[Keys.BATTERY_SAVER].toEnumOr(defaults.batterySaver),
+    showWhenScreenOff = lockedToggle(Keys.SHOW_WHEN_SCREEN_OFF, defaults.showWhenScreenOff),
+    showOnLockScreen = lockedToggle(Keys.SHOW_ON_LOCK_SCREEN, defaults.showOnLockScreen),
+    showWhenUnlocked = valueOr(Keys.SHOW_WHEN_UNLOCKED, defaults.showWhenUnlocked),
+    openOnDoubleTap = valueOr(Keys.OPEN_ON_DOUBLE_TAP, defaults.openOnDoubleTap),
+    showPill = valueOr(Keys.SHOW_PILL, defaults.showPill),
+    swipeClears = valueOr(Keys.SWIPE_CLEARS, defaults.swipeClears),
+    quietHours = QuietHours(
+        enabled = valueOr(Keys.QUIET_ENABLED, defaults.quietHours.enabled),
+        startMinute = clamped(Keys.QUIET_START_MINUTE, defaults.quietHours.startMinute, Ranges.minuteOfDay),
+        endMinute = clamped(Keys.QUIET_END_MINUTE, defaults.quietHours.endMinute, Ranges.minuteOfDay),
+        scope = this[Keys.QUIET_SCOPE].toEnumOr(defaults.quietHours.scope),
+    ),
+    region = this[Keys.REGION].toEnumOr(defaults.region),
+    cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
+    // Drawn by hand only while its shape is stored; a missing field starts as in a new CustomCutout.
+    customCutout = this[Keys.CUTOUT_SHAPE]?.let { shape ->
+        CustomCutout(
+            shape = shape.toEnumOr(cutoutDefaults.shape),
+            widthDp = clamped(Keys.CUTOUT_WIDTH_DP, cutoutDefaults.widthDp, Ranges.cutoutSizeDp),
+            heightDp = clamped(Keys.CUTOUT_HEIGHT_DP, cutoutDefaults.heightDp, Ranges.cutoutSizeDp),
+            radiusDp = clamped(Keys.CUTOUT_RADIUS_DP, cutoutDefaults.radiusDp, Ranges.cutoutRadiusDp),
+            offsetXDp = clamped(Keys.CUTOUT_OFFSET_X_DP, cutoutDefaults.offsetXDp, Ranges.cutoutOffsetDp),
+            offsetYDp = clamped(Keys.CUTOUT_OFFSET_Y_DP, cutoutDefaults.offsetYDp, Ranges.cutoutOffsetDp),
+        )
+    } ?: defaults.customCutout,
+    blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
+    appPalettes = this[Keys.APP_PALETTES]?.let(::decodeAppPalettes) ?: defaults.appPalettes,
+)
 
 /** The stored value of [key], or [default] when it was never written. */
 private fun <T> Preferences.valueOr(key: Preferences.Key<T>, default: T): T = this[key] ?: default
@@ -249,6 +215,8 @@ internal fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.SHOW_ON_LOCK_SCREEN] = settings.showOnLockScreen
     this[Keys.SHOW_WHEN_UNLOCKED] = settings.showWhenUnlocked
     this[Keys.OPEN_ON_DOUBLE_TAP] = settings.openOnDoubleTap
+    this[Keys.SHOW_PILL] = settings.showPill
+    this[Keys.SWIPE_CLEARS] = settings.swipeClears
     this[Keys.QUIET_ENABLED] = settings.quietHours.enabled
     this[Keys.QUIET_START_MINUTE] = settings.quietHours.startMinute
     this[Keys.QUIET_END_MINUTE] = settings.quietHours.endMinute

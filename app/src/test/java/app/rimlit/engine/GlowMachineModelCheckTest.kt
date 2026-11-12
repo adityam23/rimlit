@@ -20,7 +20,7 @@ import kotlin.test.fail
  *
  * External inputs (posts, removals, settings, environment, listener, accessibility, previews) arrive at any time.
  * Executor reports follow their contracts: timers fire only while armed, a palette result only while pending, and a
- * surface reports only on the glow's current surface (opened only while opening, an open request only once opened).
+ * surface reports only on the glow's current surface (opened only while opening, an open or dismissal request only once opened).
  * Never trim the alphabet to make
  * the search fit: make the search cheaper instead.
  *
@@ -108,7 +108,12 @@ class GlowMachineModelCheckTest {
         state.armed.mapTo(this) { TIMER_EVENTS.getValue(it) }
         val glow = state.glow ?: return@buildList
         // Only the confirmed instance can be touched.
-        add(if (glow.opened) OPEN_REQUESTED_EVENTS.getValue(glow.surface) else OPENED_EVENTS.getValue(glow.surface))
+        if (glow.opened) {
+            add(OPEN_REQUESTED_EVENTS.getValue(glow.surface))
+            add(DISMISS_REQUESTED_EVENTS.getValue(glow.surface))
+        } else {
+            add(OPENED_EVENTS.getValue(glow.surface))
+        }
         add(GONE_EVENTS.getValue(glow.surface))
     }
 
@@ -135,6 +140,10 @@ class GlowMachineModelCheckTest {
             Timer.HAND_OFF_WINDOW in armed && glow.surface == Surface.LOCK_SCREEN ->
                 "a lock-screen glow counts as recent for the screen-off hand-off"
 
+            // A held icon on the AOD-style surface would need burn-in shifting.
+            glow.surface == Surface.LOCK_SCREEN && state.frameFor(Surface.LOCK_SCREEN)?.pill != null ->
+                "a pill on the lock screen"
+
             // Invariant 4: the opaque activity would cover the call/alarm screen.
             glow.surface == Surface.LOCK_SCREEN && (state.ringingKeys.isNotEmpty() || glow.source.post?.isRinging == true) ->
                 "a lock-screen glow while something rings"
@@ -158,6 +167,38 @@ class GlowMachineModelCheckTest {
         surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: pendingViolation(old, event, step)
             ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
             ?: placementViolation(old, event, step) ?: openViolation(old, event, step)
+            ?: dismissViolation(old, event, step)
+
+    /**
+     * Dismissing: the shown glow fades out (it is already up, so there is something to fade). Its notification is
+     * cleared only on the user's dismissal, only the one shown on that surface, only while it is still posted, never
+     * Rimlit's own or a preview, only with clearing on and the post still wanted; and then always, once.
+     */
+    private fun dismissViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
+        // Runs on every transition: allocate the effect list only for a request.
+        if (event !is GlowEvent.DismissRequested) {
+            return "clears without a dismissal".takeIf { step.effects.any { it is GlowEffect.CancelNotification } }
+        }
+        val clears = step.effects.filterIsInstance<GlowEffect.CancelNotification>()
+        val shown = checkNotNull(old.glow)
+        val after = step.state.glow
+        val post = shown.source.post
+        val cleared = clears.singleOrNull()
+        val allowed = post != null && !post.isOwn && post.key in old.activeKeys && old.settings.swipeClears &&
+            old.settings.wants(post)
+        return when {
+            after == null || after.source != shown.source || after.surface != shown.surface ||
+                after.phase != Phase.FADING_OUT -> "a dismissal didn't fade the shown glow out"
+            clears.size > 1 -> "clears twice"
+            cleared == null -> "didn't clear the shown notification".takeIf { allowed }
+            cleared.post != post || !shown.opened -> "clears something not shown: $cleared"
+            cleared.post.isOwn -> "clears Rimlit's own notification"
+            cleared.post.key !in old.activeKeys -> "clears a removed notification"
+            !old.settings.swipeClears -> "clears with clearing off"
+            !old.settings.wants(cleared.post) -> "clears a post the settings don't want"
+            else -> null
+        }
+    }
 
     /**
      * Opening: only on the user's request, only the notification shown on that surface, only while it is still
@@ -415,10 +456,11 @@ class GlowMachineModelCheckTest {
         val OPENED_EVENTS = Surface.entries.associateWith { GlowEvent.SurfaceOpened(it) }
         val GONE_EVENTS = Surface.entries.associateWith { GlowEvent.SurfaceGone(it) }
         val OPEN_REQUESTED_EVENTS = Surface.entries.associateWith { GlowEvent.OpenRequested(it) }
+        val DISMISS_REQUESTED_EVENTS = Surface.entries.associateWith { GlowEvent.DismissRequested(it) }
 
         /** Every event the alphabet can produce, so a trace stores an index instead of the event. */
         val ALL_EVENTS: List<GlowEvent> = EXTERNAL_EVENTS + EXTRACTED_EVENT + TIMER_EVENTS.values +
-            OPENED_EVENTS.values + GONE_EVENTS.values + OPEN_REQUESTED_EVENTS.values
+            OPENED_EVENTS.values + GONE_EVENTS.values + OPEN_REQUESTED_EVENTS.values + DISMISS_REQUESTED_EVENTS.values
         val EVENT_INDEX: Map<GlowEvent, Int> = ALL_EVENTS.withIndex().associate { (index, event) -> event to index }
     }
 }

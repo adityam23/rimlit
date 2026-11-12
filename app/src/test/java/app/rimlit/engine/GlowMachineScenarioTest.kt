@@ -216,13 +216,20 @@ class GlowMachineScenarioTest {
         assertTrue(run.effects.none { it is GlowEffect.Arm && it.timer == Timer.HOLD }, "the remaining hold carries on")
 
         run.send(opened(Surface.APP_OVERLAY))
-        assertEquals(GlowFrame(run.glow.spec, visible = true, instant = true), run.state.frameFor(Surface.APP_OVERLAY))
+        assertEquals(
+            GlowFrame(run.glow.spec, visible = true, instant = true, pill = PillApp.Notifying(OTHER_APP)),
+            run.state.frameFor(Surface.APP_OVERLAY),
+            "the pill comes with it",
+        )
     }
 
     @Test
     fun aHandedOffGlowStillFadesOut() {
         val run = onLockScreen().environment(UNLOCKED).send(opened(Surface.APP_OVERLAY)).fire(Timer.HOLD)
-        assertEquals(GlowFrame(run.glow.spec, visible = false, instant = false), run.state.frameFor(Surface.APP_OVERLAY))
+        assertEquals(
+            GlowFrame(run.glow.spec, visible = false, instant = false, pill = PillApp.Notifying(OTHER_APP)),
+            run.state.frameFor(Surface.APP_OVERLAY),
+        )
     }
 
     @Test
@@ -473,8 +480,77 @@ class GlowMachineScenarioTest {
     }
 
     @Test
+    fun onScreenGlowsShowTheAppsPillAndTheLockScreenNever() {
+        val shown = holding()
+        assertEquals(PillApp.Notifying(OTHER_APP), shown.state.frameFor(Surface.APP_OVERLAY)?.pill)
+        val preview = run().send(GlowEvent.Preview(PreviewTarget.ON_SCREEN, PREVIEW_SPEC), opened(Surface.APP_OVERLAY))
+        assertEquals(PillApp.Rimlit, preview.state.frameFor(Surface.APP_OVERLAY)?.pill, "a preview shows Rimlit's")
+        assertNull(onLockScreen().state.frameFor(Surface.LOCK_SCREEN)?.pill)
+        shown.send(GlowEvent.SettingsChanged(CUSTOM.copy(showPill = false)))
+        assertNull(shown.state.frameFor(Surface.APP_OVERLAY)?.pill, "turned off, it goes at once")
+        assertTrue(shown.state.frameFor(Surface.APP_OVERLAY)?.visible == true, "the glow stays")
+    }
+
+    @Test
+    fun aSwipeOnThePillFadesTheGlowOutAndLeavesTheNotification() {
+        val run = holding().send(GlowEvent.DismissRequested(Surface.APP_OVERLAY))
+        assertEquals(Phase.FADING_OUT, run.glow.phase)
+        assertTrue(run.effects.none { it is GlowEffect.CancelNotification }, "clearing is off by default")
+
+        run.send(GlowEvent.DismissRequested(Surface.APP_OVERLAY))
+        assertEquals(Phase.FADING_OUT, run.glow.phase, "a second swipe while fading changes nothing")
+        assertTrue(run.effects.isEmpty())
+        run.fire(Timer.FADE_OUT)
+        assertNull(run.state.glow)
+    }
+
+    @Test
+    fun withSwipeClearsOnASwipeAlsoClearsTheShownNotification() {
+        val run = run(CUSTOM.copy(swipeClears = true)).send(posted("a"), opened(Surface.APP_OVERLAY)).fire(Timer.FADE_IN)
+        assertEquals(post("a"), run.state.clearsOnDismiss(Surface.APP_OVERLAY))
+
+        run.send(GlowEvent.DismissRequested(Surface.APP_OVERLAY))
+        assertEquals(Phase.FADING_OUT, run.glow.phase)
+        assertEquals(GlowEffect.CancelNotification(post("a")), run.effects.first(), "cleared, then faded out")
+        assertEquals(1, run.effects.count { it is GlowEffect.CancelNotification })
+    }
+
+    @Test
+    fun aPreviewOrARemovedPostIsNeverOpenedOrCleared() {
+        val settings = CUSTOM.copy(swipeClears = true)
+        val preview = { run(settings).send(GlowEvent.Preview(PreviewTarget.ON_SCREEN, PREVIEW_SPEC), opened(Surface.APP_OVERLAY)) }
+        val removed = {
+            run(settings).send(posted("a"), opened(Surface.APP_OVERLAY)).fire(Timer.FADE_IN).send(GlowEvent.Removed("a"))
+        }
+        val test = {
+            run(settings).send(GlowEvent.Posted(post("t", own = true, test = true)), opened(Surface.APP_OVERLAY))
+        }
+        for ((case, start) in mapOf("preview" to preview, "removed" to removed, "test notification" to test)) {
+            val dismissed = start()
+            assertNull(dismissed.state.opensOnRequest(Surface.APP_OVERLAY), "$case: the pill doesn't listen for a double tap")
+            assertNull(dismissed.state.clearsOnDismiss(Surface.APP_OVERLAY), "$case: nothing to clear")
+            dismissed.send(GlowEvent.DismissRequested(Surface.APP_OVERLAY))
+            assertEquals(Phase.FADING_OUT, dismissed.glow.phase, "$case: fades out")
+            assertTrue(dismissed.effects.none { it is GlowEffect.CancelNotification }, "$case: clears nothing")
+
+            val opened = start().send(GlowEvent.OpenRequested(Surface.APP_OVERLAY))
+            assertTrue(opened.effects.none { it is GlowEffect.OpenNotification }, "$case: opens nothing")
+        }
+    }
+
+    @Test
+    fun aDoubleTapOnThePillOpensTheShownNotification() {
+        val run = holding()
+        assertEquals(post("a"), run.state.opensOnRequest(Surface.APP_OVERLAY))
+        run.send(GlowEvent.OpenRequested(Surface.APP_OVERLAY))
+        assertNull(run.state.glow)
+        assertEquals(GlowEffect.OpenNotification(post("a"), Surface.APP_OVERLAY), run.effects.first())
+    }
+
+    @Test
     fun executorContractViolationsFailLoudly() {
         assertFailsWith<IllegalStateException> { run().send(posted("a"), GlowEvent.OpenRequested(Surface.APP_OVERLAY)) }
+        assertFailsWith<IllegalStateException> { run().send(posted("a"), GlowEvent.DismissRequested(Surface.APP_OVERLAY)) }
         assertFailsWith<IllegalStateException> { run().send(GlowEvent.TimerFired(Timer.HOLD)) }
         assertFailsWith<IllegalStateException> { run().send(GlowEvent.PaletteExtracted(EXTRACTED)) }
         assertFailsWith<IllegalStateException> { run().send(posted("a"), opened(Surface.LOCK_SCREEN)) }
