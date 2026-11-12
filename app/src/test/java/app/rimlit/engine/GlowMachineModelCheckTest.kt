@@ -5,6 +5,10 @@ import app.rimlit.engine.Fixtures.EXTRACTED
 import app.rimlit.engine.Fixtures.POSTS
 import app.rimlit.engine.Fixtures.PREVIEW_SPEC
 import app.rimlit.engine.Fixtures.SETTINGS
+import app.rimlit.model.AutoColors
+import app.rimlit.model.ColorMode
+import app.rimlit.model.GlowSettings
+import app.rimlit.model.Rule
 import org.junit.Test
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -40,26 +44,26 @@ class GlowMachineModelCheckTest {
         val start = codec.encode(Fixtures.initial())
         visited.add(start)
         parents.add(parentOf(-1, 0))
-        var level = longArrayOf(start)
+        var level = LongList().apply { add(start) }
         var first = 0
         var transitions = 0L
-        while (level.isNotEmpty()) {
+        while (level.size > 0) {
             val current = level
             val firstOfLevel = first
-            val expansions = (current.indices step CHUNK).toList().parallelStream()
+            val expansions = (0 until current.size step CHUNK).toList().parallelStream()
                 .map { from -> expand(current, from, firstOfLevel, codec, visited, parents) }
                 .toList()
             expansions.firstNotNullOfOrNull { it.violation }?.let { fail(it) }
             transitions += expansions.sumOf { it.transitions }
             first += current.size
-            val next = LongList(initialCapacity = maxOf(16, current.size))
+            val next = LongList(initialCapacity = current.size)
             for (expansion in expansions) {
                 for (i in 0 until expansion.codes.size) {
                     parents.add(expansion.parents[i])
                     next.add(expansion.codes[i])
                 }
             }
-            level = next.toArray()
+            level = next
         }
         println("Model check: ${visited.size} states, $transitions transitions")
         assertTrue(visited.size > 1_000, "the search should reach a meaningful state space")
@@ -67,7 +71,7 @@ class GlowMachineModelCheckTest {
 
     /** Checks and expands up to [CHUNK] states of [level] from index [from]; the level's states are numbered from [first]. */
     private fun expand(
-        level: LongArray,
+        level: LongList,
         from: Int,
         first: Int,
         codec: StateCodec,
@@ -112,6 +116,7 @@ class GlowMachineModelCheckTest {
     private fun stateViolation(state: GlowState): String? {
         // Live settings: a post the settings stopped wanting is never pending, and its glow only fades out.
         if (state.pending?.let { state.settings.wants(it.post) } == false) return "pending a post the settings don't want"
+        if (state.pending != null && state.pending.autoColors() == null) return "pending a post whose colours are fixed"
         val glow = state.glow ?: return "timers armed without a glow".takeIf { state.armed.isNotEmpty() }
         val armed = state.armed
         return when {
@@ -256,6 +261,22 @@ class GlowMachineModelCheckTest {
         return "$event didn't move the glow forward".takeUnless { advanced }
     }
 
+    /** The auto colours this pending post's own settings extract it with. */
+    private fun Pending.autoColors() = autoColors(settings, post.packageName)
+
+    /**
+     * The auto colours [settings] extract a post from [packageName] with, `null` when its colours are fixed: the look
+     * its app's rule names, else the default look. Derived apart from [GlowSettings.resolve], so a bug shared by the
+     * reducer and the resolver can't pass.
+     */
+    private fun autoColors(settings: GlowSettings, packageName: String): AutoColors? {
+        val rule = settings.appRules[packageName]
+        if (rule is Rule.UsePalette) return null
+        val look = (rule as? Rule.UseLook)?.let { named -> settings.looks.firstOrNull { it.id == named.lookId } }
+            ?: settings.looks.first { it.id == settings.defaultLookId }
+        return look.autoColors.takeIf { look.colorMode == ColorMode.AUTO }
+    }
+
     /** The executor's extraction mirrors the pending post; dropped posts never come back. */
     private fun pendingViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
         val new = step.state
@@ -264,8 +285,11 @@ class GlowMachineModelCheckTest {
         return when {
             extracts.any { it.post != new.pending?.post } -> "extracts for a post that isn't pending"
 
-            extracts.any { it.autoColors != new.pending?.settings?.autoColors } ->
+            extracts.any { it.autoColors != new.pending?.autoColors() } ->
                 "extracts with other auto colours than the pending post's settings"
+
+            event is GlowEvent.Posted && new.glow?.source?.post == event.post && old.glow?.source != new.glow.source &&
+                autoColors(old.settings, event.post.packageName) != null -> "shown before its auto colours were extracted"
 
             // Revoked notification access starts no new glow.
             event == GlowEvent.ListenerDisconnected && new.pending != null ->
