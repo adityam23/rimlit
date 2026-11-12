@@ -17,6 +17,7 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
+import app.rimlit.model.ParticlePreset
 import app.rimlit.model.Resolution
 import app.rimlit.model.Rule
 import org.junit.Test
@@ -127,7 +128,10 @@ class SettingsMigrationTest {
     @Test
     fun looksAndRulesReadBackTheSame() {
         val settings = GlowSettings(
-            looks = listOf(Look(), Look(id = "work", name = "Work", style = GlowStyle.BASIC)),
+            looks = listOf(
+                Look(),
+                Look(id = "work", name = "Work", style = GlowStyle.BASIC, particles = ParticlePreset.RAIN.spec),
+            ),
             defaultLookId = "work",
             appRules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UsePalette(GlowPalette.Colors(listOf(red)))),
         )
