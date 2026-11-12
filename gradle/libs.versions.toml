@@ -16,6 +16,8 @@ navigationCompose = "2.9.8"
 detekt = "2.0.0-alpha.6"
 composeRules = "0.6.8"
 junit = "4.13.2"
+# Tests only: the app uses the platform's org.json, whose android.jar stub throws in JVM unit tests.
+orgJson = "20260814"
 
 [libraries]
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -38,6 +40,7 @@ compose-rules-detekt = { group = "io.nlopez.compose.rules", name = "detekt", ver
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

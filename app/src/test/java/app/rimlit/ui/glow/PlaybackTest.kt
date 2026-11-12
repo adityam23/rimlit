@@ -1,8 +1,8 @@
 package app.rimlit.ui.glow
 
 import app.rimlit.model.BatterySaver
-import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
+import app.rimlit.model.Look
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -12,17 +12,17 @@ import kotlin.test.assertTrue
 class PlaybackTest {
 
     private val normal = DeviceConditions(animationsOff = false, powerSave = false)
-    private val palette = GlowPalette.Rainbow
+    private val bright = listOf(Look(brightness = 0.9f))
 
-    private fun spec(settings: GlowSettings = GlowSettings()) = settings.toGlowSpec(palette)
+    private fun spec(settings: GlowSettings = GlowSettings()) = settings.previewSpec()
 
     @Test
     fun theLockScreenUsesTheScreenOffBrightness() {
-        val own = spec(GlowSettings(brightness = 0.9f, screenOffBrightness = 0.3f))
+        val own = spec(GlowSettings(looks = bright, screenOffBrightness = 0.3f))
         assertEquals(0.3f, own.playback(lockScreen = true, normal).brightness)
         assertEquals(0.9f, own.playback(lockScreen = false, normal).brightness)
 
-        val same = spec(GlowSettings(brightness = 0.9f))
+        val same = spec(GlowSettings(looks = bright))
         assertEquals(0.9f, same.playback(lockScreen = true, normal).brightness, "unset follows the on-screen one")
     }
 

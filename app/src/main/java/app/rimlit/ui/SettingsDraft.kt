@@ -4,12 +4,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import app.rimlit.model.GlowSettings
+import app.rimlit.model.Look
 import kotlinx.coroutines.Job
 
 internal typealias SettingsEdit = (GlowSettings) -> GlowSettings
 
+/** The settings edit that applies [edit] to this look. */
+internal fun Look.edit(edit: (Look) -> Look): SettingsEdit = { it.updateLook(id, edit) }
+
 /**
- * The screen's in-memory settings, changed by [preview] (re-renders only, mid-drag), [persist] (writes only, once the
+ * A screen's in-memory settings, changed by [preview] (re-renders only, mid-drag), [persist] (writes only, once the
  * drag ends) or [commit] (both, for a tap). They follow the saved settings only while none of the screen's own edits
  * is unsaved (a write in flight, or a drag not committed yet): the emission of an earlier write would otherwise
  * revert newer edits. Skipping an emission is safe, since once the writes land the draft already holds what they
