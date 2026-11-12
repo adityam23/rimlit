@@ -35,14 +35,15 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.AutoColorSource
-import app.rimlit.model.AutoColors
 import app.rimlit.model.BatterySaver
 import app.rimlit.model.ColorMode
 import app.rimlit.model.EdgeRegion
+import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
+import app.rimlit.model.Look
 import app.rimlit.permissions.OverlayFallback
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.PreviewButtons
@@ -72,6 +73,8 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     val editor = remember { SettingsDraft(saved, viewModel::update) }
     LaunchedEffect(saved) { editor.follow(saved) }
     val draft = editor.value
+    // The look this screen edits.
+    val look = draft.defaultLook
 
     val view = LocalView.current
     val density = LocalDensity.current
@@ -82,7 +85,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     val cutoutSeed = rememberCutoutSeed()
     val hasCutout = cutoutSeed != null
     // Preview what this device will really show: the renderer falls back to the full edge without a cutout.
-    val spec = draft.previewSpec().let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
+    val spec = draft.previewSpec(look).let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
     // While the screen-off brightness slider is dragged, the preview plays as the lock screen would, to show it.
     var draggingScreenOff by remember { mutableStateOf(false) }
     val playback = spec.playback(lockScreen = draggingScreenOff, rememberDeviceConditions())
@@ -98,13 +101,13 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
                     fallback = fallback,
                 )
             }
-            styleSection(draft, spec, playback, editor)
-            regionSection(draft, hasCutout, editor)
+            styleSection(look, spec, playback, editor)
+            regionSection(look, hasCutout, editor)
             // The cutout's shape matters only where a ring is drawn around it.
-            if (cutoutSeed != null && draft.region.ringsCutout) cutoutItems(draft, cutoutSeed, editor)
+            if (cutoutSeed != null && look.region.ringsCutout) cutoutItems(draft, cutoutSeed, editor)
             cornerRadiusItems(draft, displayCornerDp, editor)
-            colorSection(draft, editor)
-            tuningSection(draft, editor) { dragging -> draggingScreenOff = dragging }
+            colorSection(look, editor)
+            tuningSection(draft, look, editor) { dragging -> draggingScreenOff = dragging }
             batterySaverSection(draft, editor)
             item {
                 OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
@@ -115,18 +118,13 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     }
 }
 
-private fun LazyListScope.styleSection(
-    draft: GlowSettings,
-    spec: GlowSpec,
-    playback: Playback,
-    editor: SettingsDraft,
-) {
+private fun LazyListScope.styleSection(look: Look, spec: GlowSpec, playback: Playback, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.style_section)) }
     items(GlowStyle.entries, key = { it.name }) { style ->
         RadioCard(
             title = stringResource(style.titleRes),
-            selected = draft.glowStyle == style,
-            onSelect = { editor.commit { it.copy(glowStyle = style) } },
+            selected = look.style == style,
+            onSelect = { editor.commit(look.edit { it.copy(style = style) }) },
             subtitle = stringResource(style.descRes),
             leading = {
                 Box(
@@ -148,14 +146,14 @@ private fun LazyListScope.styleSection(
     }
 }
 
-private fun LazyListScope.regionSection(draft: GlowSettings, hasCutout: Boolean, editor: SettingsDraft) {
+private fun LazyListScope.regionSection(look: Look, hasCutout: Boolean, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.region_section)) }
     items(EdgeRegion.entries, key = { it.name }) { region ->
         val available = !region.ringsCutout || hasCutout
         RadioCard(
             title = stringResource(region.titleRes),
-            selected = draft.region == region,
-            onSelect = { editor.commit { it.copy(region = region) } },
+            selected = look.region == region,
+            onSelect = { editor.commit(look.edit { it.copy(region = region) }) },
             subtitle = stringResource(if (available) region.descRes else R.string.region_cutout_unavailable),
             enabled = available,
         )
@@ -191,25 +189,26 @@ private fun LazyListScope.cornerRadiusItems(draft: GlowSettings, displayCornerDp
     }
 }
 
-private fun LazyListScope.colorSection(draft: GlowSettings, editor: SettingsDraft) {
+private fun LazyListScope.colorSection(look: Look, editor: SettingsDraft) {
     item { SectionTitle(stringResource(R.string.color_section)) }
     items(ColorMode.entries, key = { it.name }) { mode ->
         RadioCard(
             title = stringResource(mode.titleRes),
-            selected = draft.colorMode == mode,
-            onSelect = { editor.commit { it.copy(colorMode = mode) } },
+            selected = look.colorMode == mode,
+            onSelect = { editor.commit(look.edit { it.copy(colorMode = mode) }) },
             subtitle = stringResource(mode.descRes),
         )
     }
-    when (draft.colorMode) {
-        ColorMode.AUTO -> autoColorsSection(draft.autoColors, editor)
+    when (look.colorMode) {
+        ColorMode.AUTO -> autoColorsSection(look, editor)
 
         ColorMode.CUSTOM -> item {
+            val painted = { colors: List<Int> -> look.edit { it.copy(customColors = GlowPalette.Colors(colors)) } }
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 PaletteEditor(
-                    colors = draft.customColors,
-                    onPreview = { colors -> editor.preview { it.copy(customColors = colors) } },
-                    onCommit = { colors -> editor.persist { it.copy(customColors = colors) } },
+                    colors = look.customColors.argb,
+                    onPreview = { colors -> editor.preview(painted(colors)) },
+                    onCommit = { colors -> editor.persist(painted(colors)) },
                     modifier = Modifier.padding(16.dp),
                 )
             }
@@ -219,13 +218,15 @@ private fun LazyListScope.colorSection(draft: GlowSettings, editor: SettingsDraf
     }
 }
 
-private fun LazyListScope.autoColorsSection(auto: AutoColors, editor: SettingsDraft) {
+private fun LazyListScope.autoColorsSection(look: Look, editor: SettingsDraft) {
+    val auto = look.autoColors
+    fun count(v: Float) = look.edit { it.copy(autoColors = it.autoColors.copy(count = v.roundToInt())) }
     item { SectionTitle(stringResource(R.string.auto_colors_section)) }
     items(AutoColorSource.entries, key = { it.name }) { source ->
         RadioCard(
             title = stringResource(source.titleRes),
             selected = auto.source == source,
-            onSelect = { editor.commit { it.copy(autoColors = it.autoColors.copy(source = source)) } },
+            onSelect = { editor.commit(look.edit { it.copy(autoColors = it.autoColors.copy(source = source)) }) },
             subtitle = stringResource(source.descRes),
         )
     }
@@ -237,14 +238,15 @@ private fun LazyListScope.autoColorsSection(auto: AutoColors, editor: SettingsDr
             range = range.first.toFloat()..range.last.toFloat(),
             steps = range.last - range.first - 1,
             valueText = { stringResource(R.string.value_count, it.roundToInt()) },
-            onPreview = { v -> editor.preview { it.copy(autoColors = it.autoColors.copy(count = v.roundToInt())) } },
-            onCommit = { v -> editor.persist { it.copy(autoColors = it.autoColors.copy(count = v.roundToInt())) } },
+            onPreview = { v -> editor.preview(count(v)) },
+            onCommit = { v -> editor.persist(count(v)) },
         )
     }
 }
 
 private fun LazyListScope.tuningSection(
     draft: GlowSettings,
+    look: Look,
     editor: SettingsDraft,
     onDraggingScreenOff: (Boolean) -> Unit,
 ) {
@@ -252,44 +254,44 @@ private fun LazyListScope.tuningSection(
     item {
         SettingSlider(
             label = stringResource(R.string.thickness_label),
-            value = draft.thicknessDp,
+            value = look.thicknessDp,
             range = Ranges.thicknessDp,
             valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
-            onPreview = { v -> editor.preview { it.copy(thicknessDp = v) } },
-            onCommit = { v -> editor.persist { it.copy(thicknessDp = v) } },
+            onPreview = { v -> editor.preview(look.edit { it.copy(thicknessDp = v) }) },
+            onCommit = { v -> editor.persist(look.edit { it.copy(thicknessDp = v) }) },
         )
     }
     item {
         SettingSlider(
             label = stringResource(R.string.glow_width_label),
-            value = draft.glowWidthDp,
+            value = look.glowWidthDp,
             range = Ranges.glowWidthDp,
             valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
-            onPreview = { v -> editor.preview { it.copy(glowWidthDp = v) } },
-            onCommit = { v -> editor.persist { it.copy(glowWidthDp = v) } },
+            onPreview = { v -> editor.preview(look.edit { it.copy(glowWidthDp = v) }) },
+            onCommit = { v -> editor.persist(look.edit { it.copy(glowWidthDp = v) }) },
         )
     }
     item {
         SettingSlider(
             label = stringResource(R.string.speed_label),
-            value = draft.speed,
+            value = look.speed,
             range = Ranges.speed,
             valueText = { stringResource(R.string.value_multiplier, it) },
-            onPreview = { v -> editor.preview { it.copy(speed = v) } },
-            onCommit = { v -> editor.persist { it.copy(speed = v) } },
+            onPreview = { v -> editor.preview(look.edit { it.copy(speed = v) }) },
+            onCommit = { v -> editor.persist(look.edit { it.copy(speed = v) }) },
         )
     }
     item {
         SettingSlider(
             label = stringResource(R.string.brightness_label),
-            value = draft.brightness,
+            value = look.brightness,
             range = Ranges.brightness,
             valueText = { stringResource(R.string.value_percent, (it * 100).roundToInt()) },
-            onPreview = { v -> editor.preview { it.copy(brightness = v) } },
-            onCommit = { v -> editor.persist { it.copy(brightness = v) } },
+            onPreview = { v -> editor.preview(look.edit { it.copy(brightness = v) }) },
+            onCommit = { v -> editor.persist(look.edit { it.copy(brightness = v) }) },
         )
     }
-    screenOffBrightnessItems(draft, editor, onDraggingScreenOff)
+    screenOffBrightnessItems(draft, look, editor, onDraggingScreenOff)
     item {
         SettingSlider(
             label = stringResource(R.string.duration_label),
@@ -303,11 +305,12 @@ private fun LazyListScope.tuningSection(
 }
 
 /**
- * The lock-screen glow's own brightness: the same as on screen until the user unlinks it. [onDragging] reports its
- * slider's drag, so the live preview can show that brightness meanwhile.
+ * The lock-screen glow's own brightness: the same as on screen until the user unlinks it, then starting from
+ * [look]'s. [onDragging] reports its slider's drag, so the live preview can show that brightness meanwhile.
  */
 private fun LazyListScope.screenOffBrightnessItems(
     draft: GlowSettings,
+    look: Look,
     editor: SettingsDraft,
     onDragging: (Boolean) -> Unit,
 ) {
@@ -316,7 +319,7 @@ private fun LazyListScope.screenOffBrightnessItems(
             title = stringResource(R.string.screen_off_brightness_same_title),
             checked = draft.screenOffBrightness == null,
             onCheckedChange = { same ->
-                editor.commit { it.copy(screenOffBrightness = if (same) null else it.brightness) }
+                editor.commit { it.copy(screenOffBrightness = if (same) null else look.brightness) }
             },
             subtitle = stringResource(R.string.screen_off_brightness_same_desc),
         )

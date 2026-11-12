@@ -5,10 +5,11 @@ import app.rimlit.engine.Fixtures.CUSTOM
 import app.rimlit.engine.Fixtures.LOCK_SCREEN
 import app.rimlit.engine.Fixtures.SCREEN_OFF
 import app.rimlit.engine.Fixtures.UNLOCKED
+import app.rimlit.engine.Fixtures.custom
 import app.rimlit.engine.Fixtures.post
 import app.rimlit.model.AutoColors
-import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowPalette
+import app.rimlit.model.GlowSettings
 import app.rimlit.model.QuietScope
 import app.rimlit.model.GlowSpec
 import org.junit.Test
@@ -85,6 +86,13 @@ class GlowCoordinatorTest {
             opened += post.key to from
         }
 
+        /** The keys cleared from the shade. */
+        val cleared = mutableListOf<String>()
+
+        override fun cancelNotification(post: Post) {
+            cleared += post.key
+        }
+
         /** Runs every timer due within [ms], in order. */
         fun advance(ms: Long) {
             val until = now + ms
@@ -159,7 +167,7 @@ class GlowCoordinatorTest {
 
     @Test
     fun quietHoursFollowTheClockSampledAtEachPost() {
-        coordinator.settingsChanged(Fixtures.quiet(QuietScope.ALL).copy(colorMode = ColorMode.CUSTOM))
+        coordinator.settingsChanged(Fixtures.quiet(QuietScope.ALL).custom())
         driver.environment = UNLOCKED.copy(minuteOfDay = Fixtures.NIGHT)
         posted("a")
         assertNull(glow)
@@ -201,7 +209,7 @@ class GlowCoordinatorTest {
     fun theDriverExtractsWithThePostsAutoColours() {
         coordinator.settingsChanged(AUTO)
         posted("a")
-        assertEquals(listOf(AUTO.autoColors), driver.extractedWith)
+        assertEquals(listOf(AUTO.defaultLook.autoColors), driver.extractedWith)
     }
 
     @Test
@@ -308,5 +316,56 @@ class GlowCoordinatorTest {
         coordinator.surfaceOpened(Surface.LOCK_SCREEN, late)
         assertTrue(late.closed)
         assertFalse(driver.opens.size > 1)
+    }
+
+    /** An overlay glow up on [window], the one instance standing for its edge and pill windows. */
+    private fun onOverlay(window: Instance, settings: GlowSettings = CUSTOM) {
+        coordinator.settingsChanged(settings)
+        posted("a")
+        coordinator.surfaceOpened(Surface.APP_OVERLAY, window)
+        driver.advance(FADE_IN_MS)
+    }
+
+    @Test
+    fun aSwipeOnTheShownPillFadesItsGlowAndClosesBothWindowsAfter() {
+        val window = Instance()
+        onOverlay(window, CUSTOM.copy(swipeClears = true))
+
+        coordinator.dismissRequested(Surface.APP_OVERLAY, window)
+        assertEquals(listOf("a"), driver.cleared, "cleared with the toggle on")
+        assertEquals(false, coordinator.state.value?.frameFor(Surface.APP_OVERLAY)?.visible, "fading out")
+        assertFalse(window.closed, "the pill fades with the edge")
+
+        driver.advance(FADE_OUT_MS)
+        assertNull(glow)
+        assertTrue(window.closed)
+    }
+
+    @Test
+    fun aStaleInstancesSwipeEndsItButNotTheGlow() {
+        val shown = Instance()
+        onOverlay(shown, CUSTOM.copy(swipeClears = true))
+        val stale = Instance() // e.g. an earlier glow's windows whose removal hasn't landed yet
+
+        coordinator.dismissRequested(Surface.APP_OVERLAY, stale)
+        assertTrue(stale.closed)
+        assertTrue(driver.cleared.isEmpty())
+        assertEquals(true, coordinator.state.value?.frameFor(Surface.APP_OVERLAY)?.visible)
+        assertFalse(shown.closed)
+    }
+
+    @Test
+    fun aDoubleTapOnThePillOpensThroughItsWindows() {
+        val window = Instance()
+        onOverlay(window)
+
+        coordinator.openRequested(Surface.APP_OVERLAY, window)
+        assertEquals(listOf<Pair<String, SurfaceInstance>>("a" to window), driver.opened)
+        assertNull(glow)
+        assertFalse(window.closed, "handed over to the open, which closes it")
+
+        coordinator.dismissRequested(Surface.APP_OVERLAY, window)
+        assertTrue(window.closed, "a handed-over instance's swipe only closes it")
+        assertTrue(driver.cleared.isEmpty())
     }
 }

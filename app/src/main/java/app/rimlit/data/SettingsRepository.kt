@@ -16,16 +16,17 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.rimlit.model.AutoColors
 import app.rimlit.model.CustomCutout
+import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
-import app.rimlit.model.MAX_PALETTE_COLORS
+import app.rimlit.model.Look
 import app.rimlit.model.QuietHours
+import app.rimlit.model.Rule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import java.io.IOException
-import java.util.Locale
 
 private const val TAG = "SettingsRepository"
 
@@ -44,15 +45,13 @@ private val Context.dataStore by preferencesDataStore(
 
 private object Keys {
     val ENABLED = booleanPreferencesKey("enabled")
-    val GLOW_STYLE = stringPreferencesKey("glow_style")
-    val COLOR_MODE = stringPreferencesKey("color_mode")
-    val AUTO_COLOR_SOURCE = stringPreferencesKey("auto_color_source")
-    val AUTO_COLOR_COUNT = intPreferencesKey("auto_color_count")
-    val CUSTOM_COLORS = stringPreferencesKey("custom_colors")
-    val THICKNESS_DP = floatPreferencesKey("thickness_dp")
-    val GLOW_WIDTH_DP = floatPreferencesKey("glow_width_dp")
-    val SPEED = floatPreferencesKey("speed")
-    val BRIGHTNESS = floatPreferencesKey("brightness")
+
+    /** The looks as one JSON array (see `SettingsJson.kt`). */
+    val LOOKS = stringPreferencesKey("looks")
+    val DEFAULT_LOOK = stringPreferencesKey("default_look")
+
+    /** The per-app rules as one JSON object, by package name. */
+    val APP_RULES = stringPreferencesKey("app_rules")
     val SCREEN_OFF_BRIGHTNESS = floatPreferencesKey("screen_off_brightness")
     val DURATION_MS = longPreferencesKey("duration_ms")
     val BATTERY_SAVER = stringPreferencesKey("battery_saver")
@@ -60,11 +59,12 @@ private object Keys {
     val SHOW_ON_LOCK_SCREEN = booleanPreferencesKey("show_on_lock_screen")
     val SHOW_WHEN_UNLOCKED = booleanPreferencesKey("show_when_unlocked")
     val OPEN_ON_DOUBLE_TAP = booleanPreferencesKey("open_on_double_tap")
+    val SHOW_PILL = booleanPreferencesKey("show_pill")
+    val SWIPE_CLEARS = booleanPreferencesKey("swipe_clears")
     val QUIET_ENABLED = booleanPreferencesKey("quiet_enabled")
     val QUIET_START_MINUTE = intPreferencesKey("quiet_start_minute")
     val QUIET_END_MINUTE = intPreferencesKey("quiet_end_minute")
     val QUIET_SCOPE = stringPreferencesKey("quiet_scope")
-    val REGION = stringPreferencesKey("region")
     val CORNER_RADIUS_DP = floatPreferencesKey("corner_radius_dp")
 
     /** Present only while the cutout is drawn by hand; the other cutout keys are read only then. */
@@ -75,13 +75,32 @@ private object Keys {
     val CUTOUT_OFFSET_X_DP = floatPreferencesKey("cutout_offset_x_dp")
     val CUTOUT_OFFSET_Y_DP = floatPreferencesKey("cutout_offset_y_dp")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
-    val APP_PALETTES = stringSetPreferencesKey("app_palettes")
-
-    /** Pre-palette single custom color; read only to migrate into [CUSTOM_COLORS]. */
-    val LEGACY_CUSTOM_COLOR = longPreferencesKey("custom_color_argb")
 
     /** One toggle for both locked places; read only to migrate into [SHOW_WHEN_SCREEN_OFF], [SHOW_ON_LOCK_SCREEN]. */
     val LEGACY_SHOW_WHEN_LOCKED = booleanPreferencesKey("show_when_locked")
+
+    /** The one global look and the per-app palettes before looks; read only to migrate into [LOOKS], [APP_RULES]. */
+    object PreLooks {
+        val GLOW_STYLE = stringPreferencesKey("glow_style")
+        val COLOR_MODE = stringPreferencesKey("color_mode")
+        val AUTO_COLOR_SOURCE = stringPreferencesKey("auto_color_source")
+        val AUTO_COLOR_COUNT = intPreferencesKey("auto_color_count")
+        val CUSTOM_COLORS = stringPreferencesKey("custom_colors")
+
+        /** Pre-palette single custom color; read only to migrate into [CUSTOM_COLORS]'s place. */
+        val CUSTOM_COLOR = longPreferencesKey("custom_color_argb")
+        val REGION = stringPreferencesKey("region")
+        val THICKNESS_DP = floatPreferencesKey("thickness_dp")
+        val GLOW_WIDTH_DP = floatPreferencesKey("glow_width_dp")
+        val SPEED = floatPreferencesKey("speed")
+        val BRIGHTNESS = floatPreferencesKey("brightness")
+        val APP_PALETTES = stringSetPreferencesKey("app_palettes")
+
+        val all = listOf(
+            GLOW_STYLE, COLOR_MODE, AUTO_COLOR_SOURCE, AUTO_COLOR_COUNT, CUSTOM_COLORS, CUSTOM_COLOR, REGION,
+            THICKNESS_DP, GLOW_WIDTH_DP, SPEED, BRIGHTNESS, APP_PALETTES,
+        )
+    }
 }
 
 /** Single source of truth for user settings, backed by Preferences DataStore. */
@@ -133,6 +152,8 @@ private fun Preferences.toSettings() = GlowSettings(
     showOnLockScreen = lockedToggle(Keys.SHOW_ON_LOCK_SCREEN, defaults.showOnLockScreen),
     showWhenUnlocked = valueOr(Keys.SHOW_WHEN_UNLOCKED, defaults.showWhenUnlocked),
     openOnDoubleTap = valueOr(Keys.OPEN_ON_DOUBLE_TAP, defaults.openOnDoubleTap),
+    showPill = valueOr(Keys.SHOW_PILL, defaults.showPill),
+    swipeClears = valueOr(Keys.SWIPE_CLEARS, defaults.swipeClears),
     quietHours = QuietHours(
         enabled = valueOr(Keys.QUIET_ENABLED, defaults.quietHours.enabled),
         startMinute = clamped(Keys.QUIET_START_MINUTE, defaults.quietHours.startMinute, Ranges.minuteOfDay),
@@ -182,17 +203,11 @@ private fun <T> MutablePreferences.setOrRemove(key: Preferences.Key<T>, value: T
     if (value != null) this[key] = value else remove(key)
 }
 
-private fun MutablePreferences.write(settings: GlowSettings) {
+internal fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.ENABLED] = settings.enabled
-    this[Keys.GLOW_STYLE] = settings.glowStyle.name
-    this[Keys.COLOR_MODE] = settings.colorMode.name
-    this[Keys.AUTO_COLOR_SOURCE] = settings.autoColors.source.name
-    this[Keys.AUTO_COLOR_COUNT] = settings.autoColors.count
-    this[Keys.CUSTOM_COLORS] = encodePalette(settings.customColors)
-    this[Keys.THICKNESS_DP] = settings.thicknessDp
-    this[Keys.GLOW_WIDTH_DP] = settings.glowWidthDp
-    this[Keys.SPEED] = settings.speed
-    this[Keys.BRIGHTNESS] = settings.brightness
+    this[Keys.LOOKS] = encodeLooks(settings.looks)
+    this[Keys.DEFAULT_LOOK] = settings.defaultLookId
+    this[Keys.APP_RULES] = encodeRules(settings.appRules)
     setOrRemove(Keys.SCREEN_OFF_BRIGHTNESS, settings.screenOffBrightness)
     this[Keys.DURATION_MS] = settings.durationMs
     this[Keys.BATTERY_SAVER] = settings.batterySaver.name
@@ -200,11 +215,12 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.SHOW_ON_LOCK_SCREEN] = settings.showOnLockScreen
     this[Keys.SHOW_WHEN_UNLOCKED] = settings.showWhenUnlocked
     this[Keys.OPEN_ON_DOUBLE_TAP] = settings.openOnDoubleTap
+    this[Keys.SHOW_PILL] = settings.showPill
+    this[Keys.SWIPE_CLEARS] = settings.swipeClears
     this[Keys.QUIET_ENABLED] = settings.quietHours.enabled
     this[Keys.QUIET_START_MINUTE] = settings.quietHours.startMinute
     this[Keys.QUIET_END_MINUTE] = settings.quietHours.endMinute
     this[Keys.QUIET_SCOPE] = settings.quietHours.scope.name
-    this[Keys.REGION] = settings.region.name
     setOrRemove(Keys.CORNER_RADIUS_DP, settings.cornerRadiusDp)
     val cutout = settings.customCutout
     setOrRemove(Keys.CUTOUT_SHAPE, cutout?.shape?.name)
@@ -214,25 +230,6 @@ private fun MutablePreferences.write(settings: GlowSettings) {
     setOrRemove(Keys.CUTOUT_OFFSET_X_DP, cutout?.offsetXDp)
     setOrRemove(Keys.CUTOUT_OFFSET_Y_DP, cutout?.offsetYDp)
     this[Keys.BLOCKED_PACKAGES] = settings.blockedPackages
-    this[Keys.APP_PALETTES] = settings.appPalettes.map { (pkg, colors) -> "$pkg=${encodePalette(colors)}" }.toSet()
-    remove(Keys.LEGACY_CUSTOM_COLOR)
     remove(Keys.LEGACY_SHOW_WHEN_LOCKED)
+    Keys.PreLooks.all.forEach { remove(it) }
 }
-
-private inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E =
-    this?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
-
-/** Palettes are stored as comma-separated 8-digit ARGB hex, e.g. `ff00bcd4,ffe040fb`. */
-private fun encodePalette(colors: List<Int>): String = colors.joinToString(",") { "%08x".format(Locale.ROOT, it) }
-
-private fun decodePalette(encoded: String): List<Int>? = encoded.split(',')
-    .mapNotNull { it.toLongOrNull(16)?.toInt() }
-    .take(MAX_PALETTE_COLORS)
-    .ifEmpty { null }
-
-/** Entries are `package=palette`; package names never contain `=`. */
-private fun decodeAppPalettes(entries: Set<String>): Map<String, List<Int>> = entries.mapNotNull { entry ->
-    val pkg = entry.substringBefore('=', missingDelimiterValue = "")
-    val palette = decodePalette(entry.substringAfter('='))
-    if (pkg.isEmpty() || palette == null) null else pkg to palette
-}.toMap()
