@@ -123,12 +123,19 @@ data class GlowSettings(
         copy(looks = looks.map { if (it.id == id) edit(it) else it })
 
     /**
-     * The one place a notification's look and colors are chosen: [packageName]'s rule, then the default look (also
-     * when the rule names a look that no longer exists). A palette rule paints the default look; otherwise the look's
-     * own colors apply, and auto colors need [extracted] (see [Resolution.Extract]).
+     * [packageName]'s rule as it applies: `null`, the default look, when it has none or its rule names a look that no
+     * longer exists.
+     */
+    fun ruleFor(packageName: String): Rule? =
+        appRules[packageName]?.takeUnless { it is Rule.UseLook && look(it.lookId) == null }
+
+    /**
+     * The one place a notification's look and colors are chosen: [packageName]'s rule as it applies (see [ruleFor]),
+     * else the default look. A palette rule paints the default look; otherwise the look's own colors apply, and auto
+     * colors need [extracted] (see [Resolution.Extract]).
      */
     fun resolve(packageName: String, extracted: List<Int>? = null): Resolution {
-        val rule = appRules[packageName]
+        val rule = ruleFor(packageName)
         val look = (rule as? Rule.UseLook)?.let { look(it.lookId) } ?: defaultLook
         val palette = (rule as? Rule.UsePalette)?.palette
             ?: look.palette

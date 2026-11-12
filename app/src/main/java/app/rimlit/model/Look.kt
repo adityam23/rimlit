@@ -44,9 +44,19 @@ data class Look(
         }
 }
 
-/** A look name is 1–30 characters, with no leading or trailing blanks. */
-fun isValidLookName(name: String): Boolean =
-    name.length in GlowSettings.Ranges.lookNameLength && name.isNotBlank() && name == name.trim()
+/** A look name is 1–30 characters, with no leading or trailing blanks and no broken (unpaired) surrogate. */
+fun isValidLookName(name: String): Boolean = name.length in GlowSettings.Ranges.lookNameLength &&
+    name.isNotBlank() &&
+    name == name.trim() &&
+    name.codePoints().noneMatch { it in Char.MIN_SURROGATE.code..Char.MAX_SURROGATE.code }
+
+/** [text] cut to a look name's maximum length, never inside a surrogate pair (an emoji), and trimmed. */
+fun fitLookName(text: String): String {
+    val max = GlowSettings.Ranges.lookNameLength.last
+    if (text.length <= max) return text.trim()
+    val splitsPair = text[max - 1].isHighSurrogate() && text[max].isLowSurrogate()
+    return text.take(if (splitsPair) max - 1 else max).trim()
+}
 
 /** Look names are unique regardless of case, so two looks never read the same in a list. */
 fun lookNameKey(name: String): String = name.lowercase(Locale.ROOT)
