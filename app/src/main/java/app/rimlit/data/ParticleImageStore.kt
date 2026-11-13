@@ -29,9 +29,13 @@ internal const val PARTICLE_IMAGE_PX = 128
 /** The most bytes read from a picked image: more than any phone photo, far less than a decompression bomb. */
 internal const val MAX_IMPORT_BYTES = 24 * 1024 * 1024
 
-/** The largest side and pixel count an image may claim in its header; anything bigger is rejected unread. */
+/**
+ * The largest side and pixel count an image may claim in its header; anything bigger is rejected unread. The pixel
+ * count admits a 50 MP phone photo (8192 × 6144) and little more: a format that can't be sampled down as it is read
+ * decodes in full first, at four bytes a pixel.
+ */
 internal const val MAX_IMPORT_SIDE = 16_384
-internal const val MAX_IMPORT_PIXELS = 100_000_000L
+internal const val MAX_IMPORT_PIXELS = 51_000_000L
 
 /** A stored image larger than this isn't one of ours (a 128 px PNG is well under it): it is never decoded. */
 internal const val MAX_STORED_BYTES = 512 * 1024
@@ -90,7 +94,7 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
         return File(dir, id + EXTENSION).takeIf { it.isFile && it.length() <= MAX_STORED_BYTES }
     }
 
-    /** Deletes every stored file but the images [keep] names. */
+    /** Deletes every stored file but the images [keep] names. Only for [deleteUnusedParticleImages]. */
     suspend fun retainOnly(keep: Set<String>) = withContext(io) {
         val names = dir.list() ?: return@withContext
         for (name in unreferencedFiles(names.asList(), keep)) {
@@ -117,8 +121,10 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
 /**
  * [bytes] decoded at the size [fittedSize] gives (the decoder samples it down as it reads, so a large photo never
  * decodes in full), centred on a transparent [PARTICLE_IMAGE_PX] square.
+ *
+ * @throws IOException when it doesn't decode, claims a size past the caps, or needs more memory than there is.
  */
-private fun decodeSquare(bytes: ByteBuffer): Bitmap {
+private fun decodeSquare(bytes: ByteBuffer): Bitmap = try {
     val image = ImageDecoder.decodeBitmap(ImageDecoder.createSource(bytes)) { decoder, info, _ ->
         val size = fittedSize(info.size.width, info.size.height) ?: throw IOException("Image too large: ${info.size}")
         decoder.setTargetSize(size.first, size.second)
@@ -126,12 +132,17 @@ private fun decodeSquare(bytes: ByteBuffer): Bitmap {
         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
         decoder.setTargetColorSpace(ColorSpace.get(ColorSpace.Named.SRGB))
     }
-    return createBitmap(PARTICLE_IMAGE_PX, PARTICLE_IMAGE_PX).also { square ->
+    createBitmap(PARTICLE_IMAGE_PX, PARTICLE_IMAGE_PX).also { square ->
         val left = (PARTICLE_IMAGE_PX - image.width) / 2f
         val top = (PARTICLE_IMAGE_PX - image.height) / 2f
         Canvas(square).drawBitmap(image, left, top, Paint(Paint.FILTER_BITMAP_FLAG))
         image.recycle()
     }
+} catch (e: OutOfMemoryError) {
+    // An image within the caps can still be more than this device can decode (one that decodes in full before it is
+    // scaled). The failed allocation is the decoder's own, so nothing is left half-done: the image is refused like
+    // any other that doesn't decode, and logged with this cause by the importer, instead of ending the process.
+    throw IOException("Out of memory decoding the image", e)
 }
 
 /**
