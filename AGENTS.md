@@ -77,6 +77,7 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 - `app/proguard-rules.pro` — R8 rules; currently empty because AAPT2 already keeps manifest-declared components. Add rules only for code reached by reflection.
 - `.github/workflows/ci.yml` — CI: lint/detekt/test/debug build on every PR and push; on `main`, when `versionName` has no release yet, a signed release APK published as a GitHub Release tagged `v<versionName>`, which F-Droid then builds and checks its own build against (full signing setup in `docs/RELEASING.md`).
 - `README.md` — public overview, screenshots, install and build basics.
+- `fastlane/metadata/android/en-US/` — the store listing F-Droid reads at each release tag: `title.txt`, `short_description.txt` (80 characters at most, no full stop), `full_description.txt` (plain text and simple HTML, no Markdown), `images/icon.png` (the launcher icon at 512 px), `images/phoneScreenshots/` (also the README's screenshots) and `changelogs/<versionCode>.txt` (500 characters at most; add one with every version bump).
 - `docs/` — gitignored maintainer docs, e.g. `docs/RELEASING.md` (full signing-key setup). May be absent in a fresh clone; never commit it.
 - `HANDOFF.md` — gitignored maintainer notes: status, architecture, contracts, gotchas, roadmap. Read it first; never commit it or copy it into tracked files.
 - `TIMELINE.md` — gitignored decision log: each non-obvious decision, dated, with its reason. Read it before designing a change and update it before implementing one; never commit it.

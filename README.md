@@ -4,7 +4,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 
 | Home | Style | On screen | Screen off |
 |---|---|---|---|
-| ![Home screen](screenshots/home.png) | ![Style screen with live preview](screenshots/style.png) | ![Glow over the launcher](screenshots/overlay.png) | ![Always-on-display style glow](screenshots/lock-screen.png) |
+| ![Home screen](fastlane/metadata/android/en-US/images/phoneScreenshots/1_home.png) | ![Style screen with live preview](fastlane/metadata/android/en-US/images/phoneScreenshots/2_style.png) | ![Glow over the launcher](fastlane/metadata/android/en-US/images/phoneScreenshots/3_overlay.png) | ![Always-on-display style glow](fastlane/metadata/android/en-US/images/phoneScreenshots/4_lock-screen.png) |
 
 ## Features
 
