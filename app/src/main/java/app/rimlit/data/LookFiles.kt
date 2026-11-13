@@ -2,6 +2,8 @@ package app.rimlit.data
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
+import android.util.Log
 import androidx.core.content.FileProvider
 import app.rimlit.model.Look
 import app.rimlit.model.particleImageIds
@@ -9,11 +11,18 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.UUID
 
 /** The MIME type of a look file: it is a zip. */
 const val LOOK_FILE_MIME = "application/zip"
+
+/**
+ * The MIME type a look file is saved as and may come back as: saved as a zip, a documents provider appends `.zip`
+ * to [LOOK_FILE_NAME], and some file managers and messaging apps label a zip with an unknown extension like this.
+ */
+const val LOOK_DOCUMENT_MIME = "application/octet-stream"
 
 /** The name a look file is saved and shared under. */
 const val LOOK_FILE_NAME = "Rimlit looks.rimlit"
@@ -48,11 +57,34 @@ class LookFiles(
 ) {
     private val resolver = context.contentResolver
 
-    /** Writes [looks], with their images, to the document [uri]; an [IOException] when it can't be written. */
+    /**
+     * Writes [looks], with their images, to the document [uri]; an [IOException] when it can't be written, and the
+     * document is then deleted, so no empty or cut-off file is left where the user saved it.
+     */
     suspend fun export(looks: List<Look>, uri: Uri) = withContext(io) {
-        val archive = archiveOf(looks)
-        resolver.openOutputStream(uri, "wt")?.use { writeLookArchive(archive, it) }
-            ?: throw IOException("Couldn't open the document")
+        try {
+            val archive = archiveOf(looks)
+            resolver.openOutputStream(uri, "wt")?.use { writeLookArchive(archive, it) }
+                ?: throw IOException("Couldn't open the document")
+        } catch (e: IOException) {
+            delete(uri)
+            throw e
+        }
+    }
+
+    /**
+     * Deletes the document [uri], if its provider lets it. A documents provider is another app's code: whatever it
+     * throws, the failed export is what gets reported, with this logged.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun delete(uri: Uri) {
+        try {
+            if (!DocumentsContract.deleteDocument(resolver, uri)) Log.w(TAG, "The failed export's document stays")
+        } catch (e: FileNotFoundException) {
+            Log.i(TAG, "The failed export's document is already gone", e)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Couldn't delete the failed export's document", e)
+        }
     }
 
     /**
@@ -76,6 +108,10 @@ class LookFiles(
         looks = looks,
         images = looks.particleImageIds.associateWith { images.read(it) ?: throw IOException("An image is missing") },
     )
+
+    private companion object {
+        const val TAG = "LookFiles"
+    }
 }
 
 /**

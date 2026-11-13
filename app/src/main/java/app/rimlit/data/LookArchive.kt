@@ -37,8 +37,13 @@ internal const val MAX_ARCHIVE_ENTRIES = 64
 /** The most bytes `looks.json` expands to: 10 looks take a few kilobytes. */
 internal const val MAX_LOOKS_JSON_BYTES = 256 * 1024
 
-/** JSON nested deeper than this isn't a look file; the parser recurses, so a deeper one could overflow its stack. */
-private const val MAX_JSON_DEPTH = 16
+/**
+ * JSON opening more arrays and objects than this isn't a look file: ten looks open well under a hundred. The parser
+ * recurses once per nested one, so deep nesting could overflow its stack. Every `[` and `{` counts, wherever it
+ * stands: Android's parser also takes single-quoted strings and comments, so what is "inside a string" is its call,
+ * and a bound that depended on it could be talked past.
+ */
+internal const val MAX_JSON_OPENERS = 256
 
 private const val MAX_IMAGES = MAX_LOOKS * MAX_PARTICLE_IMAGES
 private const val LOOKS_ENTRY = "looks.json"
@@ -153,33 +158,14 @@ private fun decodeArchive(json: ByteArray, images: Map<Int, ByteArray>): LookArc
     return LookArchive(looks, bytes.filterKeys { it in looks.particleImageIds })
 }
 
-/** The JSON object [text] holds, refused when malformed or nested deeper than [MAX_JSON_DEPTH]. */
+/** The JSON object [text] holds, refused when malformed or opening more than [MAX_JSON_OPENERS] arrays and objects. */
 private fun parseObject(text: String): JSONObject {
-    if (jsonDepth(text) > MAX_JSON_DEPTH) invalid("Nested too deep")
+    if (text.count { it == '[' || it == '{' } > MAX_JSON_OPENERS) invalid("Too many arrays and objects")
     return try {
         JSONObject(text)
     } catch (e: JSONException) {
         invalid("Malformed $LOOKS_ENTRY", e)
     }
-}
-
-/** How deeply [json]'s arrays and objects nest, outside its strings. */
-private fun jsonDepth(json: String): Int {
-    var depth = 0
-    var deepest = 0
-    var inString = false
-    var escaped = false
-    for (c in json) {
-        when {
-            escaped -> escaped = false
-            inString && c == '\\' -> escaped = true
-            c == '"' -> inString = !inString
-            inString -> Unit
-            c == '[' || c == '{' -> deepest = maxOf(deepest, ++depth)
-            c == ']' || c == '}' -> depth--
-        }
-    }
-    return deepest
 }
 
 /** [input], failing with a [LookArchiveException] once more than [cap] bytes are read from it. */

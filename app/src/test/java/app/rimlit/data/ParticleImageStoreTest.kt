@@ -3,9 +3,22 @@ package app.rimlit.data
 import app.rimlit.model.newParticleImageId
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ParticleImageStoreTest {
+
+    @Test
+    fun aLookFilesImageMustBeWhatAnExportWrites() {
+        val side = PARTICLE_IMAGE_PX
+        assertTrue(isExportedImage(side, side, "image/png"))
+        assertFalse(isExportedImage(side, side, "image/jpeg"), "another format")
+        assertFalse(isExportedImage(side, side, "image/heif"), "another format")
+        assertFalse(isExportedImage(side * 2, side, "image/png"), "another size")
+        assertFalse(isExportedImage(8_192, 6_144, "image/png"), "a photo: fine to pick, never in a look file")
+        assertFalse(isExportedImage(MAX_IMPORT_SIDE, MAX_IMPORT_SIDE, "image/png"), "a decompression bomb")
+    }
 
     @Test
     fun imagesFitTheSquareKeepingTheirShape() {

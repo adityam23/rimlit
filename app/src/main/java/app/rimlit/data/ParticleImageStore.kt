@@ -69,12 +69,12 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
     }
 
     /**
-     * Imports the image [bytes] (untrusted: from a shared look file) as a picked image is imported; its id, or `null`
-     * when it doesn't decode.
+     * Imports the image [bytes] (untrusted: from a shared look file) as a picked image is imported, but only if it is
+     * what an export writes (see [isExportedImage]); its id, or `null` when it isn't, or doesn't decode.
      */
     suspend fun import(bytes: ByteArray): String? = withContext(io) {
         try {
-            save(decodeSquare(ByteBuffer.wrap(bytes)))
+            save(decodeSquare(ByteBuffer.wrap(bytes), exported = true))
         } catch (e: IOException) {
             Log.w(TAG, "Skipping a shared image", e)
             null
@@ -122,10 +122,15 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
  * [bytes] decoded at the size [fittedSize] gives (the decoder samples it down as it reads, so a large photo never
  * decodes in full), centred on a transparent [PARTICLE_IMAGE_PX] square.
  *
+ * With [exported], only an image as Rimlit exports one is decoded at all (see [isExportedImage]).
+ *
  * @throws IOException when it doesn't decode, claims a size past the caps, or needs more memory than there is.
  */
-private fun decodeSquare(bytes: ByteBuffer): Bitmap = try {
+private fun decodeSquare(bytes: ByteBuffer, exported: Boolean = false): Bitmap = try {
     val image = ImageDecoder.decodeBitmap(ImageDecoder.createSource(bytes)) { decoder, info, _ ->
+        if (exported && !isExportedImage(info.size.width, info.size.height, info.mimeType)) {
+            throw IOException("Not an image Rimlit exported: ${info.mimeType}, ${info.size}")
+        }
         val size = fittedSize(info.size.width, info.size.height) ?: throw IOException("Image too large: ${info.size}")
         decoder.setTargetSize(size.first, size.second)
         // A software bitmap in sRGB, to draw onto the square; animated images decode their first frame.
@@ -144,6 +149,14 @@ private fun decodeSquare(bytes: ByteBuffer): Bitmap = try {
     // any other that doesn't decode, and logged with this cause by the importer, instead of ending the process.
     throw IOException("Out of memory decoding the image", e)
 }
+
+/**
+ * An image as Rimlit exports one, by its header: a PNG of exactly the stored square. A look file's images are held to
+ * this instead of a photo's caps: a few hundred kilobytes of PNG can claim tens of megapixels, and a file carries
+ * dozens of images, so anything else is refused before a pixel is decoded.
+ */
+internal fun isExportedImage(width: Int, height: Int, mimeType: String): Boolean =
+    width == PARTICLE_IMAGE_PX && height == PARTICLE_IMAGE_PX && mimeType == "image/png"
 
 /**
  * The size an image of [width] × [height] decodes at: scaled to fit a [side] square, keeping its shape; `null` when

@@ -1,5 +1,6 @@
 package app.rimlit.ui
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.data.LOOK_DOCUMENT_MIME
 import app.rimlit.data.LOOK_FILE_MIME
 import app.rimlit.data.LOOK_FILE_NAME
 import app.rimlit.data.LookArchive
@@ -87,9 +89,10 @@ internal fun rememberLookSharing(viewModel: MainViewModel): LookSharing {
     val context = LocalContext.current
     // The application's for the toast: the result may arrive after this screen is gone.
     val report = { result: LookFileResult -> context.applicationContext.report(result) }
-    // The looks picked for export while the system asks where to save them.
-    var exporting by remember { mutableStateOf(emptySet<String>()) }
-    val createDocument = rememberLauncherForActivityResult(CreateDocument(LOOK_FILE_MIME)) { uri ->
+    // The looks picked for export while the system asks where to save them; saved, since the activity may be
+    // recreated meanwhile, and the document then already exists, waiting to be written.
+    var exporting by rememberSaveable { mutableStateOf(emptySet<String>()) }
+    val createDocument = rememberLauncherForActivityResult(CreateDocument(LOOK_DOCUMENT_MIME)) { uri ->
         if (uri != null && exporting.isNotEmpty()) viewModel.exportLooks(exporting, uri, report)
     }
     val openDocument = rememberLauncherForActivityResult(OpenDocument()) { uri ->
@@ -107,12 +110,16 @@ internal fun rememberLookSharing(viewModel: MainViewModel): LookSharing {
                 }
 
                 LookSharing.Sending.SHARE -> viewModel.shareLooks(ids) { result ->
-                    if (result is LookFileResult.Shareable) context.share(result.uri) else report(result)
+                    // The application's, as for the toast: the file may be ready after this activity is gone.
+                    if (result is LookFileResult.Shareable) {
+                        context.applicationContext.share(result.uri)
+                    } else {
+                        report(result)
+                    }
                 }
             }
         },
-        // Some file managers and messaging apps label a zip with an unknown extension as a generic binary.
-        onOpen = { openDocument.launch(arrayOf(LOOK_FILE_MIME, "application/octet-stream")) },
+        onOpen = { openDocument.launch(arrayOf(LOOK_FILE_MIME, LOOK_DOCUMENT_MIME)) },
         onImportPicked = { ids -> viewModel.importPicked(ids, report) },
         onCancelImport = viewModel::cancelImport,
     )
@@ -185,13 +192,19 @@ private fun LookChecklistDialog(
     )
 }
 
-/** Opens the share sheet for the look file at [uri], granting the app it is sent to read access to it alone. */
+/**
+ * Opens the share sheet for the look file at [uri], granting the app it is sent to read access to it alone. The URI
+ * is also the intent's clip data, which is what carries the grant and lets the sheet show the file. From any context:
+ * the sheet opens in its own task.
+ */
 private fun Context.share(uri: Uri) {
     val send = Intent(Intent.ACTION_SEND)
         .setType(LOOK_FILE_MIME)
         .putExtra(Intent.EXTRA_STREAM, uri)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    startActivity(Intent.createChooser(send, getString(R.string.looks_share_title)))
+    send.clipData = ClipData.newRawUri(null, uri)
+    val chooser = Intent.createChooser(send, getString(R.string.looks_share_title))
+    startActivity(chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
 /** Says how [result] ended, in a toast; nothing for a file ready to share, which opens the share sheet instead. */

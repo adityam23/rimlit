@@ -6,6 +6,7 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
+import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
 import app.rimlit.model.ParticlePicture
@@ -27,6 +28,7 @@ import kotlin.random.Random
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 /** Look files: what is written reads back, and a hostile file is refused or its extras ignored, never trusted. */
 class LookArchiveTest {
@@ -178,14 +180,33 @@ class LookArchiveTest {
         assertRefused(Problem.INVALID, zip("looks.json" to "{\"version\": 1, \"looks\": [".toByteArray(), *imageEntries()))
         assertRefused(Problem.INVALID, zip("looks.json" to "[]".toByteArray()))
         assertRefused(Problem.INVALID, zip("looks.json" to byteArrayOf(-1, -2, 0, 7)))
-        // Nested far deeper than the parser's stack would take: refused before it is parsed.
-        val deep = "{\"version\":1,\"x\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}"
-        assertRefused(Problem.INVALID, zip("looks.json" to deep.toByteArray()))
+        // Nested far deeper than the parser's stack would take: refused before it is parsed. Android's parser also
+        // takes single-quoted strings and comments, so a quote inside one must not hide the nesting from the bound.
+        val nesting = "[".repeat(100_000) + "]".repeat(100_000)
+        val deep = listOf(
+            "{\"version\":1,\"x\":$nesting}",
+            "{\"version\":1,'\"':$nesting}",
+            "{\"version\":1,/*\"*/\"x\":$nesting}",
+            "{\"version\":1,\"x\":// \"\n$nesting}",
+            "{\"version\":1,\"x\":# \"\n$nesting}",
+        )
+        for (json in deep) assertRefused(Problem.INVALID, zip("looks.json" to json.toByteArray()))
         // Damaged compressed data: it fails to inflate, or its checksum doesn't match.
         val damaged = written(archive).also { bytes -> for (i in 40..60) bytes[i] = (bytes[i].toInt() xor 0xff).toByte() }
         assertRefused(Problem.INVALID, damaged)
         assertRefused(Problem.INVALID, Random(1).nextBytes(4096))
         assertRefused(Problem.INVALID, ByteArray(0))
+    }
+
+    @Test
+    fun aFullLibraryIsWellWithinTheNestingBound() {
+        val full = LookArchive(
+            looks = List(MAX_LOOKS) { photos.copy(id = "look$it", name = "Look $it") },
+            images = archive.images,
+        )
+        assertEquals(full.looks, read(written(full)).looks)
+        val openers = json(looks = full.looks).toString().count { it == '[' || it == '{' }
+        assertTrue(openers * 2 < MAX_JSON_OPENERS, "$openers arrays and objects in the largest file")
     }
 
     @Test
