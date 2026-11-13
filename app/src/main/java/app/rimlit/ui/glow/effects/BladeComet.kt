@@ -11,7 +11,7 @@ import kotlin.math.floor
 /** Blade laps per second at speed 1. */
 private const val BLADE_LAPS_PER_SECOND = 0.45f
 
-/** Blade tail as a fraction of the outline length. */
+/** Blade tail at full speed, as a fraction of the outline length. */
 internal const val BLADE_TAIL = 0.25f
 
 /** Arc length over which the blade's core cuts off at its head: a crisp front edge. */
@@ -38,25 +38,23 @@ internal fun OutlineBrush.drawBladeTrack(canvas: Canvas, t: Float): Shader? =
  * halo following it. Built once per spec and layout; a frame allocates only shaders.
  */
 internal class BladeComet(private val brush: OutlineBrush) {
-    private val fade = BladeFade(
-        brush.geometry,
-        tail = BLADE_TAIL * brush.geometry.length,
-        color = brush.solidColor ?: Color.WHITE,
-    )
+    private val fade = BladeFade(brush.geometry, color = brush.solidColor ?: Color.WHITE)
 
     /**
      * Draws the comet colored by [palette], its head at arc distance [head], travelling [clockwise] or against the
-     * outline; only the part between arc distances [from] and [to] shows (see [BladeFade.moveTo]).
+     * outline, its tail a fraction [tail] of the outline long; only the part between arc distances [from] and [to]
+     * shows (see [BladeFade.moveTo]).
      */
     fun draw(
         canvas: Canvas,
         palette: Shader?,
         head: Float,
         clockwise: Boolean,
+        tail: Float = BLADE_TAIL,
         from: Float = Float.NEGATIVE_INFINITY,
         to: Float = Float.POSITIVE_INFINITY,
     ) {
-        fade.moveTo(head, clockwise, from, to)
+        fade.moveTo(head, tail * brush.geometry.length, clockwise, from, to)
         brush.drawBloom(canvas, comet(fade.shader(edge = brush.glowPx), palette), HALO_ALPHA)
         brush.drawOutline(canvas, comet(fade.shader(edge = CRISP_EDGE_PX), palette), 1f)
     }

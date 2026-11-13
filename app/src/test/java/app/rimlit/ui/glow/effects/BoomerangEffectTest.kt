@@ -45,6 +45,36 @@ class BoomerangEffectTest {
     }
 
     @Test
+    fun itsTailIsAsLongAsItsHeadIsFast() {
+        val step = 1e-3f
+        val fastest = abs(boomerangLap(0.5f + step) - boomerangLap(0.5f))
+        assertEquals(BLADE_TAIL, boomerangTail(0.5f), 1e-6f, "a whole tail mid-sweep, on the way out")
+        assertEquals(BLADE_TAIL, boomerangTail(1.5f), 1e-6f, "and on the way back")
+        for (turn in listOf(0f, 1f, 2f, 3f)) assertEquals(0f, boomerangTail(turn), 1e-6f, "no tail at $turn laps")
+        for (i in 0 until 4_000) {
+            val laps = i * step
+            val speed = abs(boomerangLap(laps + step) - boomerangLap(laps)) / fastest
+            assertEquals(speed, boomerangTail(laps + step / 2) / BLADE_TAIL, 1e-2f, "tail at $laps laps")
+        }
+    }
+
+    @Test
+    fun itsTailNeverJumpsNotEvenAtTheTurns() {
+        // The tail's end, as a fraction of the lap past the anchor: behind the head, whichever way it travels.
+        fun tailEnd(laps: Float) =
+            boomerangLap(laps) + boomerangTail(laps) * if (boomerangClockwise(laps)) -1f else 1f
+
+        val step = 1e-3f
+        val fastest = abs(boomerangLap(0.5f + step) - boomerangLap(0.5f))
+        for (i in 0 until 6_000) {
+            val laps = i * step
+            val move = abs(tailEnd(laps + step) - tailEnd(laps))
+            // The tail's end moves with the head while the tail shrinks or grows: never twice as fast as the head.
+            assertTrue(move <= 2 * fastest, "the tail jumped $move at $laps laps")
+        }
+    }
+
+    @Test
     fun itsDirectionFlipsAtEachTurnAndMatchesItsMotion() {
         assertTrue(boomerangClockwise(0f))
         assertTrue(boomerangClockwise(0.999f))
