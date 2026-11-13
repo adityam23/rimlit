@@ -31,4 +31,7 @@ internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (t
     GlowStyle.LOOP -> if (brush.still) GlowEffect(brush) else TwinBladesEffect(brush, TwinMode.LOOP)
 
     GlowStyle.MIRROR -> if (brush.still) GlowEffect(brush) else TwinBladesEffect(brush, TwinMode.MIRROR)
+
+    // No edge: the look shows its particles alone.
+    GlowStyle.NONE -> GlowEffectPainter { _, _ -> }
 }

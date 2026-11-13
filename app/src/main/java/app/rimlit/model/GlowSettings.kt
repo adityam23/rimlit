@@ -1,7 +1,10 @@
 package app.rimlit.model
 
-/** Visual treatment of the edge glow shown when a notification arrives. */
-enum class GlowStyle { BASIC, GLOW, BLADE, WAVE, GLITTER, ECHO, LOOP, MIRROR }
+/**
+ * Visual treatment of the edge glow shown when a notification arrives. [NONE] draws no edge, so a look can show its
+ * particles alone.
+ */
+enum class GlowStyle { BASIC, GLOW, BLADE, WAVE, GLITTER, ECHO, LOOP, MIRROR, NONE }
 
 /**
  * Where the glow is drawn: around the screen edge, the camera cutout, or both. Without a camera cutout, the
@@ -130,12 +133,19 @@ data class GlowSettings(
         copy(looks = looks.map { if (it.id == id) edit(it) else it })
 
     /**
-     * The one place a notification's look and colors are chosen: [packageName]'s rule, then the default look (also
-     * when the rule names a look that no longer exists). A palette rule paints the default look; otherwise the look's
-     * own colors apply, and auto colors need [extracted] (see [Resolution.Extract]).
+     * [packageName]'s rule as it applies: `null`, the default look, when it has none or its rule names a look that no
+     * longer exists.
+     */
+    fun ruleFor(packageName: String): Rule? =
+        appRules[packageName]?.takeUnless { it is Rule.UseLook && look(it.lookId) == null }
+
+    /**
+     * The one place a notification's look and colors are chosen: [packageName]'s rule as it applies (see [ruleFor]),
+     * else the default look. A palette rule paints the default look; otherwise the look's own colors apply, and auto
+     * colors need [extracted] (see [Resolution.Extract]).
      */
     fun resolve(packageName: String, extracted: List<Int>? = null): Resolution {
-        val rule = appRules[packageName]
+        val rule = ruleFor(packageName)
         val look = (rule as? Rule.UseLook)?.let { look(it.lookId) } ?: defaultLook
         val palette = (rule as? Rule.UsePalette)?.palette
             ?: look.palette
@@ -165,8 +175,7 @@ data class GlowSettings(
         screenOffBrightness = screenOffBrightness ?: look.brightness,
         durationMs = durationMs,
         batterySaver = batterySaver,
-        // No look asks for particles yet.
-        particles = null,
+        particles = look.particles,
     )
 
     /** Valid ranges, shared by the UI sliders and the repository's sanitising of stored values. */

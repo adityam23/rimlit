@@ -10,6 +10,11 @@ import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.MAX_PALETTE_COLORS
+import app.rimlit.model.ParticleImage
+import app.rimlit.model.ParticleMotion
+import app.rimlit.model.ParticlePreset
+import app.rimlit.model.ParticleSpec
+import app.rimlit.model.ParticleTint
 import app.rimlit.model.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -32,11 +37,26 @@ class SettingsJsonTest {
             glowWidthDp = 0.1f,
             speed = 2.25f,
             brightness = 0.35f,
+            particles = ParticleSpec(
+                image = ParticleImage.CONFETTI,
+                motion = ParticleMotion.POP,
+                sizeDp = 30.5f,
+                speed = 0.75f,
+                amount = 0.9f,
+                rotationDegPerSecond = 120f,
+                tint = ParticleTint.IMAGE,
+            ),
         ),
+        // Particles alone, with no edge.
+        Look(id = "snow", name = "Snow", style = GlowStyle.NONE, particles = ParticlePreset.SNOW.spec),
     )
 
     /** One look with [fields] after its id and name, decoded. */
     private fun decodeOne(fields: String) = decodeLooks("""[{"id":"x","name":"X"$fields}]""")!!.single()
+
+    /** The particles of one look whose particles object holds [fields] after a valid image and motion. */
+    private fun decodeParticles(fields: String) =
+        decodeOne(""","particles":{"image":"STAR","motion":"DRIFT"$fields}""").particles
 
     @Test
     fun looksRoundTrip() {
@@ -71,6 +91,34 @@ class SettingsJsonTest {
 
         val missing = decodeLooks("""[{"id":"x","name":"X"}]""")!!.single()
         assertEquals(Look(id = "x", name = "X"), missing, "missing fields take the defaults")
+        assertNull(missing.particles, "looks saved before particles have none")
+    }
+
+    @Test
+    fun particlesDecodeTolerantly() {
+        assertEquals(ParticleSpec(ParticleImage.STAR, ParticleMotion.DRIFT), decodeParticles(""), "missing: defaults")
+        assertEquals(ParticleTint.PALETTE, decodeParticles(""","tint":"GLITTER"""")?.tint, "unknown tint: default")
+
+        val clamped = decodeParticles(""","sizeDp":1,"speed":99,"amount":-1,"rotationDegPerSecond":1e999""")
+        assertEquals(
+            ParticleSpec(
+                image = ParticleImage.STAR,
+                motion = ParticleMotion.DRIFT,
+                sizeDp = Ranges.particleSizeDp.start,
+                speed = Ranges.particleSpeed.endInclusive,
+                amount = Ranges.particleAmount.start,
+            ),
+            clamped,
+            "clamped to the ranges; not finite takes the default",
+        )
+
+        for (particles in listOf("null", "7", "\"SNOW\"", "[]", """{"motion":"FALL"}""", """{"image":"STAR"}""")) {
+            assertNull(decodeOne(""","particles":$particles""").particles, "malformed: $particles")
+        }
+        val unknown = listOf("""{"image":"KITE","motion":"FALL"}""", """{"image":"STAR","motion":"ORBIT"}""")
+        for (particles in unknown) {
+            assertNull(decodeOne(""","particles":$particles""").particles, "unknown picture or motion: $particles")
+        }
     }
 
     @Test

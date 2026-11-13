@@ -53,7 +53,7 @@
     <!-- Apps (blocklist) screen -->
     <string name="apps_search_hint">Search apps</string>
     <string name="apps_empty">No apps found</string>
-    <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own colors.</string>
+    <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own look or colors.</string>
 
     <!-- Style screen -->
     <string name="style_section">Glow style</string>
@@ -73,6 +73,39 @@
     <string name="style_loop_desc">Two lights chasing around the edge</string>
     <string name="style_mirror_title">Mirror</string>
     <string name="style_mirror_desc">Two lights meeting at the top</string>
+    <string name="style_none_title">None</string>
+    <string name="style_none_desc">No edge, only the particles</string>
+    <string name="style_none_unavailable">Pick particles below to show them alone</string>
+    <string name="particles_section">Particles</string>
+    <string name="particles_none_title">None</string>
+    <string name="particles_none_desc">Only the edge glows</string>
+    <string name="particles_none_unavailable">A look with no edge needs particles</string>
+    <string name="particles_snow_title">Snow</string>
+    <string name="particles_snow_desc">Snowflakes drifting down</string>
+    <string name="particles_petals_title">Petals</string>
+    <string name="particles_petals_desc">Petals tumbling down</string>
+    <string name="particles_rain_title">Rain</string>
+    <string name="particles_rain_desc">Raindrops pouring down</string>
+    <string name="particles_hearts_title">Hearts</string>
+    <string name="particles_hearts_desc">Hearts floating up</string>
+    <string name="particles_bubbles_title">Bubbles</string>
+    <string name="particles_bubbles_desc">Bubbles rising</string>
+    <string name="particles_confetti_title">Confetti</string>
+    <string name="particles_confetti_desc">Confetti spinning down</string>
+    <string name="particles_stars_title">Stars</string>
+    <string name="particles_stars_desc">Stars twinkling all over</string>
+    <string name="particles_sparks_title">Sparks</string>
+    <string name="particles_sparks_desc">Sparks bursting</string>
+    <string name="particle_size_label">Particle size</string>
+    <string name="particle_speed_label">Particle speed</string>
+    <string name="particle_amount_label">Amount</string>
+    <string name="particle_rotation_label">Spin</string>
+    <string name="particle_tint_section">Particle colors</string>
+    <string name="particle_tint_palette_title">The look\'s colors</string>
+    <string name="particle_tint_palette_desc">Each particle in one of the glow\'s colors</string>
+    <string name="particle_tint_image_title">Their own colors</string>
+    <string name="particle_tint_image_desc">As the picture is drawn</string>
+    <string name="value_degrees_per_second">%1$d°/s</string>
     <string name="color_section">Color</string>
     <string name="color_auto_title">Auto</string>
     <string name="color_auto_desc">Colors from the notifying app</string>
@@ -89,6 +122,7 @@
 
     <!-- Tuning -->
     <string name="tuning_section">Tuning</string>
+    <string name="every_look_section">For every look</string>
     <string name="thickness_label">Thickness</string>
     <string name="glow_width_label">Glow width</string>
     <string name="speed_label">Speed</string>
@@ -123,11 +157,45 @@
     <string name="palette_remove">Remove selected color</string>
     <string name="palette_hue">Hue</string>
 
-    <!-- Per-app palette -->
-    <string name="app_palette_edit">Edit app colors</string>
-    <string name="app_palette_title">Colors for %1$s</string>
-    <string name="app_palette_use_default">Use default</string>
+    <!-- Per-app look -->
+    <string name="app_look_edit">Choose the app\'s look</string>
+    <string name="app_look_title">Look for %1$s</string>
+    <string name="app_look_default_title">Default look</string>
+    <string name="app_look_palette_title">Custom colors</string>
+    <string name="app_look_palette_desc">The default look, in colors of its own</string>
+    <string name="app_rule_look">Look: %1$s</string>
+    <string name="app_rule_palette">Own colors</string>
     <string name="save">Save</string>
+
+    <!-- Looks (Style screen) -->
+    <string name="looks_section">Looks</string>
+    <string name="look_default_desc">Default: every app glows with it unless it has its own look</string>
+    <string name="look_unused_desc">No app uses this look yet</string>
+    <plurals name="look_used_desc">
+        <item quantity="one">Used by %1$d app</item>
+        <item quantity="other">Used by %1$d apps</item>
+    </plurals>
+    <string name="look_new">New</string>
+    <string name="look_duplicate">Duplicate</string>
+    <string name="look_rename">Rename</string>
+    <string name="look_delete">Delete</string>
+    <string name="look_new_title">New look</string>
+    <string name="look_duplicate_title">Duplicate look</string>
+    <string name="look_rename_title">Rename look</string>
+    <string name="look_name_label">Name</string>
+    <string name="look_new_name">Look %1$d</string>
+    <string name="look_copy_name">%1$s copy</string>
+    <plurals name="look_name_invalid">
+        <item quantity="one">Use 1 to %1$d character</item>
+        <item quantity="other">Use 1 to %1$d characters</item>
+    </plurals>
+    <string name="look_name_taken">Another look already has this name</string>
+    <plurals name="look_limit">
+        <item quantity="one">You can keep up to %1$d look</item>
+        <item quantity="other">You can keep up to %1$d looks</item>
+    </plurals>
+    <string name="look_delete_title">Delete %1$s?</string>
+    <string name="look_delete_desc">Apps that use it go back to the default look.</string>
 
     <!-- Glow area -->
     <string name="region_section">Glow area</string>
