@@ -9,9 +9,12 @@ fun GlowState.opensOnRequest(surface: Surface): Post? = actionable(surface)?.tak
 
 /**
  * The one clearing policy: the notification a dismissal from [surface] also cancels in the shade, or `null` when the
- * dismissal only ends the glow. As for an open (see [actionable]), with clearing on swipe turned on instead.
+ * dismissal only ends the glow. As for an open (see [actionable]), with clearing on swipe turned on instead, and
+ * never a notification Android hides from the lock screen while the device is locked (see [keepsSecret]): whoever
+ * holds the locked phone couldn't clear it in the shade either.
  */
-fun GlowState.clearsOnDismiss(surface: Surface): Post? = actionable(surface)?.takeIf { settings.swipeClears }
+fun GlowState.clearsOnDismiss(surface: Surface): Post? =
+    actionable(surface)?.takeIf { settings.swipeClears && !keepsSecret(it) }
 
 /**
  * The notification a gesture on [surface] may act on: the one its glow shows there, while it is still posted, comes

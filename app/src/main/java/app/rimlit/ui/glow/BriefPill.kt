@@ -2,7 +2,10 @@ package app.rimlit.ui.glow
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.os.Process
+import android.os.UserHandle
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -45,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import app.rimlit.GlowListenerService
 import app.rimlit.R
 import app.rimlit.engine.GlowState
 import app.rimlit.engine.PillApp
@@ -83,10 +87,17 @@ internal fun BriefPillHost(
     val app = shown.pill ?: return
     placement ?: return
     // Nothing shows until the name is in: the pill would otherwise start out as a bare package name, or resize.
+    // The loaded label stays with its app: after a re-target the last app's label never shows for the new one.
     val context = LocalContext.current
-    val label = produceState<AppLabel?>(null, app) {
-        value = withContext(loadDispatcher) { AppLabel.load(context, app, metrics.icon.toInt()) }
-    }.value ?: return
+    val loaded by produceState<Pair<PillApp, AppLabel>?>(null, app) {
+        // Read on the main thread, used off it, as the listener allows.
+        val listener = GlowListenerService.connected
+        value = app to withContext(loadDispatcher) {
+            val user = (app as? PillApp.Notifying)?.let { listener?.posted(it.key)?.user }
+            AppLabel.load(context, app, user, metrics.icon.toInt())
+        }
+    }
+    val label = loaded?.takeIf { it.first == app }?.second ?: return
     val alpha by rememberFrameAlpha(shown)
     val open by rememberUpdatedState(onOpen)
     val dismiss by rememberUpdatedState(onDismiss)
@@ -179,28 +190,45 @@ private data class AppLabel(val name: String, val icon: ImageBitmap?) {
         private const val TAG = "BriefPill"
 
         /**
-         * [app]'s label and icon, the icon [iconPx] square; its package name and no icon if Rimlit can't see it (an
-         * app with no launcher activity is outside its package visibility). Blocks on the package manager.
+         * [app]'s label and icon as [user] has it (`null`: Rimlit's own user), the icon [iconPx] square and both
+         * badged for a work profile; its package name and no icon if Rimlit can't see it (an app with no launcher
+         * activity is outside its package visibility). Blocks on the package manager.
          */
-        fun load(context: Context, app: PillApp, iconPx: Int): AppLabel {
+        fun load(context: Context, app: PillApp, user: UserHandle?, iconPx: Int): AppLabel {
             val packageName = app.packageName(context)
             val pm = context.packageManager
-            val info = try {
-                pm.getApplicationInfo(packageName, 0)
-            } catch (e: PackageManager.NameNotFoundException) {
-                Log.i(TAG, "Can't see $packageName; the pill names its package", e)
-                return AppLabel(packageName, icon = null)
-            }
-            return AppLabel(pm.getApplicationLabel(info).toString(), icon(pm, info, iconPx))
+            val owner = user ?: Process.myUserHandle()
+            val info = applicationInfo(context, packageName, owner) ?: return AppLabel(packageName, icon = null)
+            val name = pm.getUserBadgedLabel(pm.getApplicationLabel(info), owner).toString()
+            return AppLabel(name, icon(pm, info, owner, iconPx))
         }
 
         /**
-         * [info]'s icon, or `null` if it can't be drawn. Another app's icon is untrusted input, as for palette
-         * extraction: whatever it throws, the pill only goes without it, rather than taking the process down.
+         * [packageName] as installed for [user]; `null` (logged) if Rimlit can't see it there. Another profile's apps
+         * are only reachable through [LauncherApps]: the package manager answers for Rimlit's own user alone.
+         */
+        private fun applicationInfo(context: Context, packageName: String, user: UserHandle): ApplicationInfo? = try {
+            if (user == Process.myUserHandle()) {
+                context.packageManager.getApplicationInfo(packageName, 0)
+            } else {
+                context.getSystemService(LauncherApps::class.java)?.getApplicationInfo(packageName, 0, user)
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.i(TAG, "Can't see $packageName in $user; the pill names its package", e)
+            null
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Not allowed to look up $packageName in $user; the pill names its package", e)
+            null
+        }
+
+        /**
+         * [info]'s icon with [user]'s badge, or `null` if it can't be drawn. Another app's icon is untrusted input,
+         * as for palette extraction: whatever it throws, the pill only goes without it, rather than taking the
+         * process down.
          */
         @Suppress("TooGenericExceptionCaught")
-        private fun icon(pm: PackageManager, info: ApplicationInfo, px: Int): ImageBitmap? = try {
-            pm.getApplicationIcon(info).toBitmap(px, px).asImageBitmap()
+        private fun icon(pm: PackageManager, info: ApplicationInfo, user: UserHandle, px: Int): ImageBitmap? = try {
+            pm.getUserBadgedIcon(pm.getApplicationIcon(info), user).toBitmap(px, px).asImageBitmap()
         } catch (e: RuntimeException) {
             Log.w(TAG, "Can't draw ${info.packageName}'s icon", e)
             null

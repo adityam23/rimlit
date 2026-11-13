@@ -26,6 +26,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -217,7 +218,7 @@ class GlowMachineScenarioTest {
 
         run.send(opened(Surface.APP_OVERLAY))
         assertEquals(
-            GlowFrame(run.glow.spec, visible = true, instant = true, pill = PillApp.Notifying(OTHER_APP)),
+            GlowFrame(run.glow.spec, visible = true, instant = true, pill = PillApp.Notifying(OTHER_APP, key = "a")),
             run.state.frameFor(Surface.APP_OVERLAY),
             "the pill comes with it",
         )
@@ -227,7 +228,7 @@ class GlowMachineScenarioTest {
     fun aHandedOffGlowStillFadesOut() {
         val run = onLockScreen().environment(UNLOCKED).send(opened(Surface.APP_OVERLAY)).fire(Timer.HOLD)
         assertEquals(
-            GlowFrame(run.glow.spec, visible = false, instant = false, pill = PillApp.Notifying(OTHER_APP)),
+            GlowFrame(run.glow.spec, visible = false, instant = false, pill = PillApp.Notifying(OTHER_APP, key = "a")),
             run.state.frameFor(Surface.APP_OVERLAY),
         )
     }
@@ -482,13 +483,40 @@ class GlowMachineScenarioTest {
     @Test
     fun onScreenGlowsShowTheAppsPillAndTheLockScreenNever() {
         val shown = holding()
-        assertEquals(PillApp.Notifying(OTHER_APP), shown.state.frameFor(Surface.APP_OVERLAY)?.pill)
+        assertEquals(PillApp.Notifying(OTHER_APP, key = "a"), shown.state.frameFor(Surface.APP_OVERLAY)?.pill)
         val preview = run().send(GlowEvent.Preview(PreviewTarget.ON_SCREEN, PREVIEW_SPEC), opened(Surface.APP_OVERLAY))
         assertEquals(PillApp.Rimlit, preview.state.frameFor(Surface.APP_OVERLAY)?.pill, "a preview shows Rimlit's")
         assertNull(onLockScreen().state.frameFor(Surface.LOCK_SCREEN)?.pill)
         shown.send(GlowEvent.SettingsChanged(CUSTOM.copy(showPill = false)))
         assertNull(shown.state.frameFor(Surface.APP_OVERLAY)?.pill, "turned off, it goes at once")
         assertTrue(shown.state.frameFor(Surface.APP_OVERLAY)?.visible == true, "the glow stays")
+    }
+
+    @Test
+    fun aboveALockedScreenNothingNamesOrClearsANotificationAndroidHidesThere() {
+        val overlay = Surface.ACCESSIBILITY_OVERLAY
+        val settings = CUSTOM.copy(swipeClears = true)
+        fun glowing(environment: Environment, hidden: Boolean): Run {
+            val post = post("a", hiddenOnLockScreen = hidden)
+            return run(settings, environment, accessibility = true).send(GlowEvent.Posted(post), opened(overlay))
+        }
+
+        val shownThere = glowing(LOCK_SCREEN, hidden = false)
+        assertEquals(PillApp.Notifying(OTHER_APP, key = "a"), shownThere.state.frameFor(overlay)?.pill)
+        assertNotNull(shownThere.state.clearsOnDismiss(overlay), "one the lock screen shows can be cleared there")
+
+        val hidden = glowing(LOCK_SCREEN, hidden = true)
+        val frame = assertNotNull(hidden.state.frameFor(overlay), "it still glows: the glow names nothing")
+        assertNull(frame.pill, "no pill names its app")
+        assertNull(hidden.state.clearsOnDismiss(overlay))
+        assertNotNull(hidden.state.opensOnRequest(overlay), "a double tap still opens it: that unlocks first")
+        hidden.send(GlowEvent.DismissRequested(overlay))
+        assertEquals(Phase.FADING_OUT, hidden.glow.phase, "a swipe still ends the glow")
+        assertTrue(hidden.effects.none { it is GlowEffect.CancelNotification }, "and clears nothing")
+
+        val unlocked = glowing(UNLOCKED, hidden = true)
+        assertEquals(PillApp.Notifying(OTHER_APP, key = "a"), unlocked.state.frameFor(overlay)?.pill, "unlocked, as any")
+        assertNotNull(unlocked.state.clearsOnDismiss(overlay))
     }
 
     @Test

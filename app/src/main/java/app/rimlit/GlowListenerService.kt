@@ -1,6 +1,7 @@
 package app.rimlit
 
 import android.app.Notification
+import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -103,11 +104,34 @@ class GlowListenerService : NotificationListenerService() {
             onlyAlertOnce = flags and Notification.FLAG_ONLY_ALERT_ONCE != 0,
             importance = ranking?.importance,
             passesDnd = ranking?.matchesInterruptionFilter() ?: true,
+            hiddenOnLockScreen = hiddenOnLockScreen(ranking),
         )
+    }
+
+    /**
+     * Android keeps this notification off the lock screen, by the rules its own keyguard applies: the notification
+     * or its channel is secret, or the user shows no notifications there. Unknown counts as hidden: without the
+     * ranking, or if the setting can't be read, nothing may name the app above a locked screen.
+     */
+    private fun StatusBarNotification.hiddenOnLockScreen(ranking: Ranking?): Boolean {
+        val secret = ranking == null ||
+            notification.visibility == Notification.VISIBILITY_SECRET ||
+            ranking.channel?.lockscreenVisibility == Notification.VISIBILITY_SECRET
+        if (secret) return true
+        // The user's "notifications on lock screen" setting is "don't show any".
+        return try {
+            Settings.Secure.getInt(contentResolver, LOCK_SCREEN_SHOW_NOTIFICATIONS, 1) == 0
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Can't read the lock screen's notification setting; treating notifications as hidden there", e)
+            true
+        }
     }
 
     companion object {
         private const val TAG = "GlowListenerService"
+
+        /** `Settings.Secure.LOCK_SCREEN_SHOW_NOTIFICATIONS`: hidden from the SDK, but readable by any app. */
+        private const val LOCK_SCREEN_SHOW_NOTIFICATIONS = "lock_screen_show_notifications"
 
         /** Set only between connect and disconnect/destroy, so it never outlives the service. Main thread only. */
         var connected: GlowListenerService? = null

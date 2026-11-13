@@ -150,10 +150,18 @@ class EdgeOverlayController(private val context: Context, private val surface: S
 
         /**
          * Moves the pill to where it belongs in [edgeView]'s window, if that changed: around the camera's real outline
-         * when it is on the top edge (some displays report a bounding rect from the edge down to the hole).
+         * when it is on the top edge (some displays report a bounding rect from the edge down to the hole), or around
+         * the cutout the user drew by hand, as the glow's own ring does.
          */
         private fun place(edgeView: View) {
-            val cutout = edgeView.displayCutout()?.takeIf { it.side == CutoutSide.TOP }?.bounds
+            val custom = coordinator.state.value?.settings?.customCutout
+            val density = context.resources.displayMetrics.density
+            val cutout = edgeView.displayCutout()
+                ?.let { detected ->
+                    val width = edgeView.width.toFloat()
+                    custom?.let { detected.redrawn(it, density, width, edgeView.height.toFloat()) } ?: detected
+                }
+                ?.takeIf { it.side == CutoutSide.TOP }?.bounds
                 ?.let { Rect(it.left, it.top, it.right, it.bottom) }
             val next = pillPlacement(edgeView.width, cutout, metrics)
             if (next == placement || window !== this) return
