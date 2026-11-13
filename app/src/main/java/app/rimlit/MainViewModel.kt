@@ -2,6 +2,7 @@ package app.rimlit
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -12,6 +13,7 @@ import app.rimlit.data.AppInfo
 import app.rimlit.data.AppListRepository
 import app.rimlit.data.ParticleImageStore
 import app.rimlit.data.SettingsRepository
+import app.rimlit.data.deleteUnusedParticleImages
 import app.rimlit.engine.GlowEvent
 import app.rimlit.engine.PreviewTarget
 import app.rimlit.engine.onScreenOverlay
@@ -35,7 +37,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -43,6 +44,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.IOException
+
+private const val TAG = "MainViewModel"
 
 class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher = Dispatchers.IO) :
     AndroidViewModel(application) {
@@ -58,10 +62,11 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     private val particleImageFiles = Mutex()
 
     init {
-        // Whenever a look stops drawing an image (it is removed, its look edited or deleted), its file goes.
+        // Whenever a look stops drawing an image (it is removed, its look edited or deleted), its file goes. The
+        // flow only says when to look: it falls back to defaults on a failed read, so the clean-up reads for itself.
         viewModelScope.launch {
             repository.settings.map { it.particleImageIds }.distinctUntilChanged().collect {
-                particleImageFiles.withLock { deleteUnusedParticleImages() }
+                particleImageFiles.withLock { deleteUnusedImages() }
             }
         }
     }
@@ -110,20 +115,28 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         viewModelScope.launch {
             val added = particleImageFiles.withLock {
                 val ids = uris.take(MAX_PARTICLE_IMAGES).mapNotNull { particleImages.import(it) }
-                repository.update { settings ->
+                val written = repository.update { settings ->
                     settings.updateLook(lookId) { it.copy(particles = it.particles.withImages(ids)) }
                 }
                 // Any past the limit, or for a look deleted meanwhile, are no look's.
-                val kept = deleteUnusedParticleImages()
-                ids.count { it in kept }
+                deleteUnusedImages()
+                ids.count { it in written.particleImageIds }
             }
             onDone(uris.size - added)
         }
     }
 
-    /** Deletes the image files no look draws; the ids of those kept. Only while holding [particleImageFiles]. */
-    private suspend fun deleteUnusedParticleImages(): Set<String> =
-        repository.settings.first().particleImageIds.also { particleImages.retainOnly(it) }
+    /**
+     * Deletes the image files no look draws, unless the settings can't be read: nothing is deleted then, and the
+     * files wait for the next clean-up. Only while holding [particleImageFiles].
+     */
+    private suspend fun deleteUnusedImages() {
+        try {
+            deleteUnusedParticleImages(repository, particleImages::retainOnly)
+        } catch (e: IOException) {
+            Log.w(TAG, "Couldn't read the settings; keeping every particle image", e)
+        }
+    }
 
     fun openPermission(kind: PermissionKind) {
         Permissions.open(getApplication(), kind)

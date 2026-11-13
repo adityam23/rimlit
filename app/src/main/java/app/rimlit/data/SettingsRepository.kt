@@ -2,6 +2,7 @@ package app.rimlit.data
 
 import android.content.Context
 import android.util.Log
+import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
@@ -24,6 +25,7 @@ import app.rimlit.model.QuietHours
 import app.rimlit.model.Rule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import java.io.IOException
@@ -102,13 +104,16 @@ private object Keys {
 }
 
 /** Single source of truth for user settings, backed by Preferences DataStore. */
-class SettingsRepository(private val context: Context) {
+class SettingsRepository(private val store: DataStore<Preferences>) {
+
+    constructor(context: Context) : this(context.dataStore)
 
     /**
-     * The stored settings. On the first I/O error it emits defaults, then keeps retrying with backoff, so the stored
-     * settings come back once a read succeeds instead of the defaults lasting until the process restarts.
+     * The stored settings, to show and to glow by. On the first I/O error it emits defaults, then keeps retrying with
+     * backoff, so the stored settings come back once a read succeeds instead of the defaults lasting until the
+     * process restarts. Those defaults are not what is stored: anything destructive reads [stored] instead.
      */
-    val settings: Flow<GlowSettings> = context.dataStore.data
+    val settings: Flow<GlowSettings> = store.data
         .retryWhen { e, attempt ->
             if (e !is IOException) return@retryWhen false
             Log.w(TAG, "Couldn't read settings; retrying", e)
@@ -118,9 +123,18 @@ class SettingsRepository(private val context: Context) {
         }
         .map { it.toSettings() }
 
-    /** Atomically read-modify-writes the settings. */
-    suspend fun update(transform: (GlowSettings) -> GlowSettings) {
-        context.dataStore.edit { prefs -> prefs.write(transform(prefs.toSettings())) }
+    /**
+     * The settings as they are stored now, never a fallback: what to delete by.
+     *
+     * @throws IOException when they can't be read.
+     */
+    suspend fun stored(): GlowSettings = store.data.first().toSettings()
+
+    /** Atomically read-modify-writes the settings; the settings written. */
+    suspend fun update(transform: (GlowSettings) -> GlowSettings): GlowSettings {
+        lateinit var written: GlowSettings
+        store.edit { prefs -> written = transform(prefs.toSettings()).also(prefs::write) }
+        return written
     }
 }
 

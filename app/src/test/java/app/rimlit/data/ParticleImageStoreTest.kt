@@ -24,7 +24,16 @@ class ParticleImageStoreTest {
         }
         // Within each side's cap, but past the pixel cap (a decompression bomb claims both).
         assertNull(fittedSize(MAX_IMPORT_SIDE, MAX_IMPORT_SIDE))
-        assertEquals(PARTICLE_IMAGE_PX to PARTICLE_IMAGE_PX, fittedSize(10_000, 10_000), "exactly the pixel cap")
+        assertEquals(PARTICLE_IMAGE_PX to 90, fittedSize(8_500, 6_000), "exactly the pixel cap")
+        assertNull(fittedSize(8_501, 6_000), "a pixel row past the cap")
+        assertNull(fittedSize(10_000, 10_000), "100 MP")
+    }
+
+    @Test
+    fun phonePhotosAreWithinTheCaps() {
+        assertEquals(PARTICLE_IMAGE_PX to 96, fittedSize(8_192, 6_144), "a 50 MP photo")
+        assertEquals(96 to PARTICLE_IMAGE_PX, fittedSize(6_120, 8_160), "a 50 MP photo, upright")
+        assertEquals(PARTICLE_IMAGE_PX to 24, fittedSize(16_000, 3_000), "a panorama")
     }
 
     @Test
