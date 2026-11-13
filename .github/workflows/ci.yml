@@ -1,12 +1,13 @@
 name: CI
 
-# PRs: checks only. Push to main, or a manual "Run workflow" on main: checks, then (only if they pass)
-# a signed release APK published as a GitHub Release.
+# PRs: checks only. Push to main, or a manual "Run workflow" on main: checks, then (only if they pass, and
+# only when versionName has no release yet) a signed release APK published as a GitHub Release tagged
+# v<versionName>. A merge that doesn't bump the version releases nothing: F-Droid builds every tag.
 on:
   pull_request:
   push:
     branches: [main]
-  # "Run workflow" button in the Actions tab: re-runs checks and, on main, publishes a release.
+  # "Run workflow" button in the Actions tab: re-runs checks and, on main, publishes a release still missing.
   workflow_dispatch:
 
 # Actions are pinned to full commit SHAs (with the version in a comment) so a moved or compromised
@@ -29,8 +30,25 @@ jobs:
   checks:
     name: Lint, detekt, test, build
     runs-on: ubuntu-latest
+    outputs:
+      # v<versionName> when that tag doesn't exist yet; empty when this version is already released.
+      release-tag: ${{ steps.version.outputs.release-tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Read the version
+        id: version
+        run: |
+          version=$(sed -n 's/^ *versionName = "\(.*\)"$/\1/p' app/build.gradle.kts)
+          if [ -z "$version" ]; then
+            echo "::error::No versionName literal found in app/build.gradle.kts."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
+            echo "v$version is already released."
+          else
+            echo "release-tag=v$version" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -60,7 +78,9 @@ jobs:
   release:
     name: Signed release
     needs: checks
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: >-
+      github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && needs.checks.outputs.release-tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the GitHub Release
@@ -112,18 +132,22 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-          # Always increasing, so every release installs as an update over the previous one.
-          RELEASE_VERSION_CODE: ${{ github.run_number }}
         run: gradle :app:assembleRelease
 
       - name: Verify signature and name the APK
         id: apk
+        env:
+          tag: ${{ needs.checks.outputs.release-tag }}
         run: |
           tools="$ANDROID_HOME/build-tools/36.0.0"
           src=app/build/outputs/apk/release/app-release.apk
           "$tools/apksigner" verify --print-certs "$src"
           version=$("$tools/aapt2" dump badging "$src" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
-          tag="v${version}-${{ github.run_number }}"
+          if [ "v$version" != "$tag" ]; then
+            echo "::error::The APK says version $version, but the release is $tag."
+            exit 1
+          fi
+          # F-Droid downloads the APK by this name to check its own build against it.
           apk="rimlit-${tag}.apk"
           cp "$src" "$apk"
           sha256sum "$apk" > "$apk.sha256"
