@@ -9,7 +9,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 ## Features
 
 - **Works everywhere:** while you use the phone the glow is drawn over whatever is on screen; when the screen is off it wakes into a black, always-on-display style glow. With the recommended accessibility glow it also frames the lock screen itself.
-- **Nine styles:** a crisp breathing edge, a soft bloom with a bright core, a blade of light racing around the screen, a wave rippling along it, glitter twinkling in your colors, rings echoing off it, two blades chasing each other round it, two blades rising up both sides to meet at the top, or a blade sweeping round it and back like a boomerang.
+- **Ten styles:** a crisp breathing edge, a soft bloom with a bright core, a blade of light racing around the screen, a wave rippling along it, glitter twinkling in your colors, rings echoing off it, two blades chasing each other round it, two blades rising up both sides to meet at the top, a blade sweeping round it and back like a boomerang, or fireworks bursting along it.
 - **Particles:** snow, petals, rain, hearts, bubbles, confetti, stars or sparks across the screen while it glows, in the glow's colors or their own, with their size, speed, amount and spin to tune. Show them with any style, or on their own with no edge at all.
 - **Your colors:** one to three colors picked automatically from the notifying app's icon (or from the notification's picture, such as the sender's photo), a single custom color, a gradient of up to five colors, or a flowing rainbow.
 - **Tune it:** thickness, glow width, speed, brightness (with its own setting for the screen-off glow if you like) and duration, with a live preview that updates as you drag.

@@ -42,6 +42,8 @@ private fun GlowStyle.movingPainter(brush: OutlineBrush): GlowEffectPainter = wh
 
     GlowStyle.BOOMERANG -> BoomerangEffect(brush)
 
+    GlowStyle.FIREWORKS -> FireworksEffect(brush)
+
     // No edge: the look shows its particles alone.
     GlowStyle.NONE -> GlowEffectPainter { _, _ -> }
 }

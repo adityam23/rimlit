@@ -323,6 +323,7 @@ private val GlowStyle.titleRes
         GlowStyle.LOOP -> R.string.style_loop_title
         GlowStyle.MIRROR -> R.string.style_mirror_title
         GlowStyle.BOOMERANG -> R.string.style_boomerang_title
+        GlowStyle.FIREWORKS -> R.string.style_fireworks_title
         GlowStyle.NONE -> R.string.style_none_title
     }
 
@@ -337,6 +338,7 @@ private val GlowStyle.descRes
         GlowStyle.LOOP -> R.string.style_loop_desc
         GlowStyle.MIRROR -> R.string.style_mirror_desc
         GlowStyle.BOOMERANG -> R.string.style_boomerang_desc
+        GlowStyle.FIREWORKS -> R.string.style_fireworks_desc
         GlowStyle.NONE -> R.string.style_none_desc
     }
 
