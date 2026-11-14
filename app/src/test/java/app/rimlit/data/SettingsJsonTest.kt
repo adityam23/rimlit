@@ -10,19 +10,26 @@ import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.MAX_PALETTE_COLORS
+import app.rimlit.model.MAX_PARTICLE_IMAGES
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
+import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticlePreset
 import app.rimlit.model.ParticleSpec
 import app.rimlit.model.ParticleTint
 import app.rimlit.model.Rule
+import app.rimlit.model.newParticleImageId
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class SettingsJsonTest {
 
     private val red = 0xFFFF0000.toInt()
+    private val star = ParticlePicture.Builtin(ParticleImage.STAR)
+    private val imageA = "0b8e1c5e-3f4a-4c2d-9a71-5d2e8f6b1a90"
+    private val imageB = "f2c4a6e8-1b3d-4f5a-8c7e-9d0b2a4c6e81"
     private val looks = listOf(
         Look(),
         Look(
@@ -38,7 +45,7 @@ class SettingsJsonTest {
             speed = 2.25f,
             brightness = 0.35f,
             particles = ParticleSpec(
-                image = ParticleImage.CONFETTI,
+                picture = ParticlePicture.Builtin(ParticleImage.CONFETTI),
                 motion = ParticleMotion.POP,
                 sizeDp = 30.5f,
                 speed = 0.75f,
@@ -49,6 +56,12 @@ class SettingsJsonTest {
         ),
         // Particles alone, with no edge.
         Look(id = "snow", name = "Snow", style = GlowStyle.NONE, particles = ParticlePreset.SNOW.spec),
+        Look(
+            id = "mine",
+            name = "Mine",
+            particles = ParticleSpec(ParticlePicture.Custom(listOf(imageA, imageB)), ParticleMotion.RISE),
+        ),
+        Look(id = "icon", name = "Icon", particles = ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.DRIFT)),
     )
 
     /** One look with [fields] after its id and name, decoded. */
@@ -96,13 +109,13 @@ class SettingsJsonTest {
 
     @Test
     fun particlesDecodeTolerantly() {
-        assertEquals(ParticleSpec(ParticleImage.STAR, ParticleMotion.DRIFT), decodeParticles(""), "missing: defaults")
+        assertEquals(ParticleSpec(star, ParticleMotion.DRIFT), decodeParticles(""), "missing: defaults")
         assertEquals(ParticleTint.PALETTE, decodeParticles(""","tint":"GLITTER"""")?.tint, "unknown tint: default")
 
         val clamped = decodeParticles(""","sizeDp":1,"speed":99,"amount":-1,"rotationDegPerSecond":1e999""")
         assertEquals(
             ParticleSpec(
-                image = ParticleImage.STAR,
+                picture = star,
                 motion = ParticleMotion.DRIFT,
                 sizeDp = Ranges.particleSizeDp.start,
                 speed = Ranges.particleSpeed.endInclusive,
@@ -118,6 +131,39 @@ class SettingsJsonTest {
         val unknown = listOf("""{"image":"KITE","motion":"FALL"}""", """{"image":"STAR","motion":"ORBIT"}""")
         for (particles in unknown) {
             assertNull(decodeOne(""","particles":$particles""").particles, "unknown picture or motion: $particles")
+        }
+    }
+
+    @Test
+    fun builtInImagesSavedBeforeCustomPicturesReadAsTheyWere() {
+        // Exactly how particles-in-looks saved its particles: the image by name.
+        val saved = """{"image":"HEART","motion":"RISE","sizeDp":20,"speed":0.8,"amount":0.3,"tint":"IMAGE"}"""
+        assertEquals(ParticlePreset.HEARTS.spec, decodeOne(""","particles":$saved""").particles)
+        // And a built-in picture is still saved that way, so an older version reads it too.
+        val encoded = encodeLooks(listOf(Look(particles = ParticlePreset.HEARTS.spec)))
+        assertTrue(""""image":"HEART"""" in encoded, encoded)
+    }
+
+    @Test
+    fun customImagesKeepOnlyValidDistinctIdsUpToTheLimit() {
+        fun images(ids: String) = decodeOne(""","particles":{"images":$ids,"motion":"FALL"}""").particles?.picture
+        val mixed = images("""["$imageA",7,"../x","$imageA","$imageB"]""")
+        assertEquals(ParticlePicture.Custom(listOf(imageA, imageB)), mixed, "invalid and repeated ids dropped")
+        val many = List(MAX_PARTICLE_IMAGES + 2) { newParticleImageId() }
+        val capped = images(many.joinToString(",", "[", "]") { "\"$it\"" })
+        assertEquals(ParticlePicture.Custom(many.take(MAX_PARTICLE_IMAGES)), capped, "the first $MAX_PARTICLE_IMAGES")
+        for (ids in listOf("[]", "[\"\"]", "[\"${imageA.uppercase()}\"]", "[\"$imageA/..\"]", "\"$imageA\"", "null")) {
+            assertNull(images(ids), "no valid image, no particles: $ids")
+        }
+        // Custom images never fall back to a built-in image saved beside them.
+        assertNull(decodeOne(""","particles":{"images":[],"image":"STAR","motion":"FALL"}""").particles)
+    }
+
+    @Test
+    fun theAppIconIsOnlyATrueFlag() {
+        assertEquals(ParticlePicture.AppIcon, decodeParticles(""","appIcon":true""")?.picture)
+        for (flag in listOf("false", "1", "\"true\"", "null")) {
+            assertEquals(star, decodeParticles(""","appIcon":$flag""")?.picture, "not the app icon: $flag")
         }
     }
 

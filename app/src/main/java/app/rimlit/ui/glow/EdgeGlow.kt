@@ -66,8 +66,8 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                 ),
             )
             val particlePainter = particles.painter(spec, playback, size, pxPerDp, preview)
-            // No edge draws the plain outline when no particles draw (none in the spec, or none under Remove
-            // animations): a glow showing nothing would hide the notification.
+            // No edge draws the plain outline when no particles draw (none in the spec, none under Remove
+            // animations, or none of their images stored any more): a glow showing nothing would hide the notification.
             val style = if (spec.style == GlowStyle.NONE && particlePainter == null) GlowStyle.BASIC else spec.style
             // One painter per outline, each in that style; an array, so a frame walks it without an iterator.
             val outlines = layout.outlines

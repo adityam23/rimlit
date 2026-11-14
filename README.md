@@ -10,7 +10,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 
 - **Works everywhere:** while you use the phone the glow is drawn over whatever is on screen; when the screen is off it wakes into a black, always-on-display style glow. With the recommended accessibility glow it also frames the lock screen itself.
 - **Ten styles:** a crisp breathing edge, a soft bloom with a bright core, a blade of light racing around the screen, a wave rippling along it, glitter twinkling in your colors, rings echoing off it, two blades chasing each other round it, two blades rising up both sides to meet at the top, a blade sweeping round it and back like a boomerang, or fireworks bursting along it.
-- **Particles:** snow, petals, rain, hearts, bubbles, confetti, stars or sparks across the screen while it glows, in the glow's colors or their own, with their size, speed, amount and spin to tune. Show them with any style, or on their own with no edge at all.
+- **Particles:** snow, petals, rain, hearts, bubbles, confetti, stars or sparks across the screen while it glows, in the glow's colors or their own, with their size, speed, amount and spin to tune. Or use up to five of your own pictures, or the icon of the app that notified. Show them with any style, or on their own with no edge at all.
 - **Your colors:** one to three colors picked automatically from the notifying app's icon (or from the notification's picture, such as the sender's photo), a single custom color, a gradient of up to five colors, or a flowing rainbow.
 - **Tune it:** thickness, glow width, speed, brightness (with its own setting for the screen-off glow if you like) and duration, with a live preview that updates as you drag.
 - **Looks:** save up to ten named looks, each with its own style, colors, glow area, tuning and particles, and give any app a look of its own, or just its own colors. Duration, corners, the camera cutout's shape, screen-off brightness and battery saver are shared by every look.
@@ -40,7 +40,7 @@ Without the accessibility glow, Rimlit draws on-screen glows with **Display over
 
 ## Privacy
 
-Rimlit has no internet permission at all, so it cannot send anything off your device. There are no analytics, ads or accounts. Settings stay on the phone and are excluded from cloud backups.
+Rimlit has no internet permission at all, so it cannot send anything off your device. There are no analytics, ads or accounts. Settings stay on the phone and are excluded from cloud backups. Pictures you pick for particles come through the system photo picker (no storage permission), and Rimlit keeps only a small re-drawn copy of each, without the original file, its name or its metadata, deleted once no look uses it.
 
 ## Build from source
 

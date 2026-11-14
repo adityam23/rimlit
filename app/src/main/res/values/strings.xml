@@ -100,6 +100,26 @@
     <string name="particles_stars_desc">Stars twinkling all over</string>
     <string name="particles_sparks_title">Sparks</string>
     <string name="particles_sparks_desc">Sparks bursting</string>
+    <string name="particles_custom_title">Your images</string>
+    <string name="particles_custom_desc">Up to %1$d of your own pictures</string>
+    <string name="particles_app_icon_title">App icon</string>
+    <string name="particles_app_icon_desc">The icon of the app that notified, in its own colors</string>
+    <string name="particle_images_add">Add images</string>
+    <string name="particle_image_description">Particle image %1$d</string>
+    <string name="particle_image_remove">Remove image %1$d</string>
+    <plurals name="particle_images_rejected">
+        <item quantity="one">%1$d image couldn\'t be added</item>
+        <item quantity="other">%1$d images couldn\'t be added</item>
+    </plurals>
+    <string name="particle_motion_section">Motion</string>
+    <string name="particle_motion_fall_title">Fall</string>
+    <string name="particle_motion_fall_desc">Drifting down the screen</string>
+    <string name="particle_motion_rise_title">Rise</string>
+    <string name="particle_motion_rise_desc">Floating up the screen</string>
+    <string name="particle_motion_pop_title">Burst</string>
+    <string name="particle_motion_pop_desc">Bursting out from a point</string>
+    <string name="particle_motion_drift_title">Drift</string>
+    <string name="particle_motion_drift_desc">Appearing anywhere and fading out</string>
     <string name="particle_size_label">Particle size</string>
     <string name="particle_speed_label">Particle speed</string>
     <string name="particle_amount_label">Amount</string>

@@ -4,10 +4,12 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.drawable.Drawable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
+import app.rimlit.data.ParticleImageStore
 import app.rimlit.model.GlowSpec
 import app.rimlit.ui.glow.BuildCache
 import app.rimlit.ui.glow.Playback
@@ -27,20 +29,24 @@ internal fun rememberParticleLayer(): ParticleLayer {
  */
 internal class ParticleLayer(context: Context) {
     private val seed = Random.nextInt()
-    private val sprites = BuildCache<SpriteKey, ParticleSprites> { ParticleSprites(context, it) }
+    private val store = ParticleImageStore(context)
+    private val pictures = BuildCache<PictureKey, List<Drawable>> { loadPicture(context, store, it) }
+    private val sprites = BuildCache<SpriteKey, ParticleSprites> { ParticleSprites(pictures.get(it.picture), it) }
 
     /**
      * What [spec]'s particles draw as [playback] plays them over a canvas of [size], with [pxPerDp] pixels per dp, in
-     * an in-app [preview] or on a surface; `null` when none play.
+     * an in-app [preview] or on a surface; `null` when none play, or none of their images is stored any more.
      */
     fun painter(spec: GlowSpec, playback: Playback, size: Size, pxPerDp: Float, preview: Boolean): ParticlePainter? {
         val particles = spec.particles?.takeIf { playback.particleShare > 0f } ?: return null
         val sizePx = (particles.sizeDp * pxPerDp).roundToInt().coerceAtLeast(1)
-        val sprites = sprites.get(SpriteKey.of(particles.image, sizePx, particles.tint, spec.palette))
+        val key = SpriteKey.of(spec, particles, sizePx)
+        if (pictures.get(key.picture).isEmpty()) return null
+        val sprites = sprites.get(key)
         val field = ParticleField(
             spec = particles,
             count = particleCount(particles.motion, particles.amount, playback.particleShare),
-            tints = sprites.count,
+            tints = sprites.tints,
             timeline = ParticleTimeline(spec.durationMs, preview),
             area = ParticleArea(size.width, size.height, sizePx.toFloat()),
             seed = seed,
@@ -50,8 +56,8 @@ internal class ParticleLayer(context: Context) {
 }
 
 /**
- * Draws every live particle of [field] as a sprite, at [brightness]. A frame allocates nothing: one particle, matrix
- * and paint are reused for every draw.
+ * Draws every live particle of [field] as a sprite, at [brightness], spreading them across the sprites' images by
+ * index. A frame allocates nothing: one particle, matrix and paint are reused for every draw.
  */
 internal class ParticlePainter(
     private val field: ParticleField,
@@ -74,7 +80,7 @@ internal class ParticlePainter(
             matrix.postRotate(particle.degrees)
             matrix.postTranslate(particle.x, particle.y)
             paint.alpha = (opacity * particle.alpha).toInt().coerceIn(0, 255)
-            canvas.drawBitmap(sprites[particle.tint], matrix, paint)
+            canvas.drawBitmap(sprites[index % sprites.images, particle.tint], matrix, paint)
         }
     }
 }

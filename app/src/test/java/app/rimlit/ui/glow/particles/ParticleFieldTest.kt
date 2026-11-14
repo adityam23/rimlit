@@ -5,6 +5,7 @@ import app.rimlit.engine.FADE_OUT_MS
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
+import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticleSpec
 import app.rimlit.ui.glow.BATTERY_SAVER_PARTICLE_SHARE
 import org.junit.Test
@@ -46,7 +47,8 @@ class ParticleFieldTest {
         preview: Boolean = true,
     ): ParticleField {
         val amount = ranges.particleAmount.endInclusive
-        val spec = ParticleSpec(ParticleImage.STAR, motion, speed = speed, amount = amount, rotationDegPerSecond = 90f)
+        val star = ParticlePicture.Builtin(ParticleImage.STAR)
+        val spec = ParticleSpec(star, motion, speed = speed, amount = amount, rotationDegPerSecond = 90f)
         val count = particleCount(motion, amount, share)
         return ParticleField(spec, count, tints = 3, ParticleTimeline(holdMs, preview), area, seed)
     }
