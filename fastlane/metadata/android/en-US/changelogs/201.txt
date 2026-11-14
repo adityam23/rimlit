@@ -1,0 +1,8 @@
+The first release on F-Droid. The app is the same as 0.2.0; only how it is built changed, so that F-Droid can reproduce it exactly.
+
+New since 0.1:
+- Looks: save up to ten named looks and give any app its own look or colors
+- New edge styles: Wave, Glitter, Echo, Loop, Mirror, Boomerang and Fireworks
+- Particles: eight built-in kinds, your own pictures, or the app's icon
+- A pill with the app's icon and name, growing out of the camera cutout
+- Export, import and share looks
