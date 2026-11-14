@@ -1,0 +1,8 @@
+The first release on F-Droid.
+
+- Looks: save up to ten named looks and give any app its own look or colors
+- New edge styles: Wave, Glitter, Echo, Loop, Mirror, Boomerang and Fireworks
+- Particles: eight built-in kinds, your own pictures, or the app's icon
+- A pill with the app's icon and name, growing out of the camera cutout
+- Double tap the glow to open the notification
+- Export, import and share looks

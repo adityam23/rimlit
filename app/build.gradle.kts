@@ -16,9 +16,21 @@ android {
         minSdk = 29
         //noinspection OldTargetApi -- staying on 36 until the android-37 platform is adopted
         targetSdk = 36
-        // CI passes its run number so every release has a higher versionCode and installs as an update.
-        versionCode = providers.environmentVariable("RELEASE_VERSION_CODE").orNull?.toInt() ?: 1
+        // Both are literals: F-Droid reads them from this file with a regex and never runs Gradle. versionCode is
+        // major × 10000 + minor × 100 + patch of versionName, so every release installs as an update.
+        versionCode = 109
         versionName = "0.1.9"
+        val (major, minor, patch) = versionName!!.split('.').map(String::toInt)
+        check(versionCode == major * 10_000 + minor * 100 + patch) {
+            "versionCode $versionCode doesn't match versionName $versionName: bump both together"
+        }
+    }
+
+    // AGP otherwise adds a list of the dependencies, encrypted for Google Play, to the APK's signing block. Nobody
+    // else can read it, so F-Droid's scanner rejects an APK that carries it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     // Release signing comes only from environment variables (GitHub secrets in CI); nothing secret lives
@@ -44,6 +56,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // AGP otherwise writes the git revision into the APK, for Play's crash tooling. It depends on how the
+            // source was checked out (a worktree has none), which would break the build's reproducibility.
+            vcsInfo.include = false
         }
     }
 
@@ -53,7 +68,7 @@ android {
     }
 
     lint {
-        // Sideloaded only, never published to Play — its battery-optimization policy doesn't apply.
+        // Never published to Play (F-Droid and GitHub only) — its battery-optimization policy doesn't apply.
         disable += "BatteryLife"
     }
 

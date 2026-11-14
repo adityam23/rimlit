@@ -9,7 +9,7 @@
 
 ## Project Overview
 
-Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Sideloaded only (never published on Play). Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles (or none), particle presets, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Every glow's lifecycle runs on one exhaustively model-checked state machine in `engine`, with palette extraction off the main thread. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and open questions. It may be absent in a fresh clone; never commit it.
+Rimlit (`app.rimlit`) — an Android app that lights up the screen edges when any app posts a notification, Samsung-style, on all devices. Material 3 + Jetpack Compose, Kotlin. Distributed through GitHub Releases and, with a reproducible build, F-Droid; never published on Play. Feature-complete: notification listener, on-screen overlay glow, AOD-style lock-screen glow, three animated styles (or none), particle presets, solid/gradient/rainbow/auto palettes, per-app palettes, tuning sliders and instant previews. Every glow's lifecycle runs on one exhaustively model-checked state machine in `engine`, with palette extraction off the main thread. Maintainers keep a gitignored `HANDOFF.md` with the architecture, contracts, gotchas and open questions. It may be absent in a fresh clone; never commit it.
 
 ## Architecture & Data Flow
 
@@ -48,7 +48,7 @@ gradle :app:assembleRelease               # minified release APK (unsigned unles
 gradle clean                              # clean
 ```
 
-No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run with `gradle :app:testDebugUnitTest` (see Testing & QA). CI (`.github/workflows/ci.yml`) runs the same checks on every PR and push, and publishes a signed release to GitHub Releases on merge to `main`; the secret names are in the workflow, and the full signing setup is in `docs/RELEASING.md`.
+No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run with `gradle :app:testDebugUnitTest` (see Testing & QA). CI (`.github/workflows/ci.yml`) runs the same checks on every PR and push, and, on a merge to `main` that bumps the version, publishes a signed release to GitHub Releases, tagged `v<versionName>`; the secret names are in the workflow, and the full signing setup is in `docs/RELEASING.md`.
 
 ## Code Conventions & Common Patterns
 
@@ -67,15 +67,17 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 
 - `app/src/main/AndroidManifest.xml` — permissions (`POST_NOTIFICATIONS`, `USE_FULL_SCREEN_INTENT`, `SYSTEM_ALERT_WINDOW`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`) and components (application `RimlitApp`, `MainActivity`, `LockScreenGlowActivity`, `UnlockActivity`, `GlowListenerService`, `GlowAccessibilityService` + `res/xml/glow_accessibility_service.xml`).
 - `app/src/main/java/app/rimlit/MainActivity.kt` — entry point; requests `POST_NOTIFICATIONS`; refreshes permission state in `onResume`.
-- `app/build.gradle.kts` — module config (SDK levels, deps, Java 11 / Kotlin jvmTarget 11, lint config). Release signing and `versionCode` come only from `RELEASE_*` environment variables.
+- `app/build.gradle.kts` — module config (SDK levels, deps, Java 11 / Kotlin jvmTarget 11, lint config). Release signing comes only from `RELEASE_*` environment variables. `versionName` and `versionCode` are literals, because F-Droid reads them with a regex; `versionCode` is major × 10000 + minor × 100 + patch, and the build fails when the two disagree, so bump both together.
 - `build.gradle.kts` — root; bumps KGP to the catalog `kotlin` version (2.4.21) via `buildscript classpath` (JDK 25 support).
 - `gradle/libs.versions.toml` — single source of versions and aliases.
 - `config/detekt/detekt.yml` — detekt overrides on top of the defaults, each with its reason.
 - `settings.gradle.kts` — repos + `include(":app")`.
 - `gradle.properties` — caching, parallel, configuration-cache, androidx flags.
+- `app/lint.xml` — path-scoped lint exceptions, each with its reason (the Gradle pin's "newer version" hint).
 - `app/proguard-rules.pro` — R8 rules; currently empty because AAPT2 already keeps manifest-declared components. Add rules only for code reached by reflection.
-- `.github/workflows/ci.yml` — CI: lint/detekt/test/debug build on every PR and push; on `main`, a signed release APK published as a GitHub Release (full signing setup in `docs/RELEASING.md`).
+- `.github/workflows/ci.yml` — CI: lint/detekt/test/debug build on every PR and push; on `main`, when `versionName` has no release yet, a signed release APK published as a GitHub Release tagged `v<versionName>`, which F-Droid then builds and checks its own build against (full signing setup in `docs/RELEASING.md`).
 - `README.md` — public overview, screenshots, install and build basics.
+- `fastlane/metadata/android/en-US/` — the store listing F-Droid reads at each release tag: `title.txt`, `short_description.txt` (80 characters at most, no full stop), `full_description.txt` (plain text and simple HTML, no Markdown), `images/icon.png` (the launcher icon at 512 px), `images/phoneScreenshots/` (also the README's screenshots) and `changelogs/<versionCode>.txt` (500 characters at most; add one with every version bump).
 - `docs/` — gitignored maintainer docs, e.g. `docs/RELEASING.md` (full signing-key setup). May be absent in a fresh clone; never commit it.
 - `HANDOFF.md` — gitignored maintainer notes: status, architecture, contracts, gotchas, roadmap. Read it first; never commit it or copy it into tracked files.
 - `TIMELINE.md` — gitignored decision log: each non-obvious decision, dated, with its reason. Read it before designing a change and update it before implementing one; never commit it.
@@ -83,8 +85,8 @@ No wrapper — `gradle` is the entrypoint (system Gradle 9.8.1). Unit tests run 
 ## Runtime & Tooling Preferences
 
 - **JDK 25.** The build targets it (see the KGP bump below); don't add toolchain auto-provisioning.
-- **Gradle 9.8.1**, system install; **no wrapper** — use `gradle`, not `./gradlew`.
-- **AGP 9.5.0 with built-in Kotlin** — do NOT re-add `org.jetbrains.kotlin.android`. Kotlin support is built in; KGP is bumped to 2.4.21 (catalog `kotlin`) in the root `buildscript` block for JDK 25.
+- **Gradle 9.8.1**, system install; **no wrapper** — use `gradle`, not `./gradlew`. `gradle/wrapper/gradle-wrapper.properties` is only a version pin that F-Droid's build server and IDEs read (no `gradlew`, no wrapper jar); keep it in step with `GRADLE_VERSION` in `ci.yml`.
+- **AGP 9.5.1 with built-in Kotlin** — do NOT re-add `org.jetbrains.kotlin.android`. Kotlin support is built in; KGP is bumped to 2.4.21 (catalog `kotlin`) in the root `buildscript` block for JDK 25.
 - **Compose compiler**: `org.jetbrains.kotlin.plugin.compose`, on the catalog `kotlin` version (2.4.21).
 - **Android SDK**: platform 36 (`sdk.dir` in `local.properties`, gitignored). compileSdk/targetSdk 36, minSdk 29.
 - Dependency resolution: `google()` + `mavenCentral()`, `FAIL_ON_PROJECT_REPOS`. Versions via the catalog, not inline.
