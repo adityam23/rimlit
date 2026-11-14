@@ -35,6 +35,9 @@ interface GlowDriver {
      * anything opened.
      */
     fun openNotification(post: Post, from: SurfaceInstance)
+
+    /** Dismisses [post]'s notification in the shade through the listener; nothing if it is gone by now. */
+    fun cancelNotification(post: Post)
 }
 
 fun interface Cancellable {

@@ -27,6 +27,8 @@ import app.rimlit.model.GlowSpec
  * | SurfaceGone              | Ended (no fade; nothing left to draw on).                                        |
  * | OpenRequested            | Ended (no fade), first opening the shown notification if `opensOnRequest` allows |
  * |                          | it: still posted, another app's, wanted, opening on. Otherwise it only ends.     |
+ * | DismissRequested         | Fades out early (a swipe on the pill), first cancelling the shown notification   |
+ * |                          | if `clearsOnDismiss` allows it: as for an open, with clearing on instead.        |
  * | Screen off               | Lock-screen glow: ended. On-screen glow that started within HAND_OFF_SHARE of    |
  * |                          | its hold: re-routed, so it hands off to the lock screen when allowed there.      |
  * |                          | Otherwise ended: its timers stop in deep sleep, so it would reappear on wake.    |
@@ -45,7 +47,7 @@ import app.rimlit.model.GlowSpec
  *
  * Executor contracts (violations fail loudly): a timer fires only while armed, never stale; a palette result
  * arrives only for the in-flight extraction; a surface reports only on the instance opened by its latest `Open`, and
- * requests an open only from the instance it confirmed.
+ * requests an open or a dismissal only from the instance it confirmed.
  */
 
 /** How long a glow fades in, then out, around its hold. `GlowHost` animates with the same durations. */
@@ -120,8 +122,20 @@ data class Glow(
 /** An accepted post waiting for its palette, with the settings it was posted under. */
 data class Pending(val post: Post, val settings: GlowSettings)
 
-/** What a surface draws: [spec], faded towards [visible] (or snapped there when [instant]). */
-data class GlowFrame(val spec: GlowSpec, val visible: Boolean, val instant: Boolean)
+/**
+ * What a surface draws: [spec], faded towards [visible] (or snapped there when [instant]), with the [pill] naming the
+ * glow's app on top, if it has one.
+ */
+data class GlowFrame(val spec: GlowSpec, val visible: Boolean, val instant: Boolean, val pill: PillApp?)
+
+/** The app a glow's pill names; the surface loads its icon and name. */
+sealed interface PillApp {
+    /** The app that posted the glow's notification, under [key]: the surface reads the app's user from it. */
+    data class Notifying(val packageName: String, val key: String) : PillApp
+
+    /** Rimlit itself: a preview has no notifying app. */
+    data object Rimlit : PillApp
+}
 
 /** Settings are non-null by type: the coordinator only creates the machine once they have loaded. */
 data class GlowState(
@@ -139,9 +153,22 @@ data class GlowState(
     /** [GlowEffect.WakeScreenDenied] was emitted since the listener last connected: it is reported once. */
     val wakeScreenDeniedReported: Boolean = false,
 ) {
-    /** What [surface] should draw now, or `null` for nothing. */
-    fun frameFor(surface: Surface): GlowFrame? = glow?.takeIf { it.surface == surface && it.opened }
-        ?.let { GlowFrame(it.spec, visible = it.phase != Phase.FADING_OUT, instant = it.instant) }
+    /**
+     * What [surface] should draw now, or `null` for nothing. On screen it has a pill while the settings show one;
+     * the lock-screen surface never has one (a held icon there would need burn-in shifting), and neither does a
+     * notification Android hides from the lock screen while the device is locked (see [keepsSecret]).
+     */
+    fun frameFor(surface: Surface): GlowFrame? = glow?.takeIf { it.surface == surface && it.opened }?.let {
+        val post = it.source.post
+        val pill = post?.let { PillApp.Notifying(post.packageName, post.key) } ?: PillApp.Rimlit
+        val named = settings.showPill && surface != Surface.LOCK_SCREEN && (post == null || !keepsSecret(post))
+        GlowFrame(
+            spec = it.spec,
+            visible = it.phase != Phase.FADING_OUT,
+            instant = it.instant,
+            pill = pill.takeIf { named },
+        )
+    }
 
     fun on(event: GlowEvent): GlowStep = Transition(this).apply { handle(event) }.step()
 }
@@ -188,6 +215,11 @@ sealed interface GlowEvent {
      */
     data class OpenRequested(val surface: Surface) : GlowEvent
 
+    /**
+     * The user swiped away what the surface's confirmed instance shows (the pill). Same contract as [OpenRequested].
+     */
+    data class DismissRequested(val surface: Surface) : GlowEvent
+
     data class TimerFired(val timer: Timer) : GlowEvent
 }
 
@@ -215,6 +247,12 @@ sealed interface GlowEffect {
      * the executor hands it over to the open, which closes it once the unlock ends, and that `Close` finds it gone.
      */
     data class OpenNotification(val post: Post, val from: Surface) : GlowEffect
+
+    /**
+     * Dismisses [post]'s notification in the shade, as the user would (the system keeps ongoing and non-clearable
+     * ones); nothing happens if it is gone by now.
+     */
+    data class CancelNotification(val post: Post) : GlowEffect
 
     /** Cancels the in-flight extraction; its result is never delivered. */
     data object CancelExtraction : GlowEffect

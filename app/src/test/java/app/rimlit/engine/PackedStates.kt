@@ -184,46 +184,35 @@ internal class LongSet(initialCapacity: Int) {
 }
 
 /**
- * A growable list of longs, without boxing. It doubles up to [BLOCK] elements, then grows a block at a time, so a
- * list of tens of millions is never copied whole and wastes at most one block.
+ * A growable list of longs, without boxing. Its first page doubles up to [PAGE] longs; past that it grows a page at a
+ * time, never copying, so a list of tens of millions never needs its old and new copies in the heap at once, and
+ * wastes at most one page.
  */
 internal class LongList(initialCapacity: Int = 16) {
 
-    /** Full blocks of [BLOCK] elements, then [last], which holds the rest. */
-    private val blocks = ArrayList<LongArray>()
-    private var last = LongArray(initialCapacity.coerceIn(1, BLOCK))
-    private var lastSize = 0
-
-    val size: Int get() = blocks.size * BLOCK + lastSize
+    private val pages = arrayListOf(LongArray(initialCapacity.coerceIn(1, PAGE)))
+    var size = 0
+        private set
 
     operator fun get(index: Int): Long {
         require(index in 0 until size) { "index $index out of $size" }
-        val block = index / BLOCK
-        return (if (block < blocks.size) blocks[block] else last)[index % BLOCK]
+        return pages[index ushr PAGE_BITS][index and PAGE - 1]
     }
 
     fun add(value: Long) {
-        if (lastSize == last.size) {
-            if (last.size < BLOCK) {
-                last = last.copyOf(minOf(last.size * 2, BLOCK))
-            } else {
-                blocks += last
-                last = LongArray(BLOCK)
-                lastSize = 0
-            }
+        val first = pages[0]
+        when {
+            size < (pages.size - 1) * PAGE + pages.last().size -> Unit
+            first.size < PAGE -> pages[0] = first.copyOf(minOf(first.size * 2, PAGE))
+            else -> pages += LongArray(PAGE)
         }
-        last[lastSize++] = value
-    }
-
-    fun toArray(): LongArray {
-        val array = LongArray(size)
-        blocks.forEachIndexed { i, block -> block.copyInto(array, destinationOffset = i * BLOCK) }
-        last.copyInto(array, destinationOffset = blocks.size * BLOCK, endIndex = lastSize)
-        return array
+        pages[size ushr PAGE_BITS][size and PAGE - 1] = value
+        size++
     }
 
     private companion object {
-        /** 8 MB: small enough to waste, large enough that the block list stays short. */
-        const val BLOCK = 1 shl 20
+        /** 512 KB pages: little to waste, and few enough that the page list stays short. */
+        const val PAGE_BITS = 16
+        const val PAGE = 1 shl PAGE_BITS
     }
 }

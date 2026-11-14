@@ -44,6 +44,24 @@ internal class GlowGeometry(val shape: OutlineShape, val path: Path = Path().als
     }
 
     /**
+     * Arc distance, in [0, [length]), of the outline point at angle [turn] around [center] (see [CutoutSide.turn]): the
+     * inverse of [angleAt]. Angles grow along the outline, wrapping once, so this finds the two samples [turn] lies
+     * between, then bisects. For building painters, not for every frame.
+     */
+    fun distanceAt(turn: Float): Float {
+        // How far an angle lies past [turn], in [0, 1): it wraps from near 1 to near 0 where the outline meets [turn].
+        fun past(angle: Float) = ((angle - turn) % 1f + 1f) % 1f
+        val sample = (0 until SAMPLES).first { past(sampleAngles[(it + 1) % SAMPLES]) < past(sampleAngles[it]) }
+        var low = length * sample / SAMPLES
+        var high = length * (sample + 1) / SAMPLES
+        repeat(BISECTIONS) {
+            val middle = (low + high) / 2f
+            if (past(angleAt(middle)) > 0.5f) low = middle else high = middle
+        }
+        return high % length
+    }
+
+    /**
      * Writes the outline point at arc [distance] (any real; wraps) into [position] as (x, y), and its unit tangent,
      * clockwise on screen, into [tangent] unless `null`.
      */
@@ -54,8 +72,20 @@ internal class GlowGeometry(val shape: OutlineShape, val path: Path = Path().als
     companion object {
         /** Resolution of the arc-length → angle mapping used for gradients. */
         const val SAMPLES = 96
+
+        /** Halvings that refine [distanceAt] within a sample's span: well under a pixel on any screen. */
+        private const val BISECTIONS = 16
     }
 }
+
+/** Direction toward this side of the screen, as the turn [GlowGeometry.angleAt] measures: clockwise from the right. */
+internal val CutoutSide.turn: Float
+    get() = when (this) {
+        CutoutSide.RIGHT -> 0f
+        CutoutSide.BOTTOM -> 0.25f
+        CutoutSide.LEFT -> 0.5f
+        CutoutSide.TOP -> 0.75f
+    }
 
 /** Corner radius assumed where the system doesn't report the display's own (before API 31). */
 private const val FALLBACK_CORNER_DP = 24f

@@ -20,14 +20,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,9 +42,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.AppInfo
-import app.rimlit.model.DEFAULT_GLOW_ARGB
 import app.rimlit.model.GlowSettings
-import app.rimlit.ui.components.PaletteEditor
+import app.rimlit.model.Rule
+import app.rimlit.model.withAppRule
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.paletteBrush
 
@@ -89,22 +88,18 @@ fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier 
             AppList(
                 apps = filtered,
                 settings = settings,
-                onEditPalette = { editing = it },
+                onEditLook = { editing = it },
                 onToggle = { app, blocked -> viewModel.update { it.withBlocked(app.packageName, blocked) } },
             )
         }
     }
 
     editing?.let { app ->
-        AppPaletteDialog(
+        AppLookDialog(
             app = app,
-            initial = settings.appPalettes[app.packageName],
-            onSave = { colors ->
-                viewModel.update { it.copy(appPalettes = it.appPalettes + (app.packageName to colors)) }
-                editing = null
-            },
-            onUseDefault = {
-                viewModel.update { it.copy(appPalettes = it.appPalettes - app.packageName) }
+            settings = settings,
+            onSave = { rule ->
+                viewModel.update { it.withAppRule(app.packageName, rule) }
                 editing = null
             },
             onDismiss = { editing = null },
@@ -116,7 +111,7 @@ fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier 
 private fun AppList(
     apps: List<AppInfo>,
     settings: GlowSettings,
-    onEditPalette: (AppInfo) -> Unit,
+    onEditLook: (AppInfo) -> Unit,
     onToggle: (AppInfo, Boolean) -> Unit,
 ) {
     if (apps.isEmpty()) {
@@ -134,15 +129,26 @@ private fun AppList(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items(apps, key = { it.packageName }) { app ->
+            val rule = settings.ruleFor(app.packageName)
             AppRow(
                 app = app,
                 blocked = app.packageName in settings.blockedPackages,
-                palette = settings.appPalettes[app.packageName],
-                onEditPalette = { onEditPalette(app) },
+                palette = (rule as? Rule.UsePalette)?.palette?.argb,
+                ruleLabel = settings.ruleLabel(rule),
+                onEditLook = { onEditLook(app) },
                 onToggle = { blocked -> onToggle(app, blocked) },
             )
         }
     }
+}
+
+/** What an app's [rule] (as [GlowSettings.ruleFor] applies it) reads as under its name; `null` for the default look. */
+@Composable
+@ReadOnlyComposable
+private fun GlowSettings.ruleLabel(rule: Rule?): String? = when (rule) {
+    is Rule.UseLook -> look(rule.lookId)?.let { stringResource(R.string.app_rule_look, it.name) }
+    is Rule.UsePalette -> stringResource(R.string.app_rule_palette)
+    null -> null
 }
 
 private fun GlowSettings.withBlocked(packageName: String, blocked: Boolean) =
@@ -153,7 +159,8 @@ private fun AppRow(
     app: AppInfo,
     blocked: Boolean,
     palette: List<Int>?,
-    onEditPalette: () -> Unit,
+    ruleLabel: String?,
+    onEditLook: () -> Unit,
     onToggle: (Boolean) -> Unit,
 ) {
     Row(
@@ -171,18 +178,21 @@ private fun AppRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            ruleLabel?.let {
+                Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            }
         }
-        PaletteButton(palette = palette, onClick = onEditPalette)
+        PaletteButton(palette = palette, onClick = onEditLook)
         Spacer(modifier = Modifier.width(12.dp))
         // Switch shows "allowed"; checked means NOT blocked.
         Switch(checked = !blocked, onCheckedChange = { allowed -> onToggle(!allowed) })
     }
 }
 
-/** Shows the app's own palette, or a palette icon when it uses the global color settings. */
+/** Opens the app's look: shows the app's own palette, or a palette icon when it glows with a look's colors. */
 @Composable
 private fun PaletteButton(palette: List<Int>?, onClick: () -> Unit) {
-    val description = stringResource(R.string.app_palette_edit)
+    val description = stringResource(R.string.app_look_edit)
     Box(
         modifier = Modifier
             .size(32.dp)
@@ -201,26 +211,6 @@ private fun PaletteButton(palette: List<Int>?, onClick: () -> Unit) {
             )
         }
     }
-}
-
-@Composable
-private fun AppPaletteDialog(
-    app: AppInfo,
-    initial: List<Int>?,
-    onSave: (List<Int>) -> Unit,
-    onUseDefault: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var colors by remember(app.packageName) { mutableStateOf(initial ?: listOf(DEFAULT_GLOW_ARGB)) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.app_palette_title, app.label)) },
-        text = { PaletteEditor(colors = colors, onPreview = { colors = it }, onCommit = { colors = it }) },
-        confirmButton = { TextButton(onClick = { onSave(colors) }) { Text(stringResource(R.string.save)) } },
-        dismissButton = {
-            TextButton(onClick = onUseDefault) { Text(stringResource(R.string.app_palette_use_default)) }
-        },
-    )
 }
 
 @Composable

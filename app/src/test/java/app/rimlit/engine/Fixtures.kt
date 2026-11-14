@@ -5,8 +5,10 @@ import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
+import app.rimlit.model.Look
 import app.rimlit.model.QuietHours
 import app.rimlit.model.QuietScope
+import app.rimlit.model.Rule
 
 /** Small, representative inputs shared by the model check and the scenario tests. Never trim them to save time. */
 internal object Fixtures {
@@ -22,6 +24,7 @@ internal object Fixtures {
         ongoing: Boolean = fullScreenIntent,
         own: Boolean = false,
         test: Boolean = false,
+        hiddenOnLockScreen: Boolean = false,
     ) = Post(
         key = key,
         packageName = if (own) OWN_APP else OTHER_APP,
@@ -34,13 +37,28 @@ internal object Fixtures {
         onlyAlertOnce = onlyAlertOnce,
         importance = importance,
         passesDnd = true,
+        hiddenOnLockScreen = hiddenOnLockScreen,
     )
 
     /** Auto colours, so posts go through pending extraction; not the default ones, so the effect must carry them. */
-    val AUTO = GlowSettings(enabled = true, autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 2))
+    val AUTO = GlowSettings(
+        enabled = true,
+        looks = listOf(Look(autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 2))),
+    )
 
-    /** Custom colours, so posts show at once. */
-    val CUSTOM = AUTO.copy(colorMode = ColorMode.CUSTOM)
+    /** These settings with [edit] applied to their default look. */
+    fun GlowSettings.withDefaultLook(edit: (Look) -> Look) = updateLook(defaultLookId, edit)
+
+    /** These settings with custom colours, so posts show at once. */
+    fun GlowSettings.custom() = withDefaultLook { it.copy(colorMode = ColorMode.CUSTOM) }
+
+    val CUSTOM = AUTO.custom()
+
+    /** A second auto look, with other auto colours than the default one, so extracting with the wrong look is caught. */
+    val CHAT_LOOK = Look(id = "chat", name = "Chat", autoColors = AutoColors(AutoColorSource.APP_ICON, count = 3))
+
+    /** Auto colours, with [OTHER_APP]'s rule picking [CHAT_LOOK]; Rimlit's own posts keep the default look. */
+    val RULED = AUTO.copy(looks = AUTO.looks + CHAT_LOOK, appRules = mapOf(OTHER_APP to Rule.UseLook(CHAT_LOOK.id)))
 
     /** A clock time outside, then inside, the quiet hours below. */
     const val DAYTIME = 12 * 60
@@ -52,13 +70,16 @@ internal object Fixtures {
     val SETTINGS = listOf(
         AUTO,
         // Other auto colours, so an extraction carrying the live settings instead of the post-time ones is caught.
-        AUTO.copy(autoColors = AutoColors(AutoColorSource.APP_ICON, count = 1)),
+        AUTO.withDefaultLook { it.copy(autoColors = AutoColors(AutoColorSource.APP_ICON, count = 1)) },
         CUSTOM,
+        // A per-app rule, so colours are chosen per package: the rule's look for most posts, the default for the test.
+        RULED,
         AUTO.copy(enabled = false),
         AUTO.copy(showWhenScreenOff = false),
         AUTO.copy(showOnLockScreen = false),
         AUTO.copy(showWhenUnlocked = false),
         AUTO.copy(openOnDoubleTap = false),
+        AUTO.copy(swipeClears = true),
         quiet(QuietScope.ALL),
         quiet(QuietScope.SCREEN_OFF),
     )
@@ -79,6 +100,8 @@ internal object Fixtures {
         post("b", fullScreenIntent = true, ongoing = false, own = true),
         post("b", onlyAlertOnce = true),
         post("b", own = true, test = true),
+        // One Android keeps off the lock screen: it glows there, but nothing names its app or clears it while locked.
+        post("b", hiddenOnLockScreen = true),
     )
 
     val EXTRACTED = listOf(0xFF336699.toInt())

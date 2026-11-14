@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import app.rimlit.model.GlowSpec
+import app.rimlit.model.GlowStyle
 import app.rimlit.ui.glow.effects.OutlineBrush
 import app.rimlit.ui.glow.effects.painter
 import app.rimlit.ui.glow.particles.rememberParticleLayer
@@ -34,6 +36,11 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
     val seconds = rememberFrameSeconds(running = !playback.still, maxFps = playback.maxFps)
     val layouts = remember { BuildCache(::GlowLayout) }
     val particles = rememberParticleLayer()
+    // A preview's particles start over with each new duration: it sets their cycle, so on the running clock every
+    // particle would jump (each tick of the duration slider). On a surface the duration never changes mid-glow.
+    val particleStart = remember(if (preview) spec.durationMs else null) {
+        Snapshot.withoutReadObservation { seconds.value }
+    }
     Spacer(
         modifier.drawWithCache {
             val display = if (preview) {
@@ -58,16 +65,19 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
                     glowPx = spec.glowWidthDp.dp.toPx(),
                 ),
             )
-            // One painter per outline, each in the spec's style; an array, so a frame walks it without an iterator.
-            val outlines = layout.outlines
-            val edges = Array(outlines.size) { spec.style.painter(OutlineBrush(spec, playback, outlines[it])) }
             val particlePainter = particles.painter(spec, playback, size, pxPerDp, preview)
+            // No edge draws the plain outline when no particles draw (none in the spec, or none under Remove
+            // animations): a glow showing nothing would hide the notification.
+            val style = if (spec.style == GlowStyle.NONE && particlePainter == null) GlowStyle.BASIC else spec.style
+            // One painter per outline, each in that style; an array, so a frame walks it without an iterator.
+            val outlines = layout.outlines
+            val edges = Array(outlines.size) { style.painter(OutlineBrush(spec, playback, outlines[it])) }
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value
                 drawIntoCanvas { canvas ->
                     // Particles go beneath the edge.
-                    particlePainter?.draw(canvas.nativeCanvas, t)
+                    particlePainter?.draw(canvas.nativeCanvas, t - particleStart)
                     for (i in edges.indices) edges[i].draw(canvas.nativeCanvas, t)
                 }
             }

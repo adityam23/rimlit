@@ -41,43 +41,75 @@ internal class PaletteFlow(private val geometry: GlowGeometry, private val palet
 }
 
 /**
- * The blade comet as shaders: [color] fading in quadratically along a [tail] (arc length) up to the head,
- * then fading out over an edge length, transparent elsewhere; stroking the whole outline with one draws the
- * comet in a single pass. The stop colors never change: [moveTo] places the tail once per frame, and each
- * [shader] call only adds its own head edge.
+ * The blade comet as shaders: [color] fading in quadratically along a tail up to the head, then fading out
+ * over an edge length, transparent elsewhere; stroking the whole outline with one draws the comet in a
+ * single pass. The head travels clockwise round the outline or against it, and the tail trails behind it
+ * either way. The stop colors never change: [moveTo] places the tail once per frame, and each [shader]
+ * call only adds its own head edge.
  */
-internal class BladeFade(private val geometry: GlowGeometry, private val tail: Float, color: Int) {
+internal class BladeFade(private val geometry: GlowGeometry, color: Int) {
 
     private val angles = FloatArray(STEPS + 2)
-    private val colors = IntArray(STEPS + 2).also {
+
+    /** The stops in outline order for a blade travelling clockwise: the tail's fade up to the head, then its edge. */
+    private val clockwiseColors = IntArray(STEPS + 2).also {
         for (step in 0..STEPS) {
             val f = step.toFloat() / STEPS
             it[step] = ColorUtils.setAlphaComponent(color, (Color.alpha(color) * f * f).toInt())
         }
         // Transparent [color], not transparent black: gradients blend unpremultiplied, so black would grey the fade.
-        it[STEPS + 1] = ColorUtils.setAlphaComponent(color, 0)
+        it[EDGE] = ColorUtils.setAlphaComponent(color, 0)
     }
+
+    /** The same stops for a blade travelling against the outline: in outline order, the head's edge comes first. */
+    private val counterclockwiseColors = clockwiseColors.reversedArray()
     private val gradient = OutlineGradient(STEPS + 2)
     private var head = 0f
+    private var tail = 0f
+    private var clockwise = true
+    private var from = Float.NEGATIVE_INFINITY
+    private var to = Float.POSITIVE_INFINITY
 
-    /** Longest head edge that still ends before the tail starts, keeping the stops in outline order. */
-    private val maxEdge = (geometry.length - tail - 1f).coerceAtLeast(0f)
-
-    /** Places the head at arc distance [head], with the tail trailing behind it. */
-    fun moveTo(head: Float) {
+    /**
+     * Places the head at arc distance [head], travelling [clockwise] round the outline or against it, with a [tail]
+     * (arc length) trailing behind it. Only the part between arc distances [from] and [to] (unwrapped, `from <= to`)
+     * shows, so a blade can grow out of one point and drain into another.
+     */
+    fun moveTo(head: Float, tail: Float, clockwise: Boolean, from: Float, to: Float) {
         this.head = head
-        for (step in 0..STEPS) angles[step] = geometry.angleAt(head - tail * (1f - step.toFloat() / STEPS))
+        this.tail = tail
+        this.clockwise = clockwise
+        this.from = from
+        this.to = to
+        for (step in 0..STEPS) angles[slot(step)] = angleAt(head - sign * tail * (1f - step.toFloat() / STEPS))
     }
 
     /** The comet with its head fading out over [edge] (a hairline for a crisp core; wider for a soft halo). */
     fun shader(edge: Float): Shader {
-        angles[STEPS + 1] = geometry.angleAt(head + edge.coerceAtMost(maxEdge))
-        return gradient.shader(geometry, angles, colors)
+        // The longest head edge that still ends before the tail starts, keeping the stops in outline order.
+        val maxEdge = (geometry.length - tail - 1f).coerceAtLeast(0f)
+        angles[slot(EDGE)] = angleAt(head + sign * edge.coerceAtMost(maxEdge))
+        return gradient.shader(geometry, angles, if (clockwise) clockwiseColors else counterclockwiseColors)
     }
+
+    /** Toward greater arc distances (clockwise) or smaller ones. */
+    private val sign: Float get() = if (clockwise) 1f else -1f
+
+    /** Angle of arc [distance] clamped to the part that shows; clamped stops stay in outline order. */
+    private fun angleAt(distance: Float) = geometry.angleAt(distance.coerceIn(from, to))
+
+    /**
+     * Where stop [index] (0 the tail's end, [STEPS] the head, [EDGE] the head's edge) goes in the gradient, whose
+     * stops run in outline order: reversed for a blade travelling against it.
+     */
+    private fun slot(index: Int) = if (clockwise) index else EDGE - index
 
     private companion object {
         /** Gradient stops shaping the tail's fade. */
         const val STEPS = 32
+
+        /** The stop past the head, where the head's edge fades out. */
+        const val EDGE = STEPS + 1
     }
 }
 
