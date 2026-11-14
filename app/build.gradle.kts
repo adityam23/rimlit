@@ -18,8 +18,8 @@ android {
         targetSdk = 36
         // Both are literals: F-Droid reads them from this file with a regex and never runs Gradle. versionCode is
         // major × 10000 + minor × 100 + patch of versionName, so every release installs as an update.
-        versionCode = 109
-        versionName = "0.1.9"
+        versionCode = 110
+        versionName = "0.1.10"
         val (major, minor, patch) = versionName!!.split('.').map(String::toInt)
         check(versionCode == major * 10_000 + minor * 100 + patch) {
             "versionCode $versionCode doesn't match versionName $versionName: bump both together"

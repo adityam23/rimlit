@@ -73,6 +73,8 @@
     <string name="style_loop_desc">Two lights chasing around the edge</string>
     <string name="style_mirror_title">Mirror</string>
     <string name="style_mirror_desc">Two lights meeting at the top</string>
+    <string name="style_boomerang_title">Boomerang</string>
+    <string name="style_boomerang_desc">A blade sweeping round the edge and back</string>
     <string name="style_none_title">None</string>
     <string name="style_none_desc">No edge, only the particles</string>
     <string name="style_none_unavailable">Pick particles below to show them alone</string>

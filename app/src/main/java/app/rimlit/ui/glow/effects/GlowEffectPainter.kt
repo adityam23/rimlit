@@ -12,14 +12,23 @@ internal fun interface GlowEffectPainter {
     fun draw(canvas: Canvas, t: Float)
 }
 
-/** The painter for this style on [brush]'s outline. */
-internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (this) {
+/** The styles whose blade races round the outline. */
+private val BLADES = setOf(GlowStyle.BLADE, GlowStyle.LOOP, GlowStyle.MIRROR, GlowStyle.BOOMERANG)
+
+/**
+ * The painter for this style on [brush]'s outline. A still blade can't race, so it glows: the whole outline lit, with
+ * its halo.
+ */
+internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter =
+    if (brush.still && this in BLADES) GlowEffect(brush) else movingPainter(brush)
+
+/** The painter for this style on [brush]'s outline, when the glow may move. */
+private fun GlowStyle.movingPainter(brush: OutlineBrush): GlowEffectPainter = when (this) {
     GlowStyle.BASIC -> BasicEffect(brush)
 
     GlowStyle.GLOW -> GlowEffect(brush)
 
-    // A still blade can't race, so it glows: the whole outline lit, with its halo.
-    GlowStyle.BLADE -> if (brush.still) GlowEffect(brush) else BladeEffect(brush)
+    GlowStyle.BLADE -> BladeEffect(brush)
 
     GlowStyle.WAVE -> WaveEffect(brush)
 
@@ -27,10 +36,11 @@ internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter = when (t
 
     GlowStyle.ECHO -> EchoEffect(brush)
 
-    // Still blades glow, like Blade.
-    GlowStyle.LOOP -> if (brush.still) GlowEffect(brush) else TwinBladesEffect(brush, TwinMode.LOOP)
+    GlowStyle.LOOP -> TwinBladesEffect(brush, TwinMode.LOOP)
 
-    GlowStyle.MIRROR -> if (brush.still) GlowEffect(brush) else TwinBladesEffect(brush, TwinMode.MIRROR)
+    GlowStyle.MIRROR -> TwinBladesEffect(brush, TwinMode.MIRROR)
+
+    GlowStyle.BOOMERANG -> BoomerangEffect(brush)
 
     // No edge: the look shows its particles alone.
     GlowStyle.NONE -> GlowEffectPainter { _, _ -> }

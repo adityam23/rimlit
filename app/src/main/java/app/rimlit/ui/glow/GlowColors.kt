@@ -41,13 +41,13 @@ internal class PaletteFlow(private val geometry: GlowGeometry, private val palet
 }
 
 /**
- * The blade comet as shaders: [color] fading in quadratically along a [tail] (arc length) up to the head,
- * then fading out over an edge length, transparent elsewhere; stroking the whole outline with one draws the
- * comet in a single pass. The head travels clockwise round the outline or against it, and the tail trails
- * behind it either way. The stop colors never change: [moveTo] places the tail once per frame, and each
- * [shader] call only adds its own head edge.
+ * The blade comet as shaders: [color] fading in quadratically along a tail up to the head, then fading out
+ * over an edge length, transparent elsewhere; stroking the whole outline with one draws the comet in a
+ * single pass. The head travels clockwise round the outline or against it, and the tail trails behind it
+ * either way. The stop colors never change: [moveTo] places the tail once per frame, and each [shader]
+ * call only adds its own head edge.
  */
-internal class BladeFade(private val geometry: GlowGeometry, private val tail: Float, color: Int) {
+internal class BladeFade(private val geometry: GlowGeometry, color: Int) {
 
     private val angles = FloatArray(STEPS + 2)
 
@@ -65,25 +65,19 @@ internal class BladeFade(private val geometry: GlowGeometry, private val tail: F
     private val counterclockwiseColors = clockwiseColors.reversedArray()
     private val gradient = OutlineGradient(STEPS + 2)
     private var head = 0f
+    private var tail = 0f
     private var clockwise = true
     private var from = Float.NEGATIVE_INFINITY
     private var to = Float.POSITIVE_INFINITY
 
-    /** Longest head edge that still ends before the tail starts, keeping the stops in outline order. */
-    private val maxEdge = (geometry.length - tail - 1f).coerceAtLeast(0f)
-
     /**
-     * Places the head at arc distance [head], travelling [clockwise] round the outline or against it, with the tail
-     * trailing behind it. Only the part between arc distances [from] and [to] (unwrapped, `from <= to`; by default the
-     * whole outline) shows, so a blade can grow out of one point and drain into another.
+     * Places the head at arc distance [head], travelling [clockwise] round the outline or against it, with a [tail]
+     * (arc length) trailing behind it. Only the part between arc distances [from] and [to] (unwrapped, `from <= to`)
+     * shows, so a blade can grow out of one point and drain into another.
      */
-    fun moveTo(
-        head: Float,
-        clockwise: Boolean,
-        from: Float = Float.NEGATIVE_INFINITY,
-        to: Float = Float.POSITIVE_INFINITY,
-    ) {
+    fun moveTo(head: Float, tail: Float, clockwise: Boolean, from: Float, to: Float) {
         this.head = head
+        this.tail = tail
         this.clockwise = clockwise
         this.from = from
         this.to = to
@@ -92,6 +86,8 @@ internal class BladeFade(private val geometry: GlowGeometry, private val tail: F
 
     /** The comet with its head fading out over [edge] (a hairline for a crisp core; wider for a soft halo). */
     fun shader(edge: Float): Shader {
+        // The longest head edge that still ends before the tail starts, keeping the stops in outline order.
+        val maxEdge = (geometry.length - tail - 1f).coerceAtLeast(0f)
         angles[slot(EDGE)] = angleAt(head + sign * edge.coerceAtMost(maxEdge))
         return gradient.shader(geometry, angles, if (clockwise) clockwiseColors else counterclockwiseColors)
     }
