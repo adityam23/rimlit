@@ -4,12 +4,12 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 
 | Home | Style | On screen | Screen off |
 |---|---|---|---|
-| ![Home screen](screenshots/home.png) | ![Style screen with live preview](screenshots/style.png) | ![Glow over the launcher](screenshots/overlay.png) | ![Always-on-display style glow](screenshots/lock-screen.png) |
+| ![Home screen](fastlane/metadata/android/en-US/images/phoneScreenshots/1_home.png) | ![Style screen with live preview](fastlane/metadata/android/en-US/images/phoneScreenshots/2_style.png) | ![Glow over the launcher](fastlane/metadata/android/en-US/images/phoneScreenshots/3_overlay.png) | ![Always-on-display style glow](fastlane/metadata/android/en-US/images/phoneScreenshots/4_lock-screen.png) |
 
 ## Features
 
 - **Works everywhere:** while you use the phone the glow is drawn over whatever is on screen; when the screen is off it wakes into a black, always-on-display style glow. With the recommended accessibility glow it also frames the lock screen itself.
-- **Three styles:** a crisp breathing edge, a soft bloom with a bright core, or a blade of light racing around the screen.
+- **Ten styles:** a crisp breathing edge, a soft bloom with a bright core, a blade of light racing around the screen, a wave rippling along it, glitter twinkling in your colors, rings echoing off it, two blades chasing each other round it, two blades rising up both sides to meet at the top, a blade sweeping round it and back like a boomerang, or fireworks bursting along it.
 - **Particles:** snow, petals, rain, hearts, bubbles, confetti, stars or sparks across the screen while it glows, in the glow's colors or their own, with their size, speed, amount and spin to tune. Or use up to five of your own pictures, or the icon of the app that notified. Show them with any style, or on their own with no edge at all.
 - **Your colors:** one to three colors picked automatically from the notifying app's icon (or from the notification's picture, such as the sender's photo), a single custom color, a gradient of up to five colors, or a flowing rainbow.
 - **Tune it:** thickness, glow width, speed, brightness (with its own setting for the screen-off glow if you like) and duration, with a live preview that updates as you drag.
@@ -18,6 +18,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 - **Fits your screen:** follows your display's real rounded corners, and can ring the camera cutout instead of the whole edge, or as well as it.
 - **When it glows:** choose separately whether it glows with the screen off, above the lock screen, and while you use the phone, and set daily quiet hours (for every glow, or only the one that wakes the screen). Turning edge lighting off, or excluding an app, also ends a glow that is showing.
 - **Double tap to open:** double tap the screen-off glow to unlock and open the notification, just as tapping it in the shade would; a single tap still dismisses the glow. It can be turned off.
+- **App pill:** while you use the phone, the glow comes with a small pill showing the app's icon and name (never the message), grown out of the camera like an island. Double tap it to open the notification (above the lock screen, after you unlock), or swipe it up or sideways to dismiss the glow, and optionally the notification too. Above a locked screen, a notification you hide from the lock screen glows without its pill and can't be cleared, so nothing there says which app it came from. The pill can be turned off.
 - **Respectful:** honors Do Not Disturb, skips silent and low-priority notifications, and never covers incoming-call or alarm screens. Any app can be excluded.
 
 ## Install

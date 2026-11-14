@@ -1,0 +1,38 @@
+Rimlit lights up the edges of your screen when a notification arrives: the edge lighting Samsung phones have, on any Android phone. It has no ads, no accounts and no internet permission, so nothing can leave your device.
+
+<b>Where it glows</b>
+<ul>
+<li>While you use the phone, the glow is drawn over whatever is on screen.</li>
+<li>When the screen is off, it wakes into a black, always-on-display style glow.</li>
+<li>With the optional accessibility glow, it also frames the lock screen itself.</li>
+<li>Around the screen edge, around the camera cutout, or both, following your display's real corners.</li>
+</ul>
+
+<b>How it looks</b>
+<ul>
+<li>Edge styles: a breathing edge, a soft bloom, a racing blade, a wave, glitter, echoing rings, twin blades, a boomerang and fireworks.</li>
+<li>Particles across the screen while it glows: snow, petals, rain, hearts, bubbles, confetti, stars, sparks, your own pictures, or the notifying app's icon.</li>
+<li>Colors picked from the app's icon or the notification's picture, a color of your own, a gradient, or a flowing rainbow.</li>
+<li>Thickness, glow width, speed, brightness and duration, with a live preview as you drag.</li>
+<li>Save up to ten named looks, give any app its own look or colors, and export looks to share them.</li>
+<li>A pill with the app's icon and name can grow out of the camera cutout.</li>
+</ul>
+
+<b>How it behaves</b>
+<ul>
+<li>Honors Do Not Disturb, skips silent and low-priority notifications, and never covers incoming-call or alarm screens.</li>
+<li>Choose separately whether it glows with the screen off, on the lock screen and while you use the phone. Set quiet hours. Exclude any app.</li>
+<li>Double tap the glow to open the notification; a single tap or a swipe dismisses it.</li>
+<li>With Remove animations turned on, the glow holds still. With battery saver, it draws at most 30 frames a second.</li>
+</ul>
+
+<b>Permissions</b>
+<ul>
+<li>Notification access: to notice when a notification arrives. Rimlit only looks at which app posted it and its colors; nothing is stored or sent anywhere.</li>
+<li>Display over other apps: to draw the glow while you use the phone.</li>
+<li>Notifications and full-screen notifications: Rimlit wakes the screen with a silent notification of its own to show the glow when the screen is off.</li>
+<li>Accessibility service (optional, recommended): it only owns the glow's window, so the glow can be drawn above the lock screen and without Android's "displaying over other apps" notice. It receives no accessibility events and cannot read or control anything on screen.</li>
+<li>Unrestricted battery (optional, recommended): so the system doesn't delay the glow.</li>
+</ul>
+
+Settings stay on the phone and are excluded from cloud backups.

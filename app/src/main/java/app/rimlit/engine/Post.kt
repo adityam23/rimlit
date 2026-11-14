@@ -25,6 +25,11 @@ data class Post(
     val importance: Int?,
     /** False when Do Not Disturb hides this notification. */
     val passesDnd: Boolean,
+    /**
+     * Android keeps this notification off the lock screen: it or its channel is secret, or the user shows no
+     * notifications there. While locked, nothing may then name its app or act on it (see [GlowState.keepsSecret]).
+     */
+    val hiddenOnLockScreen: Boolean,
 ) {
     /**
      * An incoming call or alarm showing its own full-screen UI, which nothing may cover: ongoing, with a full-screen
@@ -43,6 +48,12 @@ enum class GroupAlert { ALL, SUMMARY, CHILDREN }
 /** The user's settings allow a glow for this post. Our own test notification bypasses the master toggle. */
 internal fun GlowSettings.wants(post: Post): Boolean =
     (post.isTest || (enabled && !post.isOwn)) && post.packageName !in blockedPackages
+
+/**
+ * The one lock-screen privacy rule: while the device is locked, [post] is one Android hides there, so the glow may
+ * show (it names nothing) but no pill names its app and no gesture clears it. Opening stays possible: it unlocks first.
+ */
+internal fun GlowState.keepsSecret(post: Post): Boolean = environment.locked && post.hiddenOnLockScreen
 
 /** `NotificationManager.IMPORTANCE_DEFAULT`, restated so the engine stays free of Android: below it, nothing alerts. */
 private const val IMPORTANCE_DEFAULT = 3

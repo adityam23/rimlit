@@ -4,7 +4,7 @@ package app.rimlit.model
  * Visual treatment of the edge glow shown when a notification arrives. [NONE] draws no edge, so a look can show its
  * particles alone.
  */
-enum class GlowStyle { BASIC, GLOW, BLADE, NONE }
+enum class GlowStyle { BASIC, GLOW, BLADE, WAVE, GLITTER, ECHO, LOOP, MIRROR, BOOMERANG, FIREWORKS, NONE }
 
 /**
  * Where the glow is drawn: around the screen edge, the camera cutout, or both. Without a camera cutout, the
@@ -97,8 +97,15 @@ data class GlowSettings(
     val showWhenScreenOff: Boolean = true,
     val showOnLockScreen: Boolean = true,
     val showWhenUnlocked: Boolean = true,
-    /** A double tap on the lock-screen glow unlocks and opens its notification; off, it only ends the glow. */
+    /**
+     * A double tap on the lock-screen glow unlocks and opens its notification (off: it only ends the glow), and one
+     * on the pill opens it (off: it does nothing).
+     */
     val openOnDoubleTap: Boolean = true,
+    /** On-screen glows show a pill with the notifying app's icon and name, out of the camera cutout. */
+    val showPill: Boolean = true,
+    /** Swiping the pill away also dismisses its notification in the shade; off, it only ends the glow. */
+    val swipeClears: Boolean = false,
     val quietHours: QuietHours = QuietHours(),
     /** Corner radius of the screen-edge outline; `null` matches the display's own corners. */
     val cornerRadiusDp: Float? = null,
