@@ -18,7 +18,7 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 - **Fits your screen:** follows your display's real rounded corners, and can ring the camera cutout instead of the whole edge, or as well as it.
 - **When it glows:** choose separately whether it glows with the screen off, above the lock screen, and while you use the phone, and set daily quiet hours (for every glow, or only the one that wakes the screen). Turning edge lighting off, or excluding an app, also ends a glow that is showing.
 - **Double tap to open:** double tap the screen-off glow to unlock and open the notification, just as tapping it in the shade would; a single tap still dismisses the glow. It can be turned off.
-- **App pill:** while you use the phone, the glow comes with a small pill showing the app's icon and name (never the message), grown out of the camera like an island. Double tap it to open the notification (above the lock screen, after you unlock), or swipe it up or sideways to dismiss the glow, and optionally the notification too. The pill can be turned off.
+- **App pill:** while you use the phone, the glow comes with a small pill showing the app's icon and name (never the message), grown out of the camera like an island. Double tap it to open the notification (above the lock screen, after you unlock), or swipe it up or sideways to dismiss the glow, and optionally the notification too. Above a locked screen, a notification you hide from the lock screen glows without its pill and can't be cleared, so nothing there says which app it came from. The pill can be turned off.
 - **Respectful:** honors Do Not Disturb, skips silent and low-priority notifications, and never covers incoming-call or alarm screens. Any app can be excluded.
 
 ## Install

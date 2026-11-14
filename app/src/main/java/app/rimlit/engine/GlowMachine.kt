@@ -130,8 +130,8 @@ data class GlowFrame(val spec: GlowSpec, val visible: Boolean, val instant: Bool
 
 /** The app a glow's pill names; the surface loads its icon and name. */
 sealed interface PillApp {
-    /** The app that posted the glow's notification. */
-    data class Notifying(val packageName: String) : PillApp
+    /** The app that posted the glow's notification, under [key]: the surface reads the app's user from it. */
+    data class Notifying(val packageName: String, val key: String) : PillApp
 
     /** Rimlit itself: a preview has no notifying app. */
     data object Rimlit : PillApp
@@ -155,15 +155,18 @@ data class GlowState(
 ) {
     /**
      * What [surface] should draw now, or `null` for nothing. On screen it has a pill while the settings show one;
-     * the lock-screen surface never has one (a held icon there would need burn-in shifting).
+     * the lock-screen surface never has one (a held icon there would need burn-in shifting), and neither does a
+     * notification Android hides from the lock screen while the device is locked (see [keepsSecret]).
      */
     fun frameFor(surface: Surface): GlowFrame? = glow?.takeIf { it.surface == surface && it.opened }?.let {
-        val pill = it.source.post?.let { post -> PillApp.Notifying(post.packageName) } ?: PillApp.Rimlit
+        val post = it.source.post
+        val pill = post?.let { PillApp.Notifying(post.packageName, post.key) } ?: PillApp.Rimlit
+        val named = settings.showPill && surface != Surface.LOCK_SCREEN && (post == null || !keepsSecret(post))
         GlowFrame(
             spec = it.spec,
             visible = it.phase != Phase.FADING_OUT,
             instant = it.instant,
-            pill = pill.takeIf { settings.showPill && surface != Surface.LOCK_SCREEN },
+            pill = pill.takeIf { named },
         )
     }
 

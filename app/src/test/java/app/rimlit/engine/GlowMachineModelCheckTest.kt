@@ -144,6 +144,10 @@ class GlowMachineModelCheckTest {
             glow.surface == Surface.LOCK_SCREEN && state.frameFor(Surface.LOCK_SCREEN)?.pill != null ->
                 "a pill on the lock screen"
 
+            // Lock-screen privacy: above a locked screen, nothing names an app whose notification Android hides there.
+            state.environment.locked && glow.source.post?.hiddenOnLockScreen == true &&
+                state.frameFor(glow.surface)?.pill != null -> "a pill names a notification hidden from the lock screen"
+
             // Invariant 4: the opaque activity would cover the call/alarm screen.
             glow.surface == Surface.LOCK_SCREEN && (state.ringingKeys.isNotEmpty() || glow.source.post?.isRinging == true) ->
                 "a lock-screen glow while something rings"
@@ -172,7 +176,8 @@ class GlowMachineModelCheckTest {
     /**
      * Dismissing: the shown glow fades out (it is already up, so there is something to fade). Its notification is
      * cleared only on the user's dismissal, only the one shown on that surface, only while it is still posted, never
-     * Rimlit's own or a preview, only with clearing on and the post still wanted; and then always, once.
+     * Rimlit's own or a preview, only with clearing on and the post still wanted, never one Android hides from the
+     * lock screen while the device is locked; and then always, once.
      */
     private fun dismissViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
         // Runs on every transition: allocate the effect list only for a request.
@@ -184,8 +189,9 @@ class GlowMachineModelCheckTest {
         val after = step.state.glow
         val post = shown.source.post
         val cleared = clears.singleOrNull()
+        val secret = old.environment.locked && post?.hiddenOnLockScreen == true
         val allowed = post != null && !post.isOwn && post.key in old.activeKeys && old.settings.swipeClears &&
-            old.settings.wants(post)
+            old.settings.wants(post) && !secret
         return when {
             after == null || after.source != shown.source || after.surface != shown.surface ||
                 after.phase != Phase.FADING_OUT -> "a dismissal didn't fade the shown glow out"
@@ -196,6 +202,7 @@ class GlowMachineModelCheckTest {
             cleared.post.key !in old.activeKeys -> "clears a removed notification"
             !old.settings.swipeClears -> "clears with clearing off"
             !old.settings.wants(cleared.post) -> "clears a post the settings don't want"
+            secret -> "clears a notification hidden from the lock screen while locked"
             else -> null
         }
     }
