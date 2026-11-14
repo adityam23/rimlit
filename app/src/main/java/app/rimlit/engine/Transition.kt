@@ -61,6 +61,8 @@ internal class Transition(private var state: GlowState) {
 
             is GlowEvent.OpenRequested -> openRequested(event.surface)
 
+            is GlowEvent.DismissRequested -> dismissRequested(event.surface)
+
             is GlowEvent.TimerFired -> fired(event.timer)
         }
     }
@@ -202,6 +204,14 @@ internal class Transition(private var state: GlowState) {
         check(current?.surface == surface && current.opened) { "Contract: $surface requested an open but isn't up" }
         state.opensOnRequest(surface)?.let { effects += GlowEffect.OpenNotification(it, surface) }
         end()
+    }
+
+    /** The user swiped away what [surface] shows: its notification is cleared if the policy allows, and it fades. */
+    private fun dismissRequested(surface: Surface) {
+        val current = glow
+        check(current?.surface == surface && current.opened) { "Contract: $surface requested a dismissal but isn't up" }
+        state.clearsOnDismiss(surface)?.let { effects += GlowEffect.CancelNotification(it) }
+        dismiss()
     }
 
     private fun fired(timer: Timer) {

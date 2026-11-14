@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- The Gradle pin follows the Gradle that CI and development use (GRADLE_VERSION in ci.yml), which is bumped
+         deliberately, so lint's "newer Gradle available" hint is off for that file only. It can't be suppressed
+         inside a properties file, and the AGP hint in the version catalog stays on. -->
+    <issue id="AndroidGradlePluginVersion">
+        <ignore regexp="gradle-wrapper\.properties" />
+    </issue>
+</lint>

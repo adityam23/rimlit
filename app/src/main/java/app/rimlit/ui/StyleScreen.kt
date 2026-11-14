@@ -314,6 +314,13 @@ private val GlowStyle.titleRes
         GlowStyle.BASIC -> R.string.style_basic_title
         GlowStyle.GLOW -> R.string.style_glow_title
         GlowStyle.BLADE -> R.string.style_blade_title
+        GlowStyle.WAVE -> R.string.style_wave_title
+        GlowStyle.GLITTER -> R.string.style_glitter_title
+        GlowStyle.ECHO -> R.string.style_echo_title
+        GlowStyle.LOOP -> R.string.style_loop_title
+        GlowStyle.MIRROR -> R.string.style_mirror_title
+        GlowStyle.BOOMERANG -> R.string.style_boomerang_title
+        GlowStyle.FIREWORKS -> R.string.style_fireworks_title
         GlowStyle.NONE -> R.string.style_none_title
     }
 
@@ -322,6 +329,13 @@ private val GlowStyle.descRes
         GlowStyle.BASIC -> R.string.style_basic_desc
         GlowStyle.GLOW -> R.string.style_glow_desc
         GlowStyle.BLADE -> R.string.style_blade_desc
+        GlowStyle.WAVE -> R.string.style_wave_desc
+        GlowStyle.GLITTER -> R.string.style_glitter_desc
+        GlowStyle.ECHO -> R.string.style_echo_desc
+        GlowStyle.LOOP -> R.string.style_loop_desc
+        GlowStyle.MIRROR -> R.string.style_mirror_desc
+        GlowStyle.BOOMERANG -> R.string.style_boomerang_desc
+        GlowStyle.FIREWORKS -> R.string.style_fireworks_desc
         GlowStyle.NONE -> R.string.style_none_desc
     }
 

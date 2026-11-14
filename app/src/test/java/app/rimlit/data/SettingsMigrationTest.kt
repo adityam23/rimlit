@@ -140,6 +140,13 @@ class SettingsMigrationTest {
     }
 
     @Test
+    fun thePillTogglesReadBackTheSame() {
+        val settings = GlowSettings().let { it.copy(showPill = !it.showPill, swipeClears = !it.swipeClears) }
+        val prefs = mutablePreferencesOf().apply { write(settings) }
+        assertEquals(settings, prefs.toSettings())
+    }
+
+    @Test
     fun aMissingDefaultLookFallsBackToTheFirstLook() {
         val prefs = mutablePreferencesOf().apply {
             write(GlowSettings(looks = listOf(Look(id = "a", name = "A")), defaultLookId = "a"))

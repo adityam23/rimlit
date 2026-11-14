@@ -8,4 +8,13 @@
         <item name="android:windowAnimationStyle">@null</item>
         <item name="android:windowDisablePreview">true</item>
     </style>
+
+    <!-- Invisible, animation-free window for UnlockActivity: only the system's bouncer shows. -->
+    <style name="Theme.App.Unlock" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+    </style>
 </resources>

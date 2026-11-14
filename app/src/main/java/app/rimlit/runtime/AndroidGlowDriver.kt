@@ -128,6 +128,11 @@ class AndroidGlowDriver(
         }
     }
 
+    override fun cancelNotification(post: Post) {
+        GlowListenerService.connected?.cancel(post.key)
+            ?: Log.i(TAG, "Notification access is gone; not clearing ${post.key}")
+    }
+
     /** What opens [post]'s notification as it is posted now; `null` if it is gone or leads nowhere. */
     private fun opener(post: Post): (() -> Unit)? {
         val listener = GlowListenerService.connected ?: return null

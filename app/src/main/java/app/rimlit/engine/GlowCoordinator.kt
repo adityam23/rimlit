@@ -56,6 +56,12 @@ class GlowCoordinator(driver: (GlowCoordinator) -> GlowDriver) {
      */
     fun openRequested(surface: Surface, instance: SurfaceInstance) = executor.openRequested(surface, instance)
 
+    /**
+     * The user swiped away what [instance] of [surface] shows. Unless it is the instance shown, it only ends
+     * [instance], like [surfaceGone].
+     */
+    fun dismissRequested(surface: Surface, instance: SurfaceInstance) = executor.dismissRequested(surface, instance)
+
     private fun enqueue(input: Input) {
         queue.addLast(input)
         drain()

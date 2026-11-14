@@ -70,11 +70,11 @@ internal class SurfaceSlot {
     }
 
     /**
-     * [asking] asked to open what it shows. Returns the check for its `OpenRequested` report, or `null` if it isn't
-     * the confirmed instance of the latest request. The check also fails once [asking] has gone meanwhile, so the
-     * open effect always finds it up.
+     * [asking] asked to open or dismiss what it shows. Returns the check for its `OpenRequested` or
+     * `DismissRequested` report, or `null` if it isn't the confirmed instance of the latest request. The check also
+     * fails once [asking] has gone meanwhile, so the open effect always finds it up.
      */
-    fun openRequested(asking: SurfaceInstance): (() -> Boolean)? {
+    fun requested(asking: SurfaceInstance): (() -> Boolean)? {
         if (!requested || instance !== asking) return null
         val isCurrent = current()
         return { isCurrent() && instance === asking }
