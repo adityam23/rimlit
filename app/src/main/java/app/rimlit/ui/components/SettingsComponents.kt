@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -191,6 +192,29 @@ fun RadioCard(
         leading = leading,
         // Display only, as in SwitchCard: the card handles the selection.
         trailing = { RadioButton(selected = selected, onClick = null, enabled = enabled) },
+    )
+}
+
+/** A [SettingCard] that is one checkbox: tapping anywhere on it toggles [checked], and it reads as one checkbox. */
+@Composable
+fun CheckboxCard(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    SettingCard(
+        title = title,
+        modifier = modifier.toggleable(
+            value = checked,
+            enabled = enabled,
+            role = Role.Checkbox,
+            onValueChange = onCheckedChange,
+        ),
+        enabled = enabled,
+        // Display only, as in SwitchCard: the card handles the toggle.
+        trailing = { Checkbox(checked = checked, onCheckedChange = null, enabled = enabled) },
     )
 }
 

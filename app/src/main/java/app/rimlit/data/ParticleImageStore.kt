@@ -15,10 +15,8 @@ import app.rimlit.model.newParticleImageId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
-import java.io.InputStream
 import java.nio.ByteBuffer
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -40,9 +38,7 @@ internal const val MAX_IMPORT_SIDE = 16_384
 internal const val MAX_IMPORT_PIXELS = 51_000_000L
 
 /** A stored image larger than this isn't one of ours (a 128 px PNG is well under it): it is never decoded. */
-private const val MAX_STORED_BYTES = 512 * 1024
-
-private const val COPY_BUFFER_BYTES = 8 * 1024
+internal const val MAX_STORED_BYTES = 512 * 1024
 
 /** PNG is lossless: the quality is ignored. */
 private const val PNG_QUALITY = 100
@@ -60,9 +56,9 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
     /** Imports the image at [uri]; its id, or `null` when it can't be read, is too large, or doesn't decode. */
     suspend fun import(uri: Uri): String? = withContext(io) {
         try {
-            val bytes = resolver.openInputStream(uri)?.use(::readCapped)
+            val bytes = resolver.openInputStream(uri)?.use { it.readCapped(MAX_IMPORT_BYTES) }
                 ?: throw IOException("Unreadable, or past $MAX_IMPORT_BYTES bytes")
-            save(decodeSquare(bytes))
+            save(decodeSquare(ByteBuffer.wrap(bytes)))
         } catch (e: IOException) {
             Log.w(TAG, "Skipping a picked image", e)
             null
@@ -72,13 +68,30 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
         }
     }
 
+    /**
+     * Imports the image [bytes] (untrusted: from a shared look file) as a picked image is imported, but only if it is
+     * what an export writes (see [isExportedImage]); its id, or `null` when it isn't, or doesn't decode.
+     */
+    suspend fun import(bytes: ByteArray): String? = withContext(io) {
+        try {
+            save(decodeSquare(ByteBuffer.wrap(bytes), exported = true))
+        } catch (e: IOException) {
+            Log.w(TAG, "Skipping a shared image", e)
+            null
+        }
+    }
+
     /** The stored image [id], or `null` when there is none (or it isn't one of ours). Small enough to load anywhere. */
-    fun load(id: String): Bitmap? {
+    fun load(id: String): Bitmap? = storedFile(id)?.let { BitmapFactory.decodeFile(it.path) }
+        ?.takeIf { it.width == PARTICLE_IMAGE_PX && it.height == PARTICLE_IMAGE_PX }
+
+    /** The stored image [id]'s PNG bytes, to share; `null` when there is none (or it isn't one of ours). */
+    suspend fun read(id: String): ByteArray? = withContext(io) { storedFile(id)?.readBytes() }
+
+    /** The file of the stored image [id], or `null` when there is none, or it is too large to be one of ours. */
+    private fun storedFile(id: String): File? {
         if (!isValidParticleImageId(id)) return null
-        val file = File(dir, id + EXTENSION)
-        if (!file.isFile || file.length() > MAX_STORED_BYTES) return null
-        return BitmapFactory.decodeFile(file.path)
-            ?.takeIf { it.width == PARTICLE_IMAGE_PX && it.height == PARTICLE_IMAGE_PX }
+        return File(dir, id + EXTENSION).takeIf { it.isFile && it.length() <= MAX_STORED_BYTES }
     }
 
     /** Deletes every stored file but the images [keep] names. Only for [deleteUnusedParticleImages]. */
@@ -105,31 +118,19 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
     }
 }
 
-/** A byte buffer read in place, without the copy [toByteArray] makes. */
-private class ReadBuffer : ByteArrayOutputStream() {
-    fun bytes(): ByteBuffer = ByteBuffer.wrap(buf, 0, count)
-}
-
-/** All of [input], or `null` past [MAX_IMPORT_BYTES]. */
-private fun readCapped(input: InputStream): ByteBuffer? {
-    val out = ReadBuffer()
-    val chunk = ByteArray(COPY_BUFFER_BYTES)
-    while (true) {
-        val read = input.read(chunk)
-        if (read < 0) return out.bytes()
-        if (out.size() + read > MAX_IMPORT_BYTES) return null
-        out.write(chunk, 0, read)
-    }
-}
-
 /**
  * [bytes] decoded at the size [fittedSize] gives (the decoder samples it down as it reads, so a large photo never
  * decodes in full), centred on a transparent [PARTICLE_IMAGE_PX] square.
  *
+ * With [exported], only an image as Rimlit exports one is decoded at all (see [isExportedImage]).
+ *
  * @throws IOException when it doesn't decode, claims a size past the caps, or needs more memory than there is.
  */
-private fun decodeSquare(bytes: ByteBuffer): Bitmap = try {
+private fun decodeSquare(bytes: ByteBuffer, exported: Boolean = false): Bitmap = try {
     val image = ImageDecoder.decodeBitmap(ImageDecoder.createSource(bytes)) { decoder, info, _ ->
+        if (exported && !isExportedImage(info.size.width, info.size.height, info.mimeType)) {
+            throw IOException("Not an image Rimlit exported: ${info.mimeType}, ${info.size}")
+        }
         val size = fittedSize(info.size.width, info.size.height) ?: throw IOException("Image too large: ${info.size}")
         decoder.setTargetSize(size.first, size.second)
         // A software bitmap in sRGB, to draw onto the square; animated images decode their first frame.
@@ -148,6 +149,14 @@ private fun decodeSquare(bytes: ByteBuffer): Bitmap = try {
     // any other that doesn't decode, and logged with this cause by the importer, instead of ending the process.
     throw IOException("Out of memory decoding the image", e)
 }
+
+/**
+ * An image as Rimlit exports one, by its header: a PNG of exactly the stored square. A look file's images are held to
+ * this instead of a photo's caps: a few hundred kilobytes of PNG can claim tens of megapixels, and a file carries
+ * dozens of images, so anything else is refused before a pixel is decoded.
+ */
+internal fun isExportedImage(width: Int, height: Int, mimeType: String): Boolean =
+    width == PARTICLE_IMAGE_PX && height == PARTICLE_IMAGE_PX && mimeType == "image/png"
 
 /**
  * The size an image of [width] × [height] decodes at: scaled to fit a [side] square, keeping its shape; `null` when

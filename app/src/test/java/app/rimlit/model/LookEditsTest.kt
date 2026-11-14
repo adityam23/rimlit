@@ -131,4 +131,34 @@ class LookEditsTest {
         assertEquals("Look ${MAX_LOOKS - 1}", nine.firstFreeName(numbered))
         assertNull(settings.firstFreeName(sequenceOf("Work", "")))
     }
+
+    @Test
+    fun importedLooksAreAddedUnderNewIdsWithClashingNamesNumbered() {
+        val ruled = settings.withAppRule(app, Rule.UseLook("work"))
+        val night = Look(id = "work", name = "Night", style = GlowStyle.BASIC)
+        val ids = generateSequence(1) { it + 1 }.map { "new$it" }.iterator()
+        val imported = ruled.addImportedLooks(listOf(work, Look(), night)) { ids.next() }
+        assertEquals(
+            listOf("Default", "Work", "Work (2)", "Default (2)", "Night"),
+            imported.looks.map { it.name },
+        )
+        assertEquals(listOf("default", "work", "new1", "new2", "new3"), imported.looks.map { it.id })
+        assertEquals(work.copy(id = "new1", name = "Work (2)"), imported.look("new1"))
+        assertEquals(ruled.appRules, imported.appRules, "rules untouched")
+        assertEquals(ruled.defaultLookId, imported.defaultLookId, "default look untouched")
+        // Numbered again past a taken number, and the number always fits a long name.
+        assertEquals("Work (3)", imported.addImportedLooks(listOf(work)).looks.last().name)
+        val long = Look(id = "long", name = "x".repeat(30))
+        val twice = settings.addImportedLooks(listOf(long, long))
+        assertEquals(listOf("x".repeat(30), "x".repeat(26) + " (2)"), twice.looks.drop(2).map { it.name })
+    }
+
+    @Test
+    fun importedLooksStopAtTheLookLimit() {
+        val looks = (1..MAX_LOOKS).map { Look(id = "i$it", name = "Imported $it") }
+        val imported = settings.addImportedLooks(looks)
+        assertEquals(MAX_LOOKS, imported.looks.size)
+        assertEquals((1..MAX_LOOKS - 2).map { "Imported $it" }, imported.looks.drop(2).map { it.name })
+        assertEquals(full(), full().addImportedLooks(looks), "no room: unchanged")
+    }
 }

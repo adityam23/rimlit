@@ -70,6 +70,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
     val look = draft.look(editingId) ?: draft.defaultLook
     // The open look dialog, kept across configuration changes like the look being edited.
     var lookAction by rememberSaveable(stateSaver = LookAction.Saver) { mutableStateOf<LookAction?>(null) }
+    val sharing = rememberLookSharing(viewModel)
 
     val displayCornerDp = rememberDisplayCornerDp()
     val cutoutSeed = rememberCutoutSeed()
@@ -83,7 +84,7 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
 
     SubScreenScaffold(title = stringResource(R.string.nav_style_title), onBack = onBack, modifier = modifier) {
         SettingsList(it) {
-            lookPickerSection(draft, look, onEdit = { picked -> editingId = picked.id }) { lookAction = it }
+            lookPickerSection(draft, look, sharing, onEdit = { picked -> editingId = picked.id }) { lookAction = it }
             item {
                 LivePreview(
                     spec = spec,
@@ -109,6 +110,9 @@ fun StyleScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier
             }
         }
     }
+
+    // From the saved looks: a file holds what is saved, and an import adds to it.
+    LookSharingDialogs(sharing, saved)
 
     // Restored before the settings load, or for a look that no longer exists, the dialog waits unseen; the next action
     // replaces it. Clearing it here would lose a restored dialog to the placeholder settings shown before DataStore.

@@ -52,9 +52,8 @@ fun isValidLookName(name: String): Boolean = name.length in GlowSettings.Ranges.
     name == name.trim() &&
     name.codePoints().noneMatch { it in Char.MIN_SURROGATE.code..Char.MAX_SURROGATE.code }
 
-/** [text] cut to a look name's maximum length, never inside a surrogate pair (an emoji), and trimmed. */
-fun fitLookName(text: String): String {
-    val max = GlowSettings.Ranges.lookNameLength.last
+/** [text] cut to [max] (a look name's maximum length), never inside a surrogate pair (an emoji), and trimmed. */
+fun fitLookName(text: String, max: Int = GlowSettings.Ranges.lookNameLength.last): String {
     if (text.length <= max) return text.trim()
     val splitsPair = text[max - 1].isHighSurrogate() && text[max].isLowSurrogate()
     return text.take(if (splitsPair) max - 1 else max).trim()

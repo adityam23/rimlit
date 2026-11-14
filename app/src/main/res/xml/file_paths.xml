@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the FileProvider serves: only the look files written for the share sheet (LookFiles.shareable). -->
+<paths>
+    <cache-path
+        name="shared"
+        path="shared/" />
+</paths>

@@ -221,6 +221,34 @@
     <string name="look_delete_title">Delete %1$s?</string>
     <string name="look_delete_desc">Apps that use it go back to the default look.</string>
 
+    <!-- Look files (Style screen) -->
+    <string name="looks_export">Export</string>
+    <string name="looks_share">Share</string>
+    <string name="looks_import">Import</string>
+    <string name="looks_export_title">Export looks</string>
+    <string name="looks_share_title">Share looks</string>
+    <string name="looks_import_title">Import looks</string>
+    <plurals name="looks_import_pick">
+        <item quantity="one">There is room for %1$d more look. Pick which to import.</item>
+        <item quantity="other">There is room for %1$d more looks. Pick which to import.</item>
+    </plurals>
+    <plurals name="looks_exported">
+        <item quantity="one">%1$d look exported</item>
+        <item quantity="other">%1$d looks exported</item>
+    </plurals>
+    <plurals name="looks_imported">
+        <item quantity="one">%1$d look imported</item>
+        <item quantity="other">%1$d looks imported</item>
+    </plurals>
+    <plurals name="looks_import_no_room">
+        <item quantity="one">You already have %1$d look, the most you can keep. Delete one to import.</item>
+        <item quantity="other">You already have %1$d looks, the most you can keep. Delete one to import.</item>
+    </plurals>
+    <string name="looks_file_invalid">This isn\'t a Rimlit look file, or it is damaged. Nothing was imported.</string>
+    <string name="looks_file_too_large">This file is too large to be a Rimlit look file. Nothing was imported.</string>
+    <string name="looks_file_newer">This look file is from a newer Rimlit. Update Rimlit to import it.</string>
+    <string name="looks_file_failed">Couldn\'t read or write the look file</string>
+
     <!-- Glow area -->
     <string name="region_section">Glow area</string>
     <string name="region_full_title">Around screen edge</string>
