@@ -18,8 +18,8 @@ android {
         targetSdk = 36
         // Both are literals: F-Droid reads them from this file with a regex and never runs Gradle. versionCode is
         // major × 10000 + minor × 100 + patch of versionName, so every release installs as an update.
-        versionCode = 200
-        versionName = "0.2.0"
+        versionCode = 201
+        versionName = "0.2.1"
         val (major, minor, patch) = versionName!!.split('.').map(String::toInt)
         check(versionCode == major * 10_000 + minor * 100 + patch) {
             "versionCode $versionCode doesn't match versionName $versionName: bump both together"
@@ -74,6 +74,12 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    packaging {
+        // The androidx libraries' small native parts are packaged as they ship. AGP otherwise strips them with
+        // whatever NDK the machine has, or not at all without one, so the APK would depend on where it was built.
+        jniLibs.keepDebugSymbols += "**/*.so"
     }
 
     testOptions {
