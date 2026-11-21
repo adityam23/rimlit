@@ -50,7 +50,7 @@ class UnusedParticleImagesTest {
         looks = listOf(Look(particles = ParticleSpec(ParticlePicture.Custom(used), ParticleMotion.FALL))),
     )
     private val store = FakeStore(mutablePreferencesOf().apply { write(settings) })
-    private val repository = SettingsRepository(store)
+    private val repository = SettingsRepository(store, FakePaletteLookNames())
     private val images = FakeImages(unused, *used.toTypedArray())
 
     private fun deleteUnused() = runBlocking { deleteUnusedParticleImages(repository, images::retainOnly) }

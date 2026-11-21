@@ -21,8 +21,8 @@ import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
+import app.rimlit.model.Premade
 import app.rimlit.model.QuietHours
-import app.rimlit.model.Rule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -106,9 +106,13 @@ private object Keys {
 }
 
 /** Single source of truth for user settings, backed by Preferences DataStore. */
-class SettingsRepository(private val store: DataStore<Preferences>) {
+class SettingsRepository internal constructor(
+    private val store: DataStore<Preferences>,
+    /** Names the looks older per-app palettes migrate into. */
+    private val names: PaletteLookNames,
+) {
 
-    constructor(context: Context) : this(context.dataStore)
+    constructor(context: Context) : this(context.dataStore, AppPaletteLookNames(context))
 
     /**
      * The stored settings, to show and to glow by. On the first I/O error it emits defaults, then keeps retrying with
@@ -123,19 +127,19 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             delay(READ_RETRY_MS shl attempt.coerceAtMost(MAX_RETRY_DOUBLINGS).toInt())
             true
         }
-        .map { it.toSettings() }
+        .map { it.toSettings(names) }
 
     /**
      * The settings as they are stored now, never a fallback: what to delete by.
      *
      * @throws IOException when they can't be read.
      */
-    suspend fun stored(): GlowSettings = store.data.first().toSettings()
+    suspend fun stored(): GlowSettings = store.data.first().toSettings(names)
 
     /** Atomically read-modify-writes the settings; the settings written. */
     suspend fun update(transform: (GlowSettings) -> GlowSettings): GlowSettings {
         lateinit var written: GlowSettings
-        store.edit { prefs -> written = transform(prefs.toSettings()).also(prefs::write) }
+        store.edit { prefs -> written = transform(prefs.toSettings(names)).also(prefs::write) }
         return written
     }
 }
@@ -145,15 +149,17 @@ private val cutoutDefaults = CustomCutout()
 
 /**
  * Tolerant decode: unknown or out-of-range stored values fall back to defaults or are clamped. Settings from before
- * looks migrate: the global look becomes the default look, and per-app palettes become palette rules.
+ * looks migrate: the global look becomes the default look. Per-app palettes, stored before looks or as palette rules
+ * after, become looks of their own, named by [names] (see `PaletteLooks.kt`).
  */
-internal fun Preferences.toSettings(): GlowSettings {
+internal fun Preferences.toSettings(names: PaletteLookNames): GlowSettings {
     val looks = decoded(Keys.LOOKS, ::decodeLooks) ?: listOf(preLooksLook())
+    val rules = decoded(Keys.APP_RULES, ::decodeRules) ?: StoredRules(palettes = preLooksPalettes())
     return GlowSettings(
         enabled = valueOr(Keys.ENABLED, defaults.enabled),
         looks = looks,
         defaultLookId = this[Keys.DEFAULT_LOOK]?.takeIf { id -> looks.any { it.id == id } } ?: looks.first().id,
-        appRules = decoded(Keys.APP_RULES, ::decodeRules) ?: preLooksRules(),
+        appRules = rules.rules,
         screenOffBrightness = clampedOrNull(
             Keys.SCREEN_OFF_BRIGHTNESS,
             defaults.screenOffBrightness,
@@ -176,7 +182,7 @@ internal fun Preferences.toSettings(): GlowSettings {
         cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
         customCutout = customCutout(),
         blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
-    )
+    ).withPaletteLooks(rules.palettes, names)
 }
 
 /** The cutout drawn by hand, only while its shape is stored; a missing field starts as in a new [CustomCutout]. */
@@ -202,8 +208,10 @@ private fun <T : Any> Preferences.decoded(key: Preferences.Key<String>, decode: 
 /** The default look as the global look settings before looks stored it. */
 private fun Preferences.preLooksLook(): Look {
     val look = defaults.defaultLook
+    val style = this[Keys.PreLooks.GLOW_STYLE].toEnumOr(look.style)
     return look.copy(
-        style = this[Keys.PreLooks.GLOW_STYLE].toEnumOr(look.style),
+        basedOn = Premade.of(style),
+        style = style,
         colorMode = this[Keys.PreLooks.COLOR_MODE].toEnumOr(look.colorMode),
         autoColors = AutoColors(
             source = this[Keys.PreLooks.AUTO_COLOR_SOURCE].toEnumOr(look.autoColors.source),
@@ -220,13 +228,13 @@ private fun Preferences.preLooksLook(): Look {
     )
 }
 
-/** Palette rules from the per-app palettes stored before looks, as `package=ff00bcd4,ffe040fb` entries. */
-private fun Preferences.preLooksRules(): Map<String, Rule> =
+/** The per-app palettes stored before looks, as `package=ff00bcd4,ffe040fb` entries, by package name. */
+private fun Preferences.preLooksPalettes(): Map<String, GlowPalette.Colors> =
     valueOr(Keys.PreLooks.APP_PALETTES, emptySet()).mapNotNull { entry ->
         // Package names never contain `=`.
         val pkg = entry.substringBefore('=', missingDelimiterValue = "")
         val palette = decodePalette(entry.substringAfter('=').splitToSequence(','))
-        if (pkg.isEmpty() || palette == null) null else pkg to Rule.UsePalette(palette)
+        if (pkg.isEmpty() || palette == null) null else pkg to palette
     }.toMap()
 
 /** The stored value of [key], or [default] when it was never written. */

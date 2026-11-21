@@ -14,7 +14,7 @@ Rimlit lights up the edges of your screen when a notification arrives: the edge 
 <li>Particles across the screen while it glows: snow, petals, rain, hearts, bubbles, confetti, stars, sparks, your own pictures, or the notifying app's icon.</li>
 <li>Colors picked from the app's icon or the notification's picture, a color of your own, a gradient, or a flowing rainbow.</li>
 <li>Thickness, glow width, speed, brightness and duration, with a live preview as you drag.</li>
-<li>Save up to ten named looks, give any app its own look or colors, and export looks to share them.</li>
+<li>Save up to twenty named looks, give any app its own look, and export looks to share them.</li>
 <li>A pill with the app's icon and name can grow out of the camera cutout.</li>
 </ul>
 

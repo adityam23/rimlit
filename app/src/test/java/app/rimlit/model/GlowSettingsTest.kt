@@ -42,16 +42,10 @@ class GlowSettingsTest {
     }
 
     @Test
-    fun aPaletteRulePaintsTheDefaultLook() {
-        val spec = settings.copy(appRules = mapOf(app to Rule.UsePalette(red))).ready()
-        assertEquals(GlowStyle.GLOW, spec.style)
-        assertEquals(red, spec.palette)
-    }
-
-    @Test
-    fun aPaletteRuleOverridesAutoColours() {
-        val auto = GlowSettings(appRules = mapOf(app to Rule.UsePalette(red)))
-        assertEquals(red, (auto.resolve(app) as Resolution.Ready).spec.palette)
+    fun aRuledLooksOwnColoursApplyOverTheDefaultLooks() {
+        val painted = Look(id = "red", name = "Red", colorMode = ColorMode.CUSTOM, customColors = red)
+        val auto = GlowSettings(looks = listOf(Look(), painted), appRules = mapOf(app to Rule.UseLook("red")))
+        assertEquals(red, (auto.resolve(app) as Resolution.Ready).spec.palette, "no extraction needed")
     }
 
     @Test

@@ -1,5 +1,6 @@
 package app.rimlit.data
 
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -11,6 +12,7 @@ import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
 import app.rimlit.model.BatterySaver
 import app.rimlit.model.ColorMode
+import app.rimlit.model.DEFAULT_LOOK_ID
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
@@ -18,6 +20,7 @@ import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
 import app.rimlit.model.ParticlePreset
+import app.rimlit.model.Premade
 import app.rimlit.model.Resolution
 import app.rimlit.model.Rule
 import org.junit.Test
@@ -67,12 +70,16 @@ class SettingsMigrationTest {
 
     private fun GlowSettings.spec(packageName: String) = (resolve(packageName) as Resolution.Ready).spec
 
+    private val names = FakePaletteLookNames(mapOf("com.a" to "Alpha", "com.b" to "Beta"))
+
+    private fun Preferences.toSettings() = toSettings(names)
+
     @Test
     fun theGlobalLookBecomesTheDefaultLook() {
         val settings = preLooks().toSettings()
-        assertEquals(1, settings.looks.size)
         assertEquals(
             Look(
+                basedOn = Premade.BLADE,
                 style = GlowStyle.BLADE,
                 colorMode = ColorMode.CUSTOM,
                 autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 2),
@@ -89,16 +96,46 @@ class SettingsMigrationTest {
     }
 
     @Test
-    fun perAppPalettesBecomePaletteRules() {
+    fun perAppPalettesBecomeLooksOfTheirOwn() {
         val settings = preLooks().toSettings()
+        assertEquals(listOf("Default", "Alpha colors", "Beta colors"), settings.looks.map { it.name })
         assertEquals(
-            mapOf(
-                "com.a" to Rule.UsePalette(GlowPalette.Colors(listOf(green))),
-                "com.b" to Rule.UsePalette(GlowPalette.Colors(listOf(green, blue))),
-            ),
+            mapOf("com.a" to Rule.UseLook("colours:com.a"), "com.b" to Rule.UseLook("colours:com.b")),
             settings.appRules,
         )
+        // Each glows as before: the default look in the app's colours.
         assertEquals(preLooksSpec(GlowPalette.Colors(listOf(green))), settings.spec("com.a"))
+        assertEquals(preLooksSpec(GlowPalette.Colors(listOf(green, blue))), settings.spec("com.b"))
+    }
+
+    @Test
+    fun paletteRulesStoredWithLooksBecomeLooksToo() {
+        val prefs = mutablePreferencesOf().apply {
+            write(GlowSettings(looks = listOf(Look(), Look(id = "work", name = "Work"))))
+            this[stringPreferencesKey("app_rules")] = """{"com.a":{"look":"work"},"com.b":{"palette":["ffff0000"]}}"""
+        }
+        val settings = prefs.toSettings()
+        assertEquals(Rule.UseLook("work"), settings.appRules["com.a"])
+        assertEquals(Rule.UseLook("colours:com.b"), settings.appRules["com.b"])
+        assertEquals(
+            Look(
+                id = "colours:com.b",
+                name = "Beta colors",
+                colorMode = ColorMode.CUSTOM,
+                customColors = GlowPalette.Colors(listOf(red)),
+            ),
+            settings.look("colours:com.b"),
+            "a copy of the default look in the app's colours",
+        )
+    }
+
+    @Test
+    fun theMigrationReadsTheSameEveryTimeUntilWrittenAndAfter() {
+        val prefs = preLooks()
+        val migrated = prefs.toSettings()
+        assertEquals(migrated, prefs.toSettings(), "same ids and names on every read")
+        prefs.write(migrated)
+        assertEquals(migrated, prefs.toSettings())
     }
 
     @Test
@@ -133,7 +170,7 @@ class SettingsMigrationTest {
                 Look(id = "work", name = "Work", style = GlowStyle.BASIC, particles = ParticlePreset.RAIN.spec),
             ),
             defaultLookId = "work",
-            appRules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UsePalette(GlowPalette.Colors(listOf(red)))),
+            appRules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UseLook(DEFAULT_LOOK_ID)),
         )
         val prefs = mutablePreferencesOf().apply { write(settings) }
         assertEquals(settings, prefs.toSettings())

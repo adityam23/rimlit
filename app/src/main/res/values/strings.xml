@@ -53,7 +53,7 @@
     <!-- Apps (blocklist) screen -->
     <string name="apps_search_hint">Search apps</string>
     <string name="apps_empty">No apps found</string>
-    <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own look or colors.</string>
+    <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own look.</string>
 
     <!-- Style screen -->
     <string name="style_section">Glow style</string>
@@ -185,10 +185,7 @@
     <string name="app_look_edit">Choose the app\'s look</string>
     <string name="app_look_title">Look for %1$s</string>
     <string name="app_look_default_title">Default look</string>
-    <string name="app_look_palette_title">Custom colors</string>
-    <string name="app_look_palette_desc">The default look, in colors of its own</string>
     <string name="app_rule_look">Look: %1$s</string>
-    <string name="app_rule_palette">Own colors</string>
     <string name="save">Save</string>
 
     <!-- Looks (Style screen) -->
@@ -209,6 +206,13 @@
     <string name="look_name_label">Name</string>
     <string name="look_new_name">Look %1$d</string>
     <string name="look_copy_name">%1$s copy</string>
+    <!-- The look an app's own colors from an older version become: the app's name. -->
+    <string name="palette_look_name">%1$s colors</string>
+    <!-- The look several apps' shared colors become: the first app's name, and how many others use it. -->
+    <plurals name="palette_look_shared_name">
+        <item quantity="one">%1$s + %2$d colors</item>
+        <item quantity="other">%1$s + %2$d colors</item>
+    </plurals>
     <plurals name="look_name_invalid">
         <item quantity="one">Use 1 to %1$d character</item>
         <item quantity="other">Use 1 to %1$d characters</item>

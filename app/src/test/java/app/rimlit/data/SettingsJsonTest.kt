@@ -17,6 +17,7 @@ import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticlePreset
 import app.rimlit.model.ParticleSpec
 import app.rimlit.model.ParticleTint
+import app.rimlit.model.Premade
 import app.rimlit.model.Rule
 import app.rimlit.model.newParticleImageId
 import org.junit.Test
@@ -78,9 +79,17 @@ class SettingsJsonTest {
 
     @Test
     fun rulesRoundTrip() {
-        val rules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UsePalette(GlowPalette.Colors(listOf(red, 0))))
-        assertEquals(rules, decodeRules(encodeRules(rules)))
-        assertEquals(emptyMap(), decodeRules(encodeRules(emptyMap())))
+        val rules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UseLook("home"))
+        assertEquals(StoredRules(rules), decodeRules(encodeRules(rules)))
+        assertEquals(StoredRules(), decodeRules(encodeRules(emptyMap())))
+    }
+
+    @Test
+    fun aLookIsBasedOnItsStoredPremadeElseItsStylesOrBasic() {
+        assertEquals(Premade.WAVE, decodeOne(""","basedOn":"WAVE","style":"BLADE"""").basedOn)
+        assertEquals(Premade.BLADE, decodeOne(""","style":"BLADE"""").basedOn, "stored before premades")
+        assertEquals(Premade.BLADE, decodeOne(""","basedOn":"GONE","style":"BLADE"""").basedOn, "unknown premade")
+        assertEquals(Premade.BASIC, decodeOne(""","style":"NONE"""").basedOn, "no edge has no premade")
     }
 
     @Test
@@ -188,7 +197,14 @@ class SettingsJsonTest {
         assertEquals(Look().customColors, decodeOne(""","customColors":["nope"]""").customColors)
 
         val rules = decodeRules("""{"a":{"palette":[$many]},"b":{"palette":["x"]},"c":{"look":""},"":{"look":"y"}}""")
-        assertEquals(mapOf("a" to Rule.UsePalette(GlowPalette.Colors((1..5).map { 0xFF000000.toInt() + it }))), rules)
+        val palette = GlowPalette.Colors((1..5).map { 0xFF000000.toInt() + it })
+        assertEquals(StoredRules(palettes = mapOf("a" to palette)), rules, "older palette rules, to migrate")
+    }
+
+    @Test
+    fun aRuleWithALookAndAPaletteUsesTheLook() {
+        val rules = decodeRules("""{"a":{"look":"work","palette":["ff0000ff"]}}""")
+        assertEquals(StoredRules(mapOf("a" to Rule.UseLook("work"))), rules)
     }
 
     @Test
