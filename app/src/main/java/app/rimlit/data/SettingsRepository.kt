@@ -82,6 +82,9 @@ private object Keys {
     /** The editor's tabs set to tinker, by [app.rimlit.model.LookPart] name. */
     val TINKERING = stringSetPreferencesKey("tinkering")
 
+    /** The recommended permissions put off, by name. */
+    val DISMISSED_PERMISSIONS = stringSetPreferencesKey("dismissed_permissions")
+
     /** One toggle for both locked places; read only to migrate into [SHOW_WHEN_SCREEN_OFF], [SHOW_ON_LOCK_SCREEN]. */
     val LEGACY_SHOW_WHEN_LOCKED = booleanPreferencesKey("show_when_locked")
 
@@ -188,6 +191,7 @@ internal fun Preferences.toSettings(names: PaletteLookNames): GlowSettings {
         blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
         tinkering = this[Keys.TINKERING]?.mapNotNullTo(mutableSetOf()) { it.toEnumOrNull<LookPart>() }
             ?: defaults.tinkering,
+        dismissedPermissions = valueOr(Keys.DISMISSED_PERMISSIONS, defaults.dismissedPermissions),
     ).withPaletteLooks(rules.palettes, names)
 }
 
@@ -297,6 +301,7 @@ internal fun MutablePreferences.write(settings: GlowSettings) {
     setOrRemove(Keys.CUTOUT_OFFSET_Y_DP, cutout?.offsetYDp)
     this[Keys.BLOCKED_PACKAGES] = settings.blockedPackages
     this[Keys.TINKERING] = settings.tinkering.mapTo(mutableSetOf()) { it.name }
+    this[Keys.DISMISSED_PERMISSIONS] = settings.dismissedPermissions
     remove(Keys.LEGACY_SHOW_WHEN_LOCKED)
     Keys.PreLooks.all.forEach { remove(it) }
 }

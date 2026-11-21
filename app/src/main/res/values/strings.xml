@@ -8,28 +8,36 @@
     <string name="master_toggle_subtitle">Glow the screen edges when a notification arrives</string>
 
     <string name="section_attention">Needs attention</string>
+    <string name="section_recommended_permissions">Recommended permissions</string>
+    <string name="attention_open_settings">Open settings</string>
+    <string name="attention_not_now">Not now</string>
 
+    <!-- Each permission: its title, a one-line reason (Home's row), and the whole explanation (the row's sheet). -->
     <string name="perm_notification_title">Notification access</string>
+    <string name="perm_notification_reason">To notice notifications as they arrive</string>
     <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps.</string>
     <string name="perm_overlay_title">Display over other apps</string>
+    <string name="perm_overlay_reason">To glow while the screen is on</string>
     <string name="perm_overlay_desc">Lets Rimlit glow while the screen is on.</string>
     <string name="perm_post_notifications_title">Notifications</string>
+    <string name="perm_post_notifications_reason">To wake the screen into the glow</string>
     <string name="perm_post_notifications_desc">Lets Rimlit post the silent notification that wakes the screen into the glow. Keep Rimlit\'s notifications and its \"Edge lighting\" category on, at high importance.</string>
     <string name="perm_fsi_title">Full-screen notifications</string>
+    <string name="perm_fsi_reason">To glow while the screen is off</string>
     <string name="perm_fsi_desc">Lets Rimlit wake the screen to glow while it is off. Android 14 and newer hide this behind a separate grant.</string>
     <string name="perm_accessibility_title">Accessibility glow</string>
+    <string name="perm_accessibility_reason">Glow above the lock screen, without Android\'s overlay notice</string>
     <string name="perm_accessibility_desc">Lets Rimlit glow above the lock screen too, and without Android\'s \"displaying over other apps\" notification. Turn on \"%1$s\" in Accessibility settings; on Android 13 and newer, sideloaded apps may first need \"Allow restricted settings\" from Rimlit\'s App info menu.</string>
     <string name="perm_battery_title">Unrestricted battery</string>
+    <string name="perm_battery_reason">So the glow isn\'t delayed</string>
     <string name="perm_battery_desc">Recommended so the glow is not delayed by battery optimization.</string>
 
     <string name="status_needed">Required</string>
     <string name="status_recommended">Recommended</string>
 
-    <string name="fallback_title">Android will show a notice</string>
-    <string name="fallback_service_off">On-screen glows are drawn over other apps, so Android shows \"Rimlit is displaying over other apps\" while one is up. Turn on \"%1$s\" in Accessibility settings to avoid it.</string>
+    <string name="attention_not_running_title">Accessibility glow isn\'t running</string>
+    <string name="attention_not_running_reason">Turn it off and on again</string>
     <string name="fallback_service_not_running">\"%1$s\" is on in Accessibility settings but isn\'t running, so on-screen glows are drawn over other apps and Android shows its notice. Turn it off and on again.</string>
-    <string name="no_overlay_title">On-screen glows can\'t show</string>
-    <string name="fallback_no_overlay">Rimlit needs \"%1$s\" or Display over other apps to glow while the screen is on. Turn on \"%1$s\" in Accessibility settings.</string>
     <string name="preview_hint_service_off">Android will show \"Rimlit is displaying over other apps\" until \"%1$s\" is turned on in Accessibility settings.</string>
     <string name="preview_hint_service_not_running">Android will show \"Rimlit is displaying over other apps\": \"%1$s\" is on but isn\'t running. Turn it off and on again in Accessibility settings.</string>
     <string name="preview_hint_no_overlay">This preview can\'t show until \"%1$s\" is turned on in Accessibility settings, or Display over other apps is allowed.</string>

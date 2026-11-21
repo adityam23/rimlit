@@ -27,6 +27,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -64,6 +65,11 @@ fun BehaviorScreen(
     val editor = remember { SettingsDraft(saved, viewModel::update) }
     LaunchedEffect(saved) { editor.follow(saved) }
     val settings = editor.value
+    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    var opened by rememberSaveable(stateSaver = Attention.Saver) { mutableStateOf<Attention?>(null) }
+    // The recommended permissions put off on Home, while still missing.
+    val putOff = attentions(permissions, fallback = null)
+        .filter { it.dismissible && it.kind.name in settings.dismissedPermissions }
 
     SubScreenScaffold(
         title = stringResource(R.string.nav_behavior_title),
@@ -86,6 +92,7 @@ fun BehaviorScreen(
                     onClick = onOpenDevice,
                 )
             }
+            attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
             item { SectionTitle(stringResource(R.string.preview_section)) }
             item {
                 PreviewButtons(
@@ -101,6 +108,7 @@ fun BehaviorScreen(
             }
         }
     }
+    AttentionSheet(attention = opened, onOpenSettings = viewModel::openPermission, onNotNow = null) { opened = null }
 }
 
 /**
