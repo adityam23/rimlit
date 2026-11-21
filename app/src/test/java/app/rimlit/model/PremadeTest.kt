@@ -81,4 +81,28 @@ class PremadeTest {
         assertEquals(Premade.WAVE.look(id = "mine", name = "Mine"), switched)
         assertFalse(switched.isCustom)
     }
+
+    @Test
+    fun eachChangedControlIsMarkedInItsPart() {
+        val custom = blade.copy(thicknessDp = 6f, colorMode = ColorMode.CUSTOM, customColors = red)
+        assertEquals(
+            setOf(LookControl.THICKNESS, LookControl.COLOR_MODE, LookControl.CUSTOM_COLORS),
+            custom.changedControls(),
+        )
+        assertEquals(setOf(LookPart.TUNING, LookPart.COLOUR), custom.changedParts())
+        assertEquals(setOf(LookControl.AUTO_COUNT), blade.copy(autoColors = AutoColors(count = 2)).changedControls())
+        assertEquals(emptySet(), blade.copy(customColors = red).changedControls(), "a palette auto colours don't use")
+    }
+
+    @Test
+    fun aPresetTunedAwayFromItsOwnIsTweakedAndResets() {
+        val snow = ParticlePreset.SNOW.spec
+        assertEquals(emptySet(), snow.tweaks())
+        val tuned = snow.copy(sizeDp = snow.sizeDp + 4f, tint = ParticleTint.PALETTE)
+        assertEquals(setOf(ParticleControl.SIZE, ParticleControl.TINT), tuned.tweaks())
+        assertEquals(snow, tuned.resetToPreset())
+        val own = ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.FALL, sizeDp = 30f)
+        assertEquals(emptySet(), own.tweaks(), "no preset to differ from")
+        assertEquals(own, own.resetToPreset())
+    }
 }

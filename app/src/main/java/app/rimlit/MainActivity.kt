@@ -1,6 +1,7 @@
 package app.rimlit
 
 import android.Manifest
+import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,8 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import app.rimlit.ui.AppNavHost
 import app.rimlit.ui.theme.AppTheme
 
@@ -24,16 +23,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A translucent surface from the start, so the look editor can show the wallpaper behind it: a surface made
+        // translucent later still draws opaque. Every other screen paints its own background over it.
+        window.setFormat(PixelFormat.TRANSLUCENT)
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
             AppTheme {
-                // Screen transitions cross-fade; this keeps the theme background behind them, not the window's.
-                Surface(color = MaterialTheme.colorScheme.background) {
-                    AppNavHost(viewModel = viewModel)
-                }
+                AppNavHost(viewModel = viewModel)
             }
         }
     }

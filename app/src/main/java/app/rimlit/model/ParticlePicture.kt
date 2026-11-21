@@ -69,6 +69,13 @@ fun ParticleSpec?.withImages(added: List<String>): ParticleSpec? {
 fun ParticleSpec?.withAppIcon(): ParticleSpec =
     this?.copy(picture = ParticlePicture.AppIcon) ?: ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.FALL)
 
+/** These particles drawing only those of their images [keep] names; no particles once none is left. */
+fun ParticleSpec.withOnlyImages(keep: Set<String>): ParticleSpec? {
+    val ids = (picture as? ParticlePicture.Custom)?.ids ?: return this
+    val left = ids.filter { it in keep }
+    return if (left.isEmpty()) null else copy(picture = ParticlePicture.Custom(left))
+}
+
 /** These particles without the image [id]; unchanged when it is their only one (a picture needs one). */
 fun ParticleSpec.withoutImage(id: String): ParticleSpec {
     val ids = (picture as? ParticlePicture.Custom)?.ids ?: return this

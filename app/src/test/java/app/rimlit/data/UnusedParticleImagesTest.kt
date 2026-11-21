@@ -62,6 +62,14 @@ class UnusedParticleImagesTest {
     }
 
     @Test
+    fun imagesPickedForADraftAreKeptUntilItIsSavedOrDiscarded() {
+        runBlocking { deleteUnusedParticleImages(repository, images::retainOnly, drafted = setOf(unused)) }
+        assertEquals(used.toSet() + unused, images.files, "no saved look draws it, but a draft does")
+        deleteUnused()
+        assertEquals(used.toSet(), images.files, "let go of once the draft is gone")
+    }
+
+    @Test
     fun aFailedReadDeletesNothing() {
         store.failing = true
         assertFailsWith<IOException> { deleteUnused() }

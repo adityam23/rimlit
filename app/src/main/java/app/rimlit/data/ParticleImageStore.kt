@@ -85,6 +85,9 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
     fun load(id: String): Bitmap? = storedFile(id)?.let { BitmapFactory.decodeFile(it.path) }
         ?.takeIf { it.width == PARTICLE_IMAGE_PX && it.height == PARTICLE_IMAGE_PX }
 
+    /** Whether the image [id] is stored (and one of ours). */
+    suspend fun has(id: String): Boolean = withContext(io) { storedFile(id) != null }
+
     /** The stored image [id]'s PNG bytes, to share; `null` when there is none (or it isn't one of ours). */
     suspend fun read(id: String): ByteArray? = withContext(io) { storedFile(id)?.readBytes() }
 
