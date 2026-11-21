@@ -112,6 +112,8 @@ fun SettingCard(
     prominent: Boolean = false,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    /** Under the subtitle, such as a label saying how much a setting matters. */
+    below: (@Composable () -> Unit)? = null,
 ) {
     ElevatedCard(
         modifier = modifier
@@ -141,6 +143,7 @@ fun SettingCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                below?.invoke()
             }
             if (trailing != null) {
                 Spacer(modifier = Modifier.width(12.dp))

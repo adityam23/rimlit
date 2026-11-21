@@ -53,6 +53,10 @@ fun MainScreen(
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val fallback by viewModel.glowFallback.collectAsStateWithLifecycle()
     val sharing = rememberLookSharing(viewModel)
+    var opened by rememberSaveable(stateSaver = Attention.Saver) { mutableStateOf<Attention?>(null) }
+    // A recommended permission put off shows in Behavior instead.
+    val attentions = attentions(permissions, fallback)
+        .filterNot { it.dismissible && it.kind.name in settings.dismissedPermissions }
 
     SubScreenScaffold(
         title = stringResource(R.string.app_name),
@@ -70,7 +74,7 @@ fun MainScreen(
                     prominent = true,
                 )
             }
-            attentionItems(fallback, permissions.filterNot { it.granted }, viewModel::openPermission)
+            attentionItems(R.string.section_attention, attentions) { opened = it }
             item { SectionTitle(stringResource(R.string.looks_section)) }
             item {
                 HomeLooks(
@@ -86,6 +90,18 @@ fun MainScreen(
         }
     }
     LookSharingDialogs(sharing, settings)
+    AttentionSheet(
+        attention = opened,
+        onOpenSettings = viewModel::openPermission,
+        onNotNow = { put ->
+            viewModel.update {
+                it.copy(
+                    dismissedPermissions = it.dismissedPermissions + put.kind.name,
+                )
+            }
+        },
+        onClose = { opened = null },
+    )
 }
 
 /**
