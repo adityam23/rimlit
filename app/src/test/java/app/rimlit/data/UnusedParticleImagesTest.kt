@@ -1,8 +1,5 @@
 package app.rimlit.data
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.Look
@@ -11,8 +8,6 @@ import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticleSpec
 import app.rimlit.model.newParticleImageId
 import app.rimlit.model.particleImageIds
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import java.io.IOException
@@ -21,18 +16,6 @@ import kotlin.test.assertFailsWith
 
 /** The clean-up of particle image files deletes only by settings that were read: never by a fallback. */
 class UnusedParticleImagesTest {
-
-    /** A settings store whose reads fail while [failing], as a disk error would make them. */
-    private class FakeStore(private var stored: Preferences = emptyPreferences()) : DataStore<Preferences> {
-        var failing = false
-
-        override val data: Flow<Preferences> = flow { emit(read()) }
-
-        override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
-            transform(read()).also { stored = it }
-
-        private fun read(): Preferences = if (failing) throw IOException("Disk error") else stored
-    }
 
     /** The image files, by id, as [ParticleImageStore.retainOnly] deletes them. */
     private class FakeImages(vararg ids: String) {

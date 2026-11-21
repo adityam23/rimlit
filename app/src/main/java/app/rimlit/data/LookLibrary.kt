@@ -5,10 +5,13 @@ import android.util.Log
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.MAX_PARTICLE_IMAGES
+import app.rimlit.model.UseFor
 import app.rimlit.model.addImportedLooks
 import app.rimlit.model.particleImageIds
+import app.rimlit.model.savingLook
+import app.rimlit.model.showingSomething
 import app.rimlit.model.withImageIds
-import app.rimlit.model.withImages
+import app.rimlit.model.withOnlyImages
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -39,17 +42,23 @@ class LookLibrary(
     }
 
     /**
-     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]) as particles of the look [lookId],
-     * after its own up to [MAX_PARTICLE_IMAGES]; how many were added.
+     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]), up to [MAX_PARTICLE_IMAGES], for a
+     * look being edited; their ids. Those that didn't import are left out. Until a saved look draws them, the clean-up
+     * keeps them through their grace ([UNUSED_IMAGE_GRACE_MS]), so nothing needs to hold on to them meanwhile.
      */
-    suspend fun addParticleImages(lookId: String, uris: List<Uri>): Int = lock.withLock {
-        val ids = uris.take(MAX_PARTICLE_IMAGES).mapNotNull { images.import(it) }
-        val written = repository.update { settings ->
-            settings.updateLook(lookId) { it.copy(particles = it.particles.withImages(ids)) }
-        }
-        // Any past the limit, or for a look deleted meanwhile, are no look's.
-        deleteUnusedImages()
-        ids.count { it in written.particleImageIds }
+    suspend fun importDraftImages(uris: List<Uri>): List<String> = lock.withLock {
+        uris.take(MAX_PARTICLE_IMAGES).mapNotNull { images.import(it) }
+    }
+
+    /**
+     * Saves the edited [look] as [useFor] says (see [savingLook]); whether it was saved: not when no look fits any
+     * more, or its name is taken. Images that are gone meanwhile (a draft restored after their grace ran out) are left
+     * out of it.
+     */
+    suspend fun saveLook(look: Look, useFor: UseFor): Boolean = lock.withLock {
+        val stored = listOf(look).particleImageIds.filter { images.has(it) }.toSet()
+        val kept = look.copy(particles = look.particles?.withOnlyImages(stored)).showingSomething()
+        repository.update { it.savingLook(kept, useFor) }.look(kept.id) == kept
     }
 
     /** Writes the saved looks [ids], with their images, to the document [uri]; how many. */

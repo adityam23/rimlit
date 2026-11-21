@@ -19,10 +19,12 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
+import app.rimlit.model.LookPart
 import app.rimlit.model.ParticlePreset
 import app.rimlit.model.Premade
 import app.rimlit.model.Resolution
 import app.rimlit.model.Rule
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -181,6 +183,38 @@ class SettingsMigrationTest {
         val settings = GlowSettings().let { it.copy(showPill = !it.showPill, swipeClears = !it.swipeClears) }
         val prefs = mutablePreferencesOf().apply { write(settings) }
         assertEquals(settings, prefs.toSettings())
+    }
+
+    @Test
+    fun theTinkeringTabsReadBackTheSameAndUnknownOnesAreDropped() {
+        val settings = GlowSettings(tinkering = setOf(LookPart.COLOUR, LookPart.TUNING))
+        val prefs = mutablePreferencesOf().apply { write(settings) }
+        assertEquals(settings, prefs.toSettings())
+        prefs[stringSetPreferencesKey("tinkering")] = setOf("COLOUR", "SOMETHING_NEWER")
+        assertEquals(setOf(LookPart.COLOUR), prefs.toSettings().tinkering)
+    }
+
+    @Test
+    fun settingsFromAnOlderVersionAreWrittenOnceInTodaysForm() {
+        val older = FakeStore(
+            mutablePreferencesOf().apply {
+                write(GlowSettings())
+                this[stringPreferencesKey("app_rules")] = """{"com.a":{"palette":["ffff0000"]}}"""
+            },
+        )
+        val repository = SettingsRepository(older, names)
+        val migrated = runBlocking { repository.stored() }
+        runBlocking { repository.migrate() }
+        assertEquals("""{"com.a":{"look":"colours:com.a"}}""", older.stored[stringPreferencesKey("app_rules")])
+        assertEquals(migrated, runBlocking { repository.stored() }, "reads the same, with nothing left to migrate")
+    }
+
+    @Test
+    fun currentSettingsAreLeftAsTheyAre() {
+        val current = mutablePreferencesOf().apply { write(GlowSettings(enabled = true)) }
+        val store = FakeStore(current.toPreferences())
+        runBlocking { SettingsRepository(store, names).migrate() }
+        assertEquals(current.asMap(), store.stored.asMap())
     }
 
     @Test

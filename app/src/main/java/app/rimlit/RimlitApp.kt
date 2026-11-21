@@ -30,7 +30,10 @@ class RimlitApp(private val io: CoroutineDispatcher = Dispatchers.IO) : Applicat
         super.onCreate()
         coordinator = GlowCoordinator { AndroidGlowDriver(this, it, scope) }
         ScreenStateReceiver(coordinator).register(this)
-        SettingsRepository(this).settings.onEach(coordinator::settingsChanged).launchIn(scope)
+        val repository = SettingsRepository(this)
+        repository.settings.onEach(coordinator::settingsChanged).launchIn(scope)
+        // Settings from an older version are written in today's form once, so their migration isn't redone per read.
+        scope.launch(io) { repository.migrate() }
         // Stale shares from a run that was killed mid-share, or before this fix: nothing reads them back.
         scope.launch(io) { clearSharedLookFiles(this@RimlitApp) }
     }

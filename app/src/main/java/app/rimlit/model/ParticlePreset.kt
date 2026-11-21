@@ -23,6 +23,27 @@ enum class ParticlePreset(val spec: ParticleSpec) {
     }
 }
 
+/** The particles' tuning the editor marks once it differs from their preset's. */
+enum class ParticleControl(private val value: (ParticleSpec) -> Any) {
+    SIZE({ it.sizeDp }),
+    SPEED({ it.speed }),
+    AMOUNT({ it.amount }),
+    ROTATION({ it.rotationDegPerSecond }),
+    TINT({ it.tint }),
+    ;
+
+    internal fun differs(particles: ParticleSpec, preset: ParticleSpec) = value(particles) != value(preset)
+}
+
+/** Where these particles were tuned away from their preset's ("Snow · tweaked"); empty for particles of no preset. */
+fun ParticleSpec.tweaks(): Set<ParticleControl> {
+    val preset = ParticlePreset.of(this)?.spec ?: return emptySet()
+    return ParticleControl.entries.filterTo(mutableSetOf()) { it.differs(this, preset) }
+}
+
+/** These particles tuned as their preset is; unchanged for particles of no preset. */
+fun ParticleSpec.resetToPreset(): ParticleSpec = ParticlePreset.of(this)?.spec ?: this
+
 /** A preset's particles: a built-in [image], with [motion] and its starting tuning. */
 private fun builtin(
     image: ParticleImage,

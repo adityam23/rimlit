@@ -1,64 +1,68 @@
 package app.rimlit.ui
 
-import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessibilityNew
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.BatteryFull
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
-import app.rimlit.permissions.Need
-import app.rimlit.permissions.OverlayFallback
-import app.rimlit.permissions.PermissionKind
-import app.rimlit.permissions.PermissionStatus
+import app.rimlit.model.GlowSettings
+import app.rimlit.model.MAX_LOOKS
+import app.rimlit.model.canAddLook
+import app.rimlit.ui.components.NavCard
 import app.rimlit.ui.components.SectionTitle
-import app.rimlit.ui.components.SettingCard
-import app.rimlit.ui.components.SettingIcon
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
+import app.rimlit.ui.editor.EditorTarget
 
+/**
+ * Home: the master switch, anything that needs the user, the user's looks (open one to edit it, long press for more,
+ * "+ New" to start one from a premade), then the app and behaviour settings.
+ */
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
     onOpenApps: () -> Unit,
-    onOpenStyle: () -> Unit,
     onOpenBehavior: () -> Unit,
+    onOpenEditor: (EditorTarget) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val fallback by viewModel.glowFallback.collectAsStateWithLifecycle()
+    val sharing = rememberLookSharing(viewModel)
+    var opened by rememberSaveable(stateSaver = Attention.Saver) { mutableStateOf<Attention?>(null) }
+    // A recommended permission put off shows in Behavior instead.
+    val attentions = attentions(permissions, fallback)
+        .filterNot { it.dismissible && it.kind.name in settings.dismissedPermissions }
 
-    SubScreenScaffold(title = stringResource(R.string.app_name), onBack = null, modifier = modifier) { innerPadding ->
+    SubScreenScaffold(
+        title = stringResource(R.string.app_name),
+        onBack = null,
+        modifier = modifier,
+        actions = { GalleryMenu(sharing, canImport = settings.canAddLook) },
+    ) { innerPadding ->
         SettingsList(innerPadding) {
             item {
                 SwitchCard(
@@ -69,151 +73,153 @@ fun MainScreen(
                     prominent = true,
                 )
             }
-            // Only while real glows fall back (see MainViewModel.glowFallback).
-            fallback?.let { reason ->
-                item {
-                    NavCard(Icons.Filled.Info, reason.titleRes, reason.description()) {
-                        viewModel.openPermission(PermissionKind.ACCESSIBILITY)
-                    }
-                }
-            }
-            item { SectionTitle(stringResource(R.string.section_permissions)) }
-            items(permissions, key = { it.kind.name }) { status ->
-                SettingCard(
-                    title = status.kind.title(),
-                    subtitle = status.kind.description(),
-                    onClick = { viewModel.openPermission(status.kind) },
-                    leading = { SettingIcon(status.kind.icon()) },
-                    trailing = { PermissionState(status) },
+            attentionItems(R.string.section_attention, attentions) { opened = it }
+            item { SectionTitle(stringResource(R.string.looks_section)) }
+            item {
+                HomeLooks(
+                    settings = settings,
+                    onEdit = viewModel::update,
+                    onShare = sharing::shareLook,
+                    onOpenEditor = onOpenEditor,
                 )
             }
-            item { SectionTitle(stringResource(R.string.section_settings)) }
-            item { NavCard(Icons.Filled.Apps, R.string.nav_apps_title, R.string.nav_apps_subtitle, onOpenApps) }
-            item { NavCard(Icons.Filled.Palette, R.string.nav_style_title, R.string.nav_style_subtitle, onOpenStyle) }
-            item {
-                NavCard(
-                    Icons.Filled.Tune,
-                    R.string.nav_behavior_title,
-                    R.string.nav_behavior_subtitle,
-                    onOpenBehavior,
-                )
-            }
-            item {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.info_text),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                }
-            }
+            if (!settings.canAddLook) item { LookLimitNote() }
+            settingsItems(onOpenApps, onOpenBehavior)
         }
     }
-}
-
-@Composable
-private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, @StringRes subtitleRes: Int, onClick: () -> Unit) =
-    NavCard(icon, titleRes, stringResource(subtitleRes), onClick)
-
-@Composable
-private fun NavCard(icon: ImageVector, @StringRes titleRes: Int, subtitle: String, onClick: () -> Unit) {
-    SettingCard(
-        title = stringResource(titleRes),
-        subtitle = subtitle,
-        onClick = onClick,
-        leading = { SettingIcon(icon) },
-        trailing = { Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+    LookSharingDialogs(sharing, settings)
+    AttentionSheet(
+        attention = opened,
+        onOpenSettings = viewModel::openPermission,
+        onNotNow = { put -> viewModel.update { it.putOff(put.kind.name) } },
+        onClose = { opened = null },
     )
 }
 
+/**
+ * The look gallery and what its tiles ask: the editor on a look, on a copy of one, or on a new one from the premade
+ * picked ([onOpenEditor]); a look's rename or delete ([onEdit] makes the settings edit each asks for); sharing it.
+ */
 @Composable
-private fun PermissionState(status: PermissionStatus) {
-    if (status.granted) {
-        Icon(
-            imageVector = Icons.Filled.CheckCircle,
-            contentDescription = stringResource(R.string.status_granted),
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp),
+private fun HomeLooks(
+    settings: GlowSettings,
+    onEdit: (SettingsEdit) -> Unit,
+    onShare: (lookId: String) -> Unit,
+    onOpenEditor: (EditorTarget) -> Unit,
+) {
+    var lookAction by rememberSaveable(stateSaver = LookAction.Saver) { mutableStateOf<LookAction?>(null) }
+    var picking by rememberSaveable { mutableStateOf(false) }
+    LookGallery(
+        settings = settings,
+        onOpen = { onOpenEditor(EditorTarget.Edit(it.id)) },
+        onAction = { look, action ->
+            when (action) {
+                TileAction.DUPLICATE -> onOpenEditor(EditorTarget.Copy(look.id))
+                TileAction.RENAME -> lookAction = LookAction.Rename(look.id)
+                TileAction.DELETE -> lookAction = LookAction.Delete(look.id)
+                TileAction.SHARE -> onShare(look.id)
+            }
+        },
+        onNew = { picking = true },
+    )
+    if (picking) {
+        PremadePickerDialog(
+            settings = settings,
+            onPick = { premade ->
+                picking = false
+                onOpenEditor(EditorTarget.New(premade))
+            },
+            onDismiss = { picking = false },
         )
-    } else {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val need = status.kind.need
+    }
+    // Restored for a look that no longer exists, the dialog waits unseen; the next action replaces it.
+    val action = lookAction ?: return
+    val look = settings.look(action.lookId) ?: return
+    LookActionDialog(
+        action = action,
+        look = look,
+        settings = settings,
+        onDone = { edit ->
+            onEdit(edit)
+            lookAction = null
+        },
+        onDismiss = { lookAction = null },
+    )
+}
+
+/** The settings beyond the looks: which apps glow, and how glows behave; then what Rimlit does. */
+private fun LazyListScope.settingsItems(onOpenApps: () -> Unit, onOpenBehavior: () -> Unit) {
+    item { SectionTitle(stringResource(R.string.section_settings)) }
+    item {
+        NavCard(
+            icon = Icons.Filled.Apps,
+            title = stringResource(R.string.nav_apps_title),
+            subtitle = stringResource(R.string.nav_apps_subtitle),
+            onClick = onOpenApps,
+        )
+    }
+    item {
+        NavCard(
+            icon = Icons.Filled.Tune,
+            title = stringResource(R.string.nav_behavior_title),
+            subtitle = stringResource(R.string.nav_behavior_subtitle),
+            onClick = onOpenBehavior,
+        )
+    }
+    item {
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = stringResource(need.labelRes),
-                style = MaterialTheme.typography.labelLarge,
-                color = need.color(),
+                text = stringResource(R.string.info_text),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
             )
-            Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-private fun PermissionKind.icon(): ImageVector = when (this) {
-    PermissionKind.NOTIFICATION_ACCESS -> Icons.Filled.Notifications
-    PermissionKind.OVERLAY -> Icons.Filled.Layers
-    PermissionKind.NOTIFICATIONS -> Icons.Filled.NotificationsActive
-    PermissionKind.FULL_SCREEN_INTENT -> Icons.Filled.Fullscreen
-    PermissionKind.ACCESSIBILITY -> Icons.Filled.AccessibilityNew
-    PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
+/** These settings with the recommended permission [name] put off: it shows in Behavior instead of on Home. */
+private fun GlowSettings.putOff(name: String) = copy(dismissedPermissions = dismissedPermissions + name)
+
+/** That no more looks fit: [MAX_LOOKS] at most. */
+@Composable
+private fun LookLimitNote() {
+    Text(
+        text = pluralStringResource(R.plurals.look_limit, MAX_LOOKS, MAX_LOOKS),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
-private val Need.labelRes
-    get() = when (this) {
-        Need.REQUIRED -> R.string.status_needed
-        Need.RECOMMENDED -> R.string.status_recommended
+/** The gallery's menu: import a look file (while another look fits), and export or share several looks. */
+@Composable
+private fun GalleryMenu(sharing: LookSharing, canImport: Boolean) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    IconButton(onClick = { open = true }) {
+        Icon(Icons.Filled.MoreVert, stringResource(R.string.looks_menu))
     }
-
-@Composable
-@ReadOnlyComposable
-private fun Need.color(): Color = when (this) {
-    Need.REQUIRED -> MaterialTheme.colorScheme.error
-    Need.RECOMMENDED -> MaterialTheme.colorScheme.tertiary
-}
-
-private val OverlayFallback.titleRes
-    get() = when (this) {
-        OverlayFallback.SERVICE_OFF, OverlayFallback.SERVICE_NOT_RUNNING -> R.string.fallback_title
-        OverlayFallback.NO_OVERLAY -> R.string.no_overlay_title
+    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.looks_import)) },
+            onClick = {
+                open = false
+                sharing.import()
+            },
+            enabled = canImport,
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.looks_export)) },
+            onClick = {
+                open = false
+                sharing.export()
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.looks_share)) },
+            onClick = {
+                open = false
+                sharing.share()
+            },
+        )
     }
-
-@Composable
-@ReadOnlyComposable
-private fun OverlayFallback.description(): String = stringResource(
-    when (this) {
-        OverlayFallback.SERVICE_OFF -> R.string.fallback_service_off
-        OverlayFallback.SERVICE_NOT_RUNNING -> R.string.fallback_service_not_running
-        OverlayFallback.NO_OVERLAY -> R.string.fallback_no_overlay
-    },
-    stringResource(R.string.accessibility_service_label),
-)
-
-@Composable
-@ReadOnlyComposable
-private fun PermissionKind.title(): String = stringResource(
-    when (this) {
-        PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_title
-        PermissionKind.OVERLAY -> R.string.perm_overlay_title
-        PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_title
-        PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_title
-        PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_title
-        PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_title
-    },
-)
-
-@Composable
-@ReadOnlyComposable
-private fun PermissionKind.description(): String = when (this) {
-    PermissionKind.NOTIFICATION_ACCESS -> stringResource(R.string.perm_notification_desc)
-
-    PermissionKind.OVERLAY -> stringResource(R.string.perm_overlay_desc)
-
-    PermissionKind.NOTIFICATIONS -> stringResource(R.string.perm_post_notifications_desc)
-
-    PermissionKind.FULL_SCREEN_INTENT -> stringResource(R.string.perm_fsi_desc)
-
-    PermissionKind.ACCESSIBILITY ->
-        stringResource(R.string.perm_accessibility_desc, stringResource(R.string.accessibility_service_label))
-
-    PermissionKind.BATTERY_OPTIMIZATION -> stringResource(R.string.perm_battery_desc)
 }

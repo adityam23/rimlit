@@ -28,7 +28,6 @@ import app.rimlit.engine.PreviewTarget
 import app.rimlit.engine.onScreenOverlay
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
-import app.rimlit.model.MAX_PARTICLE_IMAGES
 import app.rimlit.notify.GlowNotifications
 import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionKind
@@ -76,6 +75,9 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     private val lookFiles = LookFiles(application, particleImages, ioDispatcher)
     private val library = LookLibrary(repository, particleImages, lookFiles)
 
+    /** The look editor's draft: its images, and saving it. */
+    val drafts = LookDrafts(library, viewModelScope)
+
     private val _pendingImport = MutableStateFlow<LookArchive?>(null)
 
     /** A look file read for import whose looks don't all fit, while the user picks which to add. */
@@ -85,7 +87,15 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         viewModelScope.launch { library.deleteUnusedImagesOnChange() }
     }
 
-    val settings: StateFlow<GlowSettings> = repository.settings.stateIn(
+    /** The stored settings once read; `null` before, for what mustn't start from placeholders (the look editor). */
+    val storedSettings: StateFlow<GlowSettings?> = repository.settings.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null,
+    )
+
+    /** The settings, to show: defaults until they are read. */
+    val settings: StateFlow<GlowSettings> = storedSettings.map { it ?: GlowSettings() }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = GlowSettings(),
@@ -120,14 +130,6 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
 
     /** Persists a settings change (atomic read-modify-write); the job completes once it is written. */
     fun update(transform: (GlowSettings) -> GlowSettings): Job = viewModelScope.launch { repository.update(transform) }
-
-    /**
-     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]) as particles of the look [lookId],
-     * after its own up to [MAX_PARTICLE_IMAGES]; [onDone] gets how many couldn't be added.
-     */
-    fun addParticleImages(lookId: String, uris: List<Uri>, onDone: (rejected: Int) -> Unit) {
-        viewModelScope.launch { onDone(uris.size - library.addParticleImages(lookId, uris)) }
-    }
 
     /** Writes the looks [ids] (all or picked), with their images, to the document [uri]. */
     fun exportLooks(ids: Set<String>, uri: Uri, onDone: (LookFileResult) -> Unit) {

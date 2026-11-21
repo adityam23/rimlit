@@ -114,6 +114,13 @@ data class GlowSettings(
     val blockedPackages: Set<String> = emptySet(),
     /** Per-app rules, by package name, overriding the default look. */
     val appRules: Map<String, Rule> = emptyMap(),
+    /** The look editor's tabs showing every control ("Tinker"), remembered across sessions. */
+    val tinkering: Set<LookPart> = emptySet(),
+    /**
+     * The recommended permissions the user put off ("Not now"), by name (`app.rimlit.permissions.PermissionKind`):
+     * shown in Behavior instead of on Home. Names, since the model knows nothing of Android's permissions.
+     */
+    val dismissedPermissions: Set<String> = emptySet(),
 ) {
     init {
         require(looks.size in 1..MAX_LOOKS) { "Settings hold 1–$MAX_LOOKS looks" }

@@ -21,6 +21,7 @@ import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
+import app.rimlit.model.LookPart
 import app.rimlit.model.Premade
 import app.rimlit.model.QuietHours
 import kotlinx.coroutines.delay
@@ -77,6 +78,12 @@ private object Keys {
     val CUTOUT_OFFSET_X_DP = floatPreferencesKey("cutout_offset_x_dp")
     val CUTOUT_OFFSET_Y_DP = floatPreferencesKey("cutout_offset_y_dp")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
+
+    /** The editor's tabs set to tinker, by [app.rimlit.model.LookPart] name. */
+    val TINKERING = stringSetPreferencesKey("tinkering")
+
+    /** The recommended permissions put off, by name. */
+    val DISMISSED_PERMISSIONS = stringSetPreferencesKey("dismissed_permissions")
 
     /** One toggle for both locked places; read only to migrate into [SHOW_WHEN_SCREEN_OFF], [SHOW_ON_LOCK_SCREEN]. */
     val LEGACY_SHOW_WHEN_LOCKED = booleanPreferencesKey("show_when_locked")
@@ -142,6 +149,20 @@ class SettingsRepository internal constructor(
         store.edit { prefs -> written = transform(prefs.toSettings(names)).also(prefs::write) }
         return written
     }
+
+    /**
+     * Writes settings stored by an older version in today's form, once, so their migration (looking each app's name
+     * up, for palette looks) runs at start, not again on every read. Nothing when they are already current.
+     */
+    suspend fun migrate() {
+        store.edit { prefs ->
+            // Anything an older version stored that reading it migrates.
+            val older = Keys.PreLooks.all.any { it in prefs } ||
+                Keys.LEGACY_SHOW_WHEN_LOCKED in prefs ||
+                decodeRules(prefs[Keys.APP_RULES])?.palettes?.isNotEmpty() == true
+            if (older) prefs.write(prefs.toSettings(names))
+        }
+    }
 }
 
 private val defaults = GlowSettings()
@@ -182,6 +203,9 @@ internal fun Preferences.toSettings(names: PaletteLookNames): GlowSettings {
         cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
         customCutout = customCutout(),
         blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
+        tinkering = this[Keys.TINKERING]?.mapNotNullTo(mutableSetOf()) { it.toEnumOrNull<LookPart>() }
+            ?: defaults.tinkering,
+        dismissedPermissions = valueOr(Keys.DISMISSED_PERMISSIONS, defaults.dismissedPermissions),
     ).withPaletteLooks(rules.palettes, names)
 }
 
@@ -290,6 +314,8 @@ internal fun MutablePreferences.write(settings: GlowSettings) {
     setOrRemove(Keys.CUTOUT_OFFSET_X_DP, cutout?.offsetXDp)
     setOrRemove(Keys.CUTOUT_OFFSET_Y_DP, cutout?.offsetYDp)
     this[Keys.BLOCKED_PACKAGES] = settings.blockedPackages
+    this[Keys.TINKERING] = settings.tinkering.mapTo(mutableSetOf()) { it.name }
+    this[Keys.DISMISSED_PERMISSIONS] = settings.dismissedPermissions
     remove(Keys.LEGACY_SHOW_WHEN_LOCKED)
     Keys.PreLooks.all.forEach { remove(it) }
 }

@@ -1,64 +1,114 @@
-package app.rimlit.ui
+package app.rimlit.ui.editor
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowStyle
-import app.rimlit.model.Look
+import app.rimlit.model.LookControl
 import app.rimlit.model.MAX_PARTICLE_IMAGES
+import app.rimlit.model.ParticleControl
 import app.rimlit.model.ParticleMotion
 import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticlePreset
 import app.rimlit.model.ParticleSpec
 import app.rimlit.model.ParticleTint
+import app.rimlit.model.resetToPreset
+import app.rimlit.model.tweaks
 import app.rimlit.model.withAppIcon
 import app.rimlit.model.withoutImage
+import app.rimlit.ui.ParticleImagesCard
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingSlider
+import app.rimlit.ui.components.SwitchCard
 import kotlin.math.roundToInt
 
 /**
- * [look]'s particles: none, a preset, the user's own images ([onAddImages] picks more) or the app's icon, then, with
- * particles, their motion (a preset sets its own), tuning and colours (an app's icon keeps its own). Picking a preset
- * starts from its own tuning; the other pictures keep the current one. A look with no edge ([GlowStyle.NONE]) can't
- * turn its particles off, so it always shows something.
+ * The look's particles: none, a preset, the user's own images or the app's icon. With particles, the edge can be
+ * turned off ("Particles only"), and a preset tuned away from its own reads as tweaked, with a reset. Tinkering,
+ * their motion (a preset sets its own), tuning and colours (an app's icon keeps its own), each marked once it differs
+ * from the preset's. A look with no edge can't turn its particles off, so it always shows something.
  */
-internal fun LazyListScope.particlesSection(look: Look, editor: SettingsDraft, onAddImages: () -> Unit) {
-    item { SectionTitle(stringResource(R.string.particles_section)) }
-    item {
-        val available = look.style != GlowStyle.NONE
-        RadioCard(
-            title = stringResource(R.string.particles_none_title),
-            selected = look.particles == null,
-            onSelect = { editor.commit(look.edit { it.copy(particles = null) }) },
-            subtitle = stringResource(
-                if (available) R.string.particles_none_desc else R.string.particles_none_unavailable,
-            ),
-            enabled = available,
+internal fun LazyListScope.particlesTab(editor: LookEditorState, onAddImages: () -> Unit) {
+    val look = editor.look
+    val particles = look.particles
+    val noEdge = look.style == GlowStyle.NONE
+    item(key = "title") {
+        SectionTitle(
+            stringResource(R.string.particles_section),
+            changed = LookControl.PARTICLES in editor.changed,
         )
     }
-    val picked = ParticlePreset.of(look.particles)
-    items(ParticlePreset.entries, key = { it.name }) { preset ->
+    item(key = "none") {
         RadioCard(
-            title = stringResource(preset.titleRes),
+            title = stringResource(R.string.particles_none_title),
+            selected = particles == null,
+            onSelect = { editor.edit(look.copy(particles = null)) },
+            subtitle = stringResource(
+                if (noEdge) R.string.particles_none_unavailable else R.string.particles_none_desc,
+            ),
+            enabled = !noEdge,
+        )
+    }
+    presetItems(editor)
+    ownPictureItems(editor, onAddImages)
+    if (particles == null) return
+    item(key = "no_edge") {
+        SwitchCard(
+            title = stringResource(R.string.particles_only_title),
+            checked = noEdge,
+            // Off, the edge comes back as the premade draws it.
+            onCheckedChange = { only ->
+                editor.edit(
+                    look.copy(style = if (only) GlowStyle.NONE else look.basedOn.style),
+                )
+            },
+            subtitle = stringResource(R.string.particles_only_desc),
+        )
+    }
+    if (!editor.tinkering) return
+    if (particles.picture !is ParticlePicture.Builtin) particleMotionItems(editor, particles)
+    particleTuningItems(editor, particles)
+}
+
+/** The presets, the picked one reading as tweaked once tuned away from its own, with a reset to it. */
+private fun LazyListScope.presetItems(editor: LookEditorState) {
+    val particles = editor.look.particles
+    val picked = ParticlePreset.of(particles)
+    val tweaked = particles != null && particles.tweaks().isNotEmpty()
+    items(ParticlePreset.entries, key = { it.name }) { preset ->
+        val title = stringResource(preset.titleRes)
+        RadioCard(
+            title = if (picked == preset && tweaked) stringResource(R.string.particles_tweaked, title) else title,
             selected = picked == preset,
             // Picking it again keeps the tuning.
-            onSelect = { if (picked != preset) editor.commit(look.edit { it.copy(particles = preset.spec) }) },
+            onSelect = { if (picked != preset) editor.edit(editor.look.copy(particles = preset.spec)) },
             subtitle = stringResource(preset.descRes),
         )
     }
-    ownPictureItems(look, editor, onAddImages)
-    val particles = look.particles ?: return
-    if (particles.picture !is ParticlePicture.Builtin) particleMotionItems(look, editor)
-    particleTuningItems(look, particles, editor)
+    if (picked == null || particles == null || !tweaked) return
+    item(key = "reset_preset") {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(onClick = { editor.edit(editor.look.copy(particles = particles.resetToPreset())) }) {
+                Text(stringResource(R.string.editor_reset_to, stringResource(picked.titleRes)))
+            }
+        }
+    }
 }
 
 /** The user's own images (picking them opens the picker; once picked, they show to add and remove) and the app icon. */
-private fun LazyListScope.ownPictureItems(look: Look, editor: SettingsDraft, onAddImages: () -> Unit) {
-    val picture = look.particles?.picture
+private fun LazyListScope.ownPictureItems(editor: LookEditorState, onAddImages: () -> Unit) {
+    val look = editor.look
+    val particles = look.particles
+    val picture = particles?.picture
     item(key = "particles_custom") {
         RadioCard(
             title = stringResource(R.string.particles_custom_title),
@@ -68,11 +118,11 @@ private fun LazyListScope.ownPictureItems(look: Look, editor: SettingsDraft, onA
             subtitle = stringResource(R.string.particles_custom_desc, MAX_PARTICLE_IMAGES),
         )
     }
-    if (picture is ParticlePicture.Custom) {
+    if (particles != null && picture is ParticlePicture.Custom) {
         item(key = "particles_images") {
             ParticleImagesCard(
                 ids = picture.ids,
-                onRemove = { id -> editor.commit(look.edit { it.copy(particles = it.particles?.withoutImage(id)) }) },
+                onRemove = { id -> editor.edit(look.copy(particles = particles.withoutImage(id))) },
                 onAdd = onAddImages.takeIf { picture.ids.size < MAX_PARTICLE_IMAGES },
             )
         }
@@ -82,75 +132,79 @@ private fun LazyListScope.ownPictureItems(look: Look, editor: SettingsDraft, onA
         RadioCard(
             title = stringResource(R.string.particles_app_icon_title),
             selected = selected,
-            onSelect = { if (!selected) editor.commit(look.edit { it.copy(particles = it.particles.withAppIcon()) }) },
+            onSelect = { if (!selected) editor.edit(look.copy(particles = particles.withAppIcon())) },
             subtitle = stringResource(R.string.particles_app_icon_desc),
         )
     }
 }
 
 /** How the particles move: a preset sets its own, the user's images and the app icon pick one here. */
-private fun LazyListScope.particleMotionItems(look: Look, editor: SettingsDraft) {
-    item { SectionTitle(stringResource(R.string.particle_motion_section)) }
+private fun LazyListScope.particleMotionItems(editor: LookEditorState, particles: ParticleSpec) {
+    item(key = "motion_title") { SectionTitle(stringResource(R.string.particle_motion_section)) }
     items(ParticleMotion.entries, key = { "motion_${it.name}" }) { motion ->
         RadioCard(
             title = stringResource(motion.titleRes),
-            selected = look.particles?.motion == motion,
-            onSelect = { editor.commit(look.edit { it.copy(particles = it.particles?.copy(motion = motion)) }) },
+            selected = particles.motion == motion,
+            onSelect = { editor.edit(editor.look.copy(particles = particles.copy(motion = motion))) },
             subtitle = stringResource(motion.descRes),
         )
     }
 }
 
-private fun LazyListScope.particleTuningItems(look: Look, particles: ParticleSpec, editor: SettingsDraft) {
-    fun tuned(edit: (ParticleSpec) -> ParticleSpec) = look.edit { it.copy(particles = it.particles?.let(edit)) }
-    item {
+/** The particles' tuning, each marked once it differs from their preset's. */
+private fun LazyListScope.particleTuningItems(editor: LookEditorState, particles: ParticleSpec) {
+    val tweaked = particles.tweaks()
+    fun tune(change: ParticleSpec.(Float) -> ParticleSpec) = editor.slide { copy(particles = particles.change(it)) }
+    item(key = "size") {
         SettingSlider(
             label = stringResource(R.string.particle_size_label),
             value = particles.sizeDp,
             range = Ranges.particleSizeDp,
             valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
-            onPreview = { v -> editor.preview(tuned { it.copy(sizeDp = v) }) },
-            onCommit = { v -> editor.persist(tuned { it.copy(sizeDp = v) }) },
+            changed = ParticleControl.SIZE in tweaked,
+            onPreview = tune { copy(sizeDp = it) },
         )
     }
-    item {
+    item(key = "particle_speed") {
         SettingSlider(
             label = stringResource(R.string.particle_speed_label),
             value = particles.speed,
             range = Ranges.particleSpeed,
             valueText = { stringResource(R.string.value_multiplier, it) },
-            onPreview = { v -> editor.preview(tuned { it.copy(speed = v) }) },
-            onCommit = { v -> editor.persist(tuned { it.copy(speed = v) }) },
+            changed = ParticleControl.SPEED in tweaked,
+            onPreview = tune { copy(speed = it) },
         )
     }
-    item {
+    item(key = "amount") {
         SettingSlider(
             label = stringResource(R.string.particle_amount_label),
             value = particles.amount,
             range = Ranges.particleAmount,
             valueText = { stringResource(R.string.value_percent, (it * 100).roundToInt()) },
-            onPreview = { v -> editor.preview(tuned { it.copy(amount = v) }) },
-            onCommit = { v -> editor.persist(tuned { it.copy(amount = v) }) },
+            changed = ParticleControl.AMOUNT in tweaked,
+            onPreview = tune { copy(amount = it) },
         )
     }
-    item {
+    item(key = "rotation") {
         SettingSlider(
             label = stringResource(R.string.particle_rotation_label),
             value = particles.rotationDegPerSecond,
             range = Ranges.particleRotation,
             valueText = { stringResource(R.string.value_degrees_per_second, it.roundToInt()) },
-            onPreview = { v -> editor.preview(tuned { it.copy(rotationDegPerSecond = v) }) },
-            onCommit = { v -> editor.persist(tuned { it.copy(rotationDegPerSecond = v) }) },
+            changed = ParticleControl.ROTATION in tweaked,
+            onPreview = tune { copy(rotationDegPerSecond = it) },
         )
     }
     // An app's icon always keeps its own colours (see ParticleSpec.drawnTint).
     if (particles.picture == ParticlePicture.AppIcon) return
-    item { SectionTitle(stringResource(R.string.particle_tint_section)) }
-    items(ParticleTint.entries, key = { it.name }) { tint ->
+    item(key = "tint_title") {
+        SectionTitle(stringResource(R.string.particle_tint_section), changed = ParticleControl.TINT in tweaked)
+    }
+    items(ParticleTint.entries, key = { "tint_${it.name}" }) { tint ->
         RadioCard(
             title = stringResource(tint.titleRes),
             selected = particles.tint == tint,
-            onSelect = { editor.commit(tuned { it.copy(tint = tint) }) },
+            onSelect = { editor.edit(editor.look.copy(particles = particles.copy(tint = tint))) },
             subtitle = stringResource(tint.descRes),
         )
     }

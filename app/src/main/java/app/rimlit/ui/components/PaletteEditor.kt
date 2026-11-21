@@ -49,14 +49,14 @@ private val PresetColors = listOf(
  * Tap a slot to select it, then pick a preset or drag the hue slider to recolor it.
  *
  * [onPreview] fires for every change (in-memory, instant); [onCommit] once per finished edit — taps
- * commit immediately, the hue slider commits on release.
+ * commit immediately, the hue slider commits on release. [onCommit] defaults to [onPreview], for a draft.
  */
 @Composable
 fun PaletteEditor(
     colors: List<Int>,
     onPreview: (List<Int>) -> Unit,
-    onCommit: (List<Int>) -> Unit,
     modifier: Modifier = Modifier,
+    onCommit: (List<Int>) -> Unit = onPreview,
 ) {
     var selected by remember { mutableIntStateOf(0) }
     val slot = selected.coerceIn(colors.indices)
