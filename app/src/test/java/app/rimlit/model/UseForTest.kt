@@ -61,5 +61,14 @@ class UseForTest {
     fun aNewLooksNameIsNumberedWhenTaken() {
         assertEquals("Blade", settings.numberedName("Blade"))
         assertEquals("Work (2)", settings.numberedName("Work"))
+        assertEquals("Work (2)", settings.freshName("Work"))
+        assertEquals("x".repeat(30), settings.freshName("x".repeat(40)), "cut to fit first")
+    }
+
+    @Test
+    fun aLookSavedAlwaysShowsSomething() {
+        val nothing = work.copy(style = GlowStyle.NONE, particles = null)
+        val saved = settings.savingLook(nothing, UseFor(isDefault = false, apps = emptySet()))
+        assertEquals(work.basedOn.style, saved.look("work")?.style, "no edge and no particles: the edge comes back")
     }
 }

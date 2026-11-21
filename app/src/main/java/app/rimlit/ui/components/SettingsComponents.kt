@@ -271,7 +271,10 @@ fun CommitSlider(
     )
 }
 
-/** A labelled [CommitSlider] card showing the current value as [valueText]; [changed] marks it (see [ChangedMark]). */
+/**
+ * A labelled [CommitSlider] card showing the current value as [valueText]; [changed] marks it (see [ChangedMark]).
+ * [onCommit] defaults to [onPreview], for a draft that writes nothing until saved.
+ */
 @Composable
 fun SettingSlider(
     label: String,
@@ -279,8 +282,8 @@ fun SettingSlider(
     range: ClosedFloatingPointRange<Float>,
     valueText: @Composable (Float) -> String,
     onPreview: (Float) -> Unit,
-    onCommit: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    onCommit: (Float) -> Unit = onPreview,
     steps: Int = 0,
     changed: Boolean = false,
 ) {

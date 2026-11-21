@@ -15,10 +15,11 @@ fun GlowSettings.appsUsing(id: String): Int = appRules.values.count { it == Rule
 /**
  * These settings with [look] saved, replacing the look with its id or added as a new one, applied as [useFor] says:
  * exactly its apps have it as their own, and it becomes the default look when [UseFor.isDefault]. The default look
- * stays the default whatever [useFor] says, since one look always is: another takes it over. Unchanged when the look
- * is new and no look fits, or its name is taken.
+ * stays the default whatever [useFor] says, since one look always is: another takes it over. A look saved always shows
+ * something (see [showingSomething]). Unchanged when the look is new and no look fits, or its name is taken.
  */
-fun GlowSettings.savingLook(look: Look, useFor: UseFor): GlowSettings {
+fun GlowSettings.savingLook(edited: Look, useFor: UseFor): GlowSettings {
+    val look = edited.showingSomething()
     val saved = when {
         !canName(look.name, exceptId = look.id) -> return this
         this.look(look.id) != null -> updateLook(look.id) { look }

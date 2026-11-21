@@ -8,8 +8,7 @@ import app.rimlit.R
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.LookControl
 import app.rimlit.model.Premade
-import app.rimlit.model.changedControls
-import app.rimlit.ui.PhoneGlow
+import app.rimlit.ui.PremadeGlow
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.descRes
@@ -21,7 +20,7 @@ import app.rimlit.ui.title
  */
 internal fun LazyListScope.baseTab(editor: LookEditorState, hasCutout: Boolean) {
     val look = editor.look
-    val changed = look.changedControls()
+    val changed = editor.changed
     item(key = "premades") {
         SectionTitle(stringResource(R.string.editor_premade_section), changed = LookControl.STYLE in changed)
     }
@@ -31,10 +30,8 @@ internal fun LazyListScope.baseTab(editor: LookEditorState, hasCutout: Boolean) 
             selected = look.basedOn == premade,
             onSelect = { if (look.basedOn != premade) editor.pickPremade(premade) },
             subtitle = stringResource(premade.style.descRes),
-            leading = {
-                val untouched = premade.look(id = premade.name, name = premade.name)
-                PhoneGlow(editor.settings.previewSpec(untouched), width = 32.dp)
-            },
+            // Still: the editor's own glow already plays the one picked, beside them.
+            leading = { PremadeGlow(premade, editor.settings, width = 32.dp, moving = false) },
         )
     }
     if (!editor.tinkering || !hasCutout) return

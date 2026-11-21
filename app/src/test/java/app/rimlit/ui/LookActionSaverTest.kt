@@ -17,7 +17,6 @@ class LookActionSaverTest {
     @Test
     fun everyActionSurvivesAConfigurationChange() {
         val actions = listOf(
-            LookAction.Duplicate("work"),
             LookAction.Rename("work"),
             LookAction.Delete("work"),
         )

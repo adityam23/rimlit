@@ -105,13 +105,23 @@ fun Look.changedParts(): Set<LookPart> = changedControls().mapTo(mutableSetOf())
 /** Whether this look differs from its premade anywhere. */
 val Look.isCustom: Boolean get() = changedParts().isNotEmpty()
 
-/** This look with [part] set back to its premade's. */
+/**
+ * This look with [part] set back to its premade's. A look with no edge whose particles go keeps showing something:
+ * its premade's edge comes back (see [showingSomething]).
+ */
 fun Look.reset(part: LookPart): Look {
     val premade = premadeLook()
-    return LookControl.entries.filter { it.part == part }.fold(this) { look, control ->
-        control.copied(to = look, from = premade)
-    }
+    return LookControl.entries.filter { it.part == part }
+        .fold(this) { look, control -> control.copied(to = look, from = premade) }
+        .showingSomething()
 }
+
+/**
+ * This look, showing something: one with no edge ([GlowStyle.NONE]) needs particles, so without them its premade's
+ * edge comes back. Otherwise unchanged.
+ */
+fun Look.showingSomething(): Look =
+    if (style == GlowStyle.NONE && particles == null) copy(style = basedOn.style) else this
 
 /** This look replaced by [premade]'s values, keeping its id and name: everything it changed is lost. */
 fun Look.switchedTo(premade: Premade): Look = premade.look(id, name)

@@ -20,7 +20,6 @@ import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticlePreset
 import app.rimlit.model.ParticleSpec
 import app.rimlit.model.ParticleTint
-import app.rimlit.model.changedControls
 import app.rimlit.model.resetToPreset
 import app.rimlit.model.tweaks
 import app.rimlit.model.withAppIcon
@@ -28,6 +27,7 @@ import app.rimlit.model.withoutImage
 import app.rimlit.ui.ParticleImagesCard
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
+import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SwitchCard
 import kotlin.math.roundToInt
 
@@ -44,7 +44,7 @@ internal fun LazyListScope.particlesTab(editor: LookEditorState, onAddImages: ()
     item(key = "title") {
         SectionTitle(
             stringResource(R.string.particles_section),
-            changed = LookControl.PARTICLES in look.changedControls(),
+            changed = LookControl.PARTICLES in editor.changed,
         )
     }
     item(key = "none") {
@@ -156,43 +156,43 @@ private fun LazyListScope.particleTuningItems(editor: LookEditorState, particles
     val tweaked = particles.tweaks()
     fun tune(change: ParticleSpec.(Float) -> ParticleSpec) = editor.slide { copy(particles = particles.change(it)) }
     item(key = "size") {
-        LookSlider(
+        SettingSlider(
             label = stringResource(R.string.particle_size_label),
             value = particles.sizeDp,
             range = Ranges.particleSizeDp,
             valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
             changed = ParticleControl.SIZE in tweaked,
-            onChange = tune { copy(sizeDp = it) },
+            onPreview = tune { copy(sizeDp = it) },
         )
     }
     item(key = "particle_speed") {
-        LookSlider(
+        SettingSlider(
             label = stringResource(R.string.particle_speed_label),
             value = particles.speed,
             range = Ranges.particleSpeed,
             valueText = { stringResource(R.string.value_multiplier, it) },
             changed = ParticleControl.SPEED in tweaked,
-            onChange = tune { copy(speed = it) },
+            onPreview = tune { copy(speed = it) },
         )
     }
     item(key = "amount") {
-        LookSlider(
+        SettingSlider(
             label = stringResource(R.string.particle_amount_label),
             value = particles.amount,
             range = Ranges.particleAmount,
             valueText = { stringResource(R.string.value_percent, (it * 100).roundToInt()) },
             changed = ParticleControl.AMOUNT in tweaked,
-            onChange = tune { copy(amount = it) },
+            onPreview = tune { copy(amount = it) },
         )
     }
     item(key = "rotation") {
-        LookSlider(
+        SettingSlider(
             label = stringResource(R.string.particle_rotation_label),
             value = particles.rotationDegPerSecond,
             range = Ranges.particleRotation,
             valueText = { stringResource(R.string.value_degrees_per_second, it.roundToInt()) },
             changed = ParticleControl.ROTATION in tweaked,
-            onChange = tune { copy(rotationDegPerSecond = it) },
+            onPreview = tune { copy(rotationDegPerSecond = it) },
         )
     }
     // An app's icon always keeps its own colours (see ParticleSpec.drawnTint).

@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.AppInfo
+import app.rimlit.data.matching
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.withAppRule
 import app.rimlit.ui.components.SubScreenScaffold
@@ -52,9 +53,7 @@ fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier 
     var query by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<AppInfo?>(null) }
 
-    val filtered = remember(apps, query) {
-        if (query.isBlank()) apps else apps.filter { it.label.contains(query, ignoreCase = true) }
-    }
+    val filtered = remember(apps, query) { apps.matching(query) }
 
     SubScreenScaffold(
         title = stringResource(R.string.nav_apps_title),

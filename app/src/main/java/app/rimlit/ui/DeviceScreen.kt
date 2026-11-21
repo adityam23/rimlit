@@ -17,6 +17,7 @@ import app.rimlit.R
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
+import app.rimlit.model.GlowStyle
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
@@ -41,7 +42,10 @@ fun DeviceScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifie
     val displayCornerDp = rememberDisplayCornerDp()
     val cutoutSeed = rememberCutoutSeed()
     val region = if (cutoutSeed != null) EdgeRegion.CUTOUT_AND_EDGE else EdgeRegion.FULL_SCREEN
-    val spec = draft.previewSpec().copy(region = region, particles = null)
+    // The edge alone, always one: a particles-only default look shows its premade's, so the fit can be seen.
+    val look = draft.defaultLook
+    val edge = if (look.style == GlowStyle.NONE) look.copy(style = look.basedOn.style) else look
+    val spec = draft.previewSpec(edge).copy(region = region, particles = null)
 
     Box(modifier = modifier.fillMaxSize()) {
         SubScreenScaffold(title = stringResource(R.string.nav_device_title), onBack = onBack) { innerPadding ->

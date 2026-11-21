@@ -97,10 +97,14 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
         return File(dir, id + EXTENSION).takeIf { it.isFile && it.length() <= MAX_STORED_BYTES }
     }
 
-    /** Deletes every stored file but the images [keep] names. Only for [deleteUnusedParticleImages]. */
+    /**
+     * Deletes every stored file but the images [keep] names, once past its grace ([UNUSED_IMAGE_GRACE_MS]). Only for
+     * [deleteUnusedParticleImages].
+     */
     suspend fun retainOnly(keep: Set<String>) = withContext(io) {
-        val names = dir.list() ?: return@withContext
-        for (name in unreferencedFiles(names.asList(), keep)) {
+        val files = dir.listFiles() ?: return@withContext
+        val modified = files.associate { it.name to it.lastModified() }
+        for (name in unreferencedFiles(modified, keep, System.currentTimeMillis())) {
             if (!File(dir, name).delete()) Log.w(TAG, "Couldn't delete an unused particle image")
         }
     }
@@ -172,6 +176,18 @@ internal fun fittedSize(width: Int, height: Int, side: Int = PARTICLE_IMAGE_PX):
     return (width * scale).roundToInt().coerceIn(1, side) to (height * scale).roundToInt().coerceIn(1, side)
 }
 
-/** The files among [names] that aren't a stored image [keep] names: unused images, and anything else. */
-internal fun unreferencedFiles(names: List<String>, keep: Set<String>): List<String> =
-    names.filterNot { it.endsWith(EXTENSION) && it.removeSuffix(EXTENSION) in keep }
+/**
+ * How long an image no saved look draws is kept: one picked for a look still being edited, and saved only later (or
+ * discarded), is never deleted under the editor, whatever happens to it meanwhile (rotation, the app killed and
+ * restored, an import finishing late). A discarded one, small and app-private, lingers up to this long.
+ */
+internal const val UNUSED_IMAGE_GRACE_MS = 24 * 60 * 60 * 1000L
+
+/**
+ * The files among [modified] (last-modified time by name) to delete at [now]: those that aren't a stored image [keep]
+ * names (unused images, and anything else), once older than [UNUSED_IMAGE_GRACE_MS].
+ */
+internal fun unreferencedFiles(modified: Map<String, Long>, keep: Set<String>, now: Long): List<String> =
+    modified.filter { (name, at) ->
+        !(name.endsWith(EXTENSION) && name.removeSuffix(EXTENSION) in keep) && now - at >= UNUSED_IMAGE_GRACE_MS
+    }.keys.toList()

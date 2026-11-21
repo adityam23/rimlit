@@ -87,7 +87,15 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         viewModelScope.launch { library.deleteUnusedImagesOnChange() }
     }
 
-    val settings: StateFlow<GlowSettings> = repository.settings.stateIn(
+    /** The stored settings once read; `null` before, for what mustn't start from placeholders (the look editor). */
+    val storedSettings: StateFlow<GlowSettings?> = repository.settings.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null,
+    )
+
+    /** The settings, to show: defaults until they are read. */
+    val settings: StateFlow<GlowSettings> = storedSettings.map { it ?: GlowSettings() }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = GlowSettings(),

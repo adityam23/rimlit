@@ -215,7 +215,6 @@
     <string name="look_duplicate">Duplicate</string>
     <string name="look_rename">Rename</string>
     <string name="look_delete">Delete</string>
-    <string name="look_duplicate_title">Duplicate look</string>
     <string name="look_rename_title">Rename look</string>
     <string name="look_name_label">Name</string>
     <string name="look_copy_name">%1$s copy</string>

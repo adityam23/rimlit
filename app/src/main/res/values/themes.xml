@@ -9,6 +9,13 @@
         <item name="android:windowDisablePreview">true</item>
     </style>
 
+    <!-- The look editor's window: the real wallpaper behind it, through its transparent (so translucent) background;
+         the editor dims it, or covers it in black for the screen-off view. -->
+    <style name="Theme.App.LookEditor" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+
     <!-- Invisible, animation-free window for UnlockActivity: only the system's bouncer shows. -->
     <style name="Theme.App.Unlock" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>

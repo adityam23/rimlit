@@ -28,13 +28,13 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.MAX_LOOKS
-import app.rimlit.model.Premade
 import app.rimlit.model.canAddLook
 import app.rimlit.ui.components.NavCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
+import app.rimlit.ui.editor.EditorTarget
 
 /**
  * Home: the master switch, anything that needs the user, the user's looks (open one to edit it, long press for more,
@@ -45,8 +45,7 @@ fun MainScreen(
     viewModel: MainViewModel,
     onOpenApps: () -> Unit,
     onOpenBehavior: () -> Unit,
-    onOpenLook: (lookId: String) -> Unit,
-    onNewLook: (Premade) -> Unit,
+    onOpenEditor: (EditorTarget) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -81,8 +80,7 @@ fun MainScreen(
                     settings = settings,
                     onEdit = viewModel::update,
                     onShare = sharing::shareLook,
-                    onOpenLook = onOpenLook,
-                    onNewLook = onNewLook,
+                    onOpenEditor = onOpenEditor,
                 )
             }
             if (!settings.canAddLook) item { LookLimitNote() }
@@ -93,37 +91,30 @@ fun MainScreen(
     AttentionSheet(
         attention = opened,
         onOpenSettings = viewModel::openPermission,
-        onNotNow = { put ->
-            viewModel.update {
-                it.copy(
-                    dismissedPermissions = it.dismissedPermissions + put.kind.name,
-                )
-            }
-        },
+        onNotNow = { put -> viewModel.update { it.putOff(put.kind.name) } },
         onClose = { opened = null },
     )
 }
 
 /**
- * The look gallery and what its tiles ask: the premade a new look starts from, and a look's duplicate, rename or
- * delete; [onEdit] makes the settings edit each asks for, [onShare] shares a look.
+ * The look gallery and what its tiles ask: the editor on a look, on a copy of one, or on a new one from the premade
+ * picked ([onOpenEditor]); a look's rename or delete ([onEdit] makes the settings edit each asks for); sharing it.
  */
 @Composable
 private fun HomeLooks(
     settings: GlowSettings,
     onEdit: (SettingsEdit) -> Unit,
     onShare: (lookId: String) -> Unit,
-    onOpenLook: (lookId: String) -> Unit,
-    onNewLook: (Premade) -> Unit,
+    onOpenEditor: (EditorTarget) -> Unit,
 ) {
     var lookAction by rememberSaveable(stateSaver = LookAction.Saver) { mutableStateOf<LookAction?>(null) }
     var picking by rememberSaveable { mutableStateOf(false) }
     LookGallery(
         settings = settings,
-        onOpen = { onOpenLook(it.id) },
+        onOpen = { onOpenEditor(EditorTarget.Edit(it.id)) },
         onAction = { look, action ->
             when (action) {
-                TileAction.DUPLICATE -> lookAction = LookAction.Duplicate(look.id)
+                TileAction.DUPLICATE -> onOpenEditor(EditorTarget.Copy(look.id))
                 TileAction.RENAME -> lookAction = LookAction.Rename(look.id)
                 TileAction.DELETE -> lookAction = LookAction.Delete(look.id)
                 TileAction.SHARE -> onShare(look.id)
@@ -136,7 +127,7 @@ private fun HomeLooks(
             settings = settings,
             onPick = { premade ->
                 picking = false
-                onNewLook(premade)
+                onOpenEditor(EditorTarget.New(premade))
             },
             onDismiss = { picking = false },
         )
@@ -186,6 +177,9 @@ private fun LazyListScope.settingsItems(onOpenApps: () -> Unit, onOpenBehavior: 
         }
     }
 }
+
+/** These settings with the recommended permission [name] put off: it shows in Behavior instead of on Home. */
+private fun GlowSettings.putOff(name: String) = copy(dismissedPermissions = dismissedPermissions + name)
 
 /** That no more looks fit: [MAX_LOOKS] at most. */
 @Composable

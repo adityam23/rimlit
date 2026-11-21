@@ -6,16 +6,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
 import app.rimlit.model.Look
 import app.rimlit.model.LookPart
-import app.rimlit.model.changedParts
 import app.rimlit.model.reset
-import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.title
 
@@ -40,7 +36,7 @@ private fun LazyListScope.partFooter(editor: LookEditorState, part: LookPart) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             OutlinedButton(
                 onClick = { editor.edit(editor.look.reset(part)) },
-                enabled = part in editor.look.changedParts(),
+                enabled = part in editor.changedParts,
             ) {
                 Text(stringResource(R.string.editor_reset_to, editor.look.basedOn.title()))
             }
@@ -58,27 +54,3 @@ private fun LazyListScope.partFooter(editor: LookEditorState, part: LookPart) {
 
 /** Sets the draft to [change] of it with a slider's value: nothing is written until the look is saved. */
 internal fun LookEditorState.slide(change: Look.(Float) -> Look): (Float) -> Unit = { edit(look.change(it)) }
-
-/** A slider of the draft look, [changed] marking it; it changes the draft as it moves ([onChange]). */
-@Composable
-@NonRestartableComposable
-internal fun LookSlider(
-    label: String,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    valueText: @Composable (Float) -> String,
-    changed: Boolean,
-    onChange: (Float) -> Unit,
-    steps: Int = 0,
-) {
-    SettingSlider(
-        label = label,
-        value = value,
-        range = range,
-        valueText = valueText,
-        onPreview = onChange,
-        onCommit = onChange,
-        steps = steps,
-        changed = changed,
-    )
-}
