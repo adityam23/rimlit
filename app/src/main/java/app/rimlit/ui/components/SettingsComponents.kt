@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,17 +42,19 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import app.rimlit.R
 import app.rimlit.permissions.OverlayFallback
 
-/** Standard screen chrome: centered title, optional back arrow. */
+/** Standard screen chrome: centered title, optional back arrow, and the screen's own [actions]. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubScreenScaffold(
     title: String,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
@@ -66,6 +69,7 @@ fun SubScreenScaffold(
                         }
                     }
                 },
+                actions = actions,
             )
         },
         content = content,
@@ -85,13 +89,13 @@ fun SettingsList(innerPadding: PaddingValues, modifier: Modifier = Modifier, con
     )
 }
 
+/** A section's title; [changed] marks a setting in it that differs from where it started (see [ChangedMark]). */
 @Composable
-fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        modifier = modifier.padding(top = 8.dp),
-    )
+fun SectionTitle(text: String, modifier: Modifier = Modifier, changed: Boolean = false) {
+    Row(modifier = modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text = text, style = MaterialTheme.typography.titleMedium)
+        if (changed) ChangedMark(Modifier.padding(start = 8.dp))
+    }
 }
 
 /**
@@ -155,12 +159,19 @@ fun SwitchCard(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     prominent: Boolean = false,
+    enabled: Boolean = true,
     leading: (@Composable () -> Unit)? = null,
 ) {
     SettingCard(
         title = title,
-        modifier = modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+        modifier = modifier.toggleable(
+            value = checked,
+            enabled = enabled,
+            role = Role.Switch,
+            onValueChange = onCheckedChange,
+        ),
         subtitle = subtitle,
+        enabled = enabled,
         prominent = prominent,
         leading = leading,
         // Display only: the card handles the toggle, so the switch isn't a second touch or accessibility target.
@@ -257,7 +268,7 @@ fun CommitSlider(
     )
 }
 
-/** A labelled [CommitSlider] card showing the current value as [valueText]. */
+/** A labelled [CommitSlider] card showing the current value as [valueText]; [changed] marks it (see [ChangedMark]). */
 @Composable
 fun SettingSlider(
     label: String,
@@ -268,11 +279,14 @@ fun SettingSlider(
     onCommit: (Float) -> Unit,
     modifier: Modifier = Modifier,
     steps: Int = 0,
+    changed: Boolean = false,
 ) {
     ElevatedCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(label, style = MaterialTheme.typography.titleMedium)
+                if (changed) ChangedMark(Modifier.padding(start = 8.dp))
+                Spacer(modifier = Modifier.weight(1f))
                 Text(
                     valueText(value),
                     style = MaterialTheme.typography.bodyMedium,

@@ -43,7 +43,10 @@ fun GlowSettings.addImportedLooks(
  * [id]; `null` when it isn't added: no look fits, or the id is taken.
  */
 fun GlowSettings.addLookNumbered(from: Look, name: String, id: String): GlowSettings? =
-    firstFreeName(numberedNames(name))?.let { withLookAdded(from, it, id) }
+    numberedName(name)?.let { withLookAdded(from, it, id) }
+
+/** [name] (a valid look name) if no look uses it, else the first numbered one free, "Work (2)"; `null` if none is. */
+fun GlowSettings.numberedName(name: String): String? = firstFreeName(numberedNames(name))
 
 /** These settings with a copy of [from] added as [name] under [id]; `null` when it isn't allowed (see [addLook]). */
 private fun GlowSettings.withLookAdded(from: Look, name: String, id: String): GlowSettings? =

@@ -5,10 +5,12 @@ import android.util.Log
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.MAX_PARTICLE_IMAGES
+import app.rimlit.model.UseFor
 import app.rimlit.model.addImportedLooks
 import app.rimlit.model.particleImageIds
+import app.rimlit.model.savingLook
 import app.rimlit.model.withImageIds
-import app.rimlit.model.withImages
+import app.rimlit.model.withOnlyImages
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -28,6 +30,9 @@ class LookLibrary(
 ) {
     private val lock = Mutex()
 
+    /** Images imported for a look being edited, kept from the clean-up until it is saved or discarded. Under [lock]. */
+    private val drafted = mutableSetOf<String>()
+
     /**
      * Deletes, whenever a look stops drawing an image (it is removed, its look edited or deleted), its file. The flow
      * only says when to look: it falls back to defaults on a failed read, so the clean-up reads for itself.
@@ -39,17 +44,40 @@ class LookLibrary(
     }
 
     /**
-     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]) as particles of the look [lookId],
-     * after its own up to [MAX_PARTICLE_IMAGES]; how many were added.
+     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]), up to [MAX_PARTICLE_IMAGES], for a
+     * look being edited; their ids, kept until [saveLook] or [discardDraft]. Those that didn't import are left out.
      */
-    suspend fun addParticleImages(lookId: String, uris: List<Uri>): Int = lock.withLock {
-        val ids = uris.take(MAX_PARTICLE_IMAGES).mapNotNull { images.import(it) }
-        val written = repository.update { settings ->
-            settings.updateLook(lookId) { it.copy(particles = it.particles.withImages(ids)) }
+    suspend fun importDraftImages(uris: List<Uri>): List<String> = lock.withLock {
+        uris.take(MAX_PARTICLE_IMAGES).mapNotNull { images.import(it) }.also { drafted += it }
+    }
+
+    /**
+     * Keeps the images [ids] of a draft restored after the app was away (they were let go of with the process) until
+     * it is saved or discarded; those already deleted stay gone, and [saveLook] leaves them out.
+     */
+    suspend fun keepDraftImages(ids: Set<String>) = lock.withLock { drafted += ids }
+
+    /**
+     * Saves the edited [look] as [useFor] says (see [savingLook]), then lets go of its draft's images: those it no
+     * longer draws are deleted. Images that are gone meanwhile (deleted while the app was away, after the draft was
+     * restored) are left out of it. Whether it was saved: not when no look fits any more, or its name is taken; the
+     * draft's images are kept then, since it stays open to try again.
+     */
+    suspend fun saveLook(look: Look, useFor: UseFor, draftImages: Set<String>): Boolean = lock.withLock {
+        val stored = listOf(look).particleImageIds.filter { images.has(it) }.toSet()
+        val kept = look.copy(particles = look.particles?.withOnlyImages(stored))
+        val saved = repository.update { it.savingLook(kept, useFor) }.look(kept.id) == kept
+        if (saved) {
+            drafted -= draftImages
+            deleteUnusedImages()
         }
-        // Any past the limit, or for a look deleted meanwhile, are no look's.
+        saved
+    }
+
+    /** Lets go of a discarded draft's images: those no saved look draws are deleted. */
+    suspend fun discardDraft(draftImages: Set<String>) = lock.withLock {
+        drafted -= draftImages
         deleteUnusedImages()
-        ids.count { it in written.particleImageIds }
     }
 
     /** Writes the saved looks [ids], with their images, to the document [uri]; how many. */
@@ -96,7 +124,7 @@ class LookLibrary(
      */
     private suspend fun deleteUnusedImages() {
         try {
-            deleteUnusedParticleImages(repository, images::retainOnly)
+            deleteUnusedParticleImages(repository, images::retainOnly, drafted.toSet())
         } catch (e: IOException) {
             Log.w(TAG, "Couldn't read the settings; keeping every particle image", e)
         }

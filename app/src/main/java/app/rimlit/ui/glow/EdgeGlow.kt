@@ -25,12 +25,18 @@ import kotlinx.coroutines.delay
  * Pure edge-glow renderer shared by the overlay, the lock-screen activity and in-app previews.
  * No side effects and no settings access: everything comes from [spec], played as [playback] says.
  *
- * With [preview] the outline is a scaled stand-in for the display (proportional corners, simulated
- * camera hole) instead of the real window's corners and cutout. A preview has no [GlowFrameHost] fading it,
- * so its particles fade themselves in and out.
+ * A [preview] has no [GlowFrameHost] fading it, so its particles fade themselves in and out. A [scaled] one is drawn
+ * on a scaled stand-in for the display (proportional corners, simulated camera hole) instead of the real window's
+ * corners and cutout: unscaled, a preview fills the screen, as the look editor's does.
  */
 @Composable
-fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, preview: Boolean = false) {
+fun EdgeGlow(
+    spec: GlowSpec,
+    playback: Playback,
+    modifier: Modifier = Modifier,
+    preview: Boolean = false,
+    scaled: Boolean = preview,
+) {
     val view = LocalView.current
     // A still glow needs no clock at all: it draws once.
     val seconds = rememberFrameSeconds(running = !playback.still, maxFps = playback.maxFps)
@@ -43,13 +49,14 @@ fun EdgeGlow(spec: GlowSpec, playback: Playback, modifier: Modifier = Modifier, 
     }
     Spacer(
         modifier.drawWithCache {
-            val display = if (preview) {
+            val display = if (scaled) {
                 DisplayShape.preview(size.width, size.height)
             } else {
                 DisplayShape.of(view)
             }
-            // A preview is a scaled-down screen, so custom corners and cutouts scale with it to keep their proportion.
-            val scale = if (preview) size.width / view.rootView.width.coerceAtLeast(1) else 1f
+            // A scaled preview is a scaled-down screen, so custom corners and cutouts scale with it to keep their
+            // proportion.
+            val scale = if (scaled) size.width / view.rootView.width.coerceAtLeast(1) else 1f
             val pxPerDp = 1.dp.toPx() * scale
             val shape = display
                 .let { d -> spec.cornerRadiusDp?.let { d.withCornerRadius(it * pxPerDp) } ?: d }

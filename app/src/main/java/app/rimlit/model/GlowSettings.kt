@@ -113,6 +113,8 @@ data class GlowSettings(
     val blockedPackages: Set<String> = emptySet(),
     /** Per-app rules, by package name, overriding the default look. */
     val appRules: Map<String, Rule> = emptyMap(),
+    /** The look editor's tabs showing every control ("Tinker"), remembered across sessions. */
+    val tinkering: Set<LookPart> = emptySet(),
 ) {
     init {
         require(looks.size in 1..MAX_LOOKS) { "Settings hold 1–$MAX_LOOKS looks" }

@@ -44,17 +44,22 @@ import app.rimlit.model.MAX_PARTICLE_IMAGES
 import app.rimlit.model.ParticlePicture
 
 /**
- * Picks images to add to [look]'s particles, as many as still fit, and has [viewModel] import them; a toast says how
- * many couldn't be added. The persisted look then switches to them, and the screen's draft follows it.
+ * Picks images to add to the edited [look]'s particles, as many as still fit, and has [viewModel] import them for the
+ * draft; [onAdd] gets their ids, to draw. A toast says how many couldn't be added.
  */
 @Composable
-internal fun rememberAddParticleImages(viewModel: MainViewModel, look: Look): () -> Unit {
+internal fun rememberAddParticleImages(
+    viewModel: MainViewModel,
+    look: Look,
+    onAdd: (List<String>) -> Unit,
+): () -> Unit {
     // The application's: the import may outlive this screen.
     val context = LocalContext.current.applicationContext
     val own = (look.particles?.picture as? ParticlePicture.Custom)?.ids?.size ?: 0
     return rememberParticleImagePicker(MAX_PARTICLE_IMAGES - own) { uris ->
-        viewModel.addParticleImages(look.id, uris) { rejected ->
-            if (rejected == 0) return@addParticleImages
+        viewModel.drafts.importImages(uris) { ids, rejected ->
+            if (ids.isNotEmpty()) onAdd(ids)
+            if (rejected == 0) return@importImages
             val text = context.resources.getQuantityString(R.plurals.particle_images_rejected, rejected, rejected)
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }

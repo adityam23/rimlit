@@ -22,6 +22,7 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
+import app.rimlit.model.LookPart
 import app.rimlit.model.ParticlePreset
 import app.rimlit.model.Premade
 import app.rimlit.model.Resolution
@@ -258,6 +259,15 @@ class SettingsMigrationTest {
         val settings = GlowSettings().let { it.copy(showPill = !it.showPill, swipeClears = !it.swipeClears) }
         val prefs = mutablePreferencesOf().apply { write(settings) }
         assertEquals(settings, prefs.read())
+    }
+
+    @Test
+    fun theTinkeringTabsReadBackTheSameAndUnknownOnesAreDropped() {
+        val settings = GlowSettings(tinkering = setOf(LookPart.COLOUR, LookPart.TUNING))
+        val prefs = mutablePreferencesOf().apply { write(settings) }
+        assertEquals(settings, prefs.toSettings())
+        prefs[stringSetPreferencesKey("tinkering")] = setOf("COLOUR", "SOMETHING_NEWER")
+        assertEquals(setOf(LookPart.COLOUR), prefs.toSettings().tinkering)
     }
 
     @Test
