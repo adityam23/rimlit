@@ -11,10 +11,10 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
+import app.rimlit.data.matching
 import app.rimlit.ui.components.CheckboxCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SwitchCard
-import java.util.Locale
 
 /**
  * Where the look applies, saved with it: as the default look, and for the apps ticked, found by name. The default
@@ -45,9 +45,7 @@ internal fun LazyListScope.appsTab(editor: LookEditorState) {
             singleLine = true,
         )
     }
-    val query = editor.appQuery.trim().lowercase(Locale.getDefault())
-    val shown = editor.apps.filter { query.isEmpty() || query in it.label.lowercase(Locale.getDefault()) }
-    items(shown, key = { "app_${it.packageName}" }) { app ->
+    items(editor.apps.matching(editor.appQuery), key = { "app_${it.packageName}" }) { app ->
         CheckboxCard(
             title = app.label,
             checked = app.packageName in useFor.apps,

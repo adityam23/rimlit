@@ -14,10 +14,10 @@ import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.LookControl
-import app.rimlit.model.changedControls
 import app.rimlit.ui.components.PaletteEditor
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
+import app.rimlit.ui.components.SettingSlider
 import kotlin.math.roundToInt
 
 /**
@@ -26,7 +26,7 @@ import kotlin.math.roundToInt
  */
 internal fun LazyListScope.colourTab(editor: LookEditorState) {
     val look = editor.look
-    val changed = look.changedControls()
+    val changed = editor.changed
     item(key = "modes") {
         SectionTitle(stringResource(R.string.color_section), changed = LookControl.COLOR_MODE in changed)
     }
@@ -47,12 +47,10 @@ internal fun LazyListScope.colourTab(editor: LookEditorState) {
                 )
             }
             item(key = "palette") {
-                val painted = { colors: List<Int> -> editor.edit(look.copy(customColors = GlowPalette.Colors(colors))) }
                 ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                     PaletteEditor(
                         colors = look.customColors.argb,
-                        onPreview = painted,
-                        onCommit = painted,
+                        onPreview = { colors -> editor.edit(look.copy(customColors = GlowPalette.Colors(colors))) },
                         modifier = Modifier.padding(16.dp),
                     )
                 }
@@ -81,13 +79,13 @@ private fun LazyListScope.autoColourItems(editor: LookEditorState, changed: Set<
     }
     item(key = "auto_count") {
         val range = Ranges.autoColorCount
-        LookSlider(
+        SettingSlider(
             label = stringResource(R.string.auto_colors_count_label),
             value = look.autoColors.count.toFloat(),
             range = range.first.toFloat()..range.last.toFloat(),
             valueText = { stringResource(R.string.value_count, it.roundToInt()) },
             changed = LookControl.AUTO_COUNT in changed,
-            onChange = editor.slide { copy(autoColors = autoColors.copy(count = it.roundToInt())) },
+            onPreview = editor.slide { copy(autoColors = autoColors.copy(count = it.roundToInt())) },
             steps = range.last - range.first - 1,
         )
     }

@@ -12,7 +12,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -23,16 +22,13 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
 import app.rimlit.model.Premade
-import app.rimlit.model.addLook
 import app.rimlit.model.appsUsing
 import app.rimlit.model.canName
 import app.rimlit.model.deleteLook
-import app.rimlit.model.fitLookName
 import app.rimlit.model.isValidLookName
-import app.rimlit.model.numberedName
 import app.rimlit.model.renameLook
+import app.rimlit.ui.components.ConfirmDialog
 import app.rimlit.ui.components.TextFieldDialog
-import java.util.UUID
 
 /** The dialog for [action] on [look], its look in [settings]; [onDone] gets the settings edit to make. */
 @Composable
@@ -44,19 +40,6 @@ internal fun LookActionDialog(
     onDismiss: () -> Unit,
 ) {
     when (action) {
-        is LookAction.Duplicate -> {
-            val id = rememberSaveable { UUID.randomUUID().toString() }
-            LookNameDialog(
-                title = stringResource(R.string.look_duplicate_title),
-                initial = settings.numberedName(fitLookName(stringResource(R.string.look_copy_name, look.name)))
-                    .orEmpty(),
-                settings = settings,
-                exceptId = null,
-                onConfirm = { name -> onDone { it.addLook(look, name, id) } },
-                onDismiss = onDismiss,
-            )
-        }
-
         is LookAction.Rename -> LookNameDialog(
             title = stringResource(R.string.look_rename_title),
             initial = look.name,
@@ -68,24 +51,16 @@ internal fun LookActionDialog(
 
         is LookAction.Delete -> {
             val apps = settings.appsUsing(look.id)
-            AlertDialog(
-                onDismissRequest = onDismiss,
-                title = { Text(stringResource(R.string.look_delete_title, look.name)) },
-                text = {
-                    Text(
-                        if (apps == 0) {
-                            stringResource(R.string.look_delete_desc)
-                        } else {
-                            pluralStringResource(R.plurals.look_delete_used_desc, apps, apps)
-                        },
-                    )
+            ConfirmDialog(
+                title = stringResource(R.string.look_delete_title, look.name),
+                text = if (apps == 0) {
+                    stringResource(R.string.look_delete_desc)
+                } else {
+                    pluralStringResource(R.plurals.look_delete_used_desc, apps, apps)
                 },
-                confirmButton = {
-                    TextButton(onClick = { onDone { it.deleteLook(look.id) } }) {
-                        Text(stringResource(R.string.look_delete))
-                    }
-                },
-                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } },
+                confirmLabel = stringResource(R.string.look_delete),
+                onConfirm = { onDone { it.deleteLook(look.id) } },
+                onDismiss = onDismiss,
             )
         }
     }
@@ -138,7 +113,7 @@ internal fun PremadePickerDialog(settings: GlowSettings, onPick: (Premade) -> Un
                         modifier = Modifier.clickable { onPick(premade) },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        PhoneGlow(settings.previewSpec(premade.look(id = premade.name, name = premade.name)))
+                        PremadeGlow(premade, settings)
                         Text(premade.title(), style = MaterialTheme.typography.labelLarge)
                     }
                 }

@@ -10,14 +10,11 @@ import androidx.compose.runtime.saveable.listSaver
 internal sealed interface LookAction {
     val lookId: String
 
-    data class Duplicate(override val lookId: String) : LookAction
-
     data class Rename(override val lookId: String) : LookAction
 
     data class Delete(override val lookId: String) : LookAction
 
     companion object {
-        private const val DUPLICATE = "duplicate"
         private const val RENAME = "rename"
         private const val DELETE = "delete"
 
@@ -26,7 +23,6 @@ internal sealed interface LookAction {
             save = { action ->
                 when (action) {
                     null -> emptyList()
-                    is Duplicate -> listOf(DUPLICATE, action.lookId)
                     is Rename -> listOf(RENAME, action.lookId)
                     is Delete -> listOf(DELETE, action.lookId)
                 }
@@ -38,7 +34,6 @@ internal sealed interface LookAction {
             if (saved.size != 2) return null
             val (kind, id) = saved
             return when (kind) {
-                DUPLICATE -> Duplicate(id)
                 RENAME -> Rename(id)
                 DELETE -> Delete(id)
                 else -> null

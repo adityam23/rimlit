@@ -29,13 +29,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSpec
-import app.rimlit.model.Premade
 import app.rimlit.model.canAddLook
-import app.rimlit.model.changedParts
 import app.rimlit.ui.LookNameDialog
 import app.rimlit.ui.glow.EdgeGlow
 import app.rimlit.ui.glow.playback
@@ -52,19 +51,22 @@ private const val WALLPAPER_DIM = 0.35f
 /**
  * The full-screen look editor: the draft glows round this screen's real edge, over the wallpaper dimmed (screen on)
  * or black (screen off), and is changed in a sheet of tabs below. Nothing is written until Save; leaving with changes
- * asks first. It edits the look [lookId], or a new one from [premade] that exists only once saved. [onClose] leaves.
+ * asks first. It opens on [target]: a saved look, or a new one (a copy, or from a premade) that exists only once
+ * saved. [onClose] leaves.
  */
 @Composable
 fun LookEditorScreen(
     viewModel: MainViewModel,
-    lookId: String?,
-    premade: Premade?,
+    target: EditorTarget,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val close by rememberUpdatedState(onClose)
-    val editor = rememberLookEditorState(viewModel, lookId, premade) ?: run {
-        // The look is gone (deleted elsewhere), or nothing was asked for: nothing to edit.
+    val stored by viewModel.storedSettings.collectAsStateWithLifecycle()
+    // Until the settings are read, its looks are placeholders: black, as the screen-off view, for that instant.
+    if (stored == null) return Box(modifier.fillMaxSize().background(Color.Black))
+    val editor = rememberLookEditorState(viewModel, target) ?: run {
+        // The look is gone (deleted elsewhere): nothing to edit.
         LaunchedEffect(Unit) { close() }
         return
     }
@@ -82,7 +84,6 @@ fun LookEditorScreen(
     val leave = { editor.leave(close) }
     BackHandler(onBack = leave)
 
-    EditorWindow(showWallpaper = !editor.offScreen)
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -134,7 +135,7 @@ private fun EditorSheet(
 /** The tabs, each with a dot while its part of the look differs from the premade. */
 @Composable
 private fun EditorTabRow(editor: LookEditorState) {
-    val changed = editor.look.changedParts()
+    val changed = editor.changedParts
     PrimaryScrollableTabRow(selectedTabIndex = editor.tab.ordinal, edgePadding = 8.dp) {
         for (tab in EditorTab.entries) {
             Tab(

@@ -75,6 +75,16 @@ class PremadeTest {
     }
 
     @Test
+    fun aLookWithNoEdgeNeverLosesItsParticlesToNothing() {
+        val particlesOnly = blade.copy(style = GlowStyle.NONE, particles = ParticlePreset.SNOW.spec)
+        val reset = particlesOnly.reset(LookPart.PARTICLES)
+        assertEquals(GlowStyle.BLADE, reset.style, "its premade's edge comes back")
+        assertEquals(null, reset.particles)
+        assertEquals(blade, particlesOnly.copy(particles = null).showingSomething())
+        assertEquals(particlesOnly, particlesOnly.showingSomething(), "particles still show")
+    }
+
+    @Test
     fun switchingPremadeKeepsTheIdAndNameOnly() {
         val custom = blade.copy(id = "mine", name = "Mine", thicknessDp = 9f, particles = ParticlePreset.RAIN.spec)
         val switched = custom.switchedTo(Premade.WAVE)

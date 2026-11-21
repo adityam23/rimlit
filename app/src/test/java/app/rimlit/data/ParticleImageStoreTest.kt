@@ -53,9 +53,22 @@ class ParticleImageStoreTest {
     fun onlyReferencedImagesAreKept() {
         val kept = newParticleImageId()
         val dropped = newParticleImageId()
-        val files = listOf("$kept.png", "$dropped.png", "$kept.tmp", "$kept", "notes.txt", ".png")
-        assertEquals(files - "$kept.png", unreferencedFiles(files, setOf(kept)))
-        assertEquals(files, unreferencedFiles(files, emptySet()), "no look references any: all go")
-        assertEquals(emptyList(), unreferencedFiles(emptyList(), setOf(kept)))
+        val names = listOf("$kept.png", "$dropped.png", "$kept.tmp", "$kept", "notes.txt", ".png")
+        val old = names.associateWith { 0L }
+        val now = UNUSED_IMAGE_GRACE_MS
+        assertEquals(names - "$kept.png", unreferencedFiles(old, setOf(kept), now))
+        assertEquals(names, unreferencedFiles(old, emptySet(), now), "no look references any: all go")
+        assertEquals(emptyList(), unreferencedFiles(emptyMap(), setOf(kept), now))
+    }
+
+    @Test
+    fun anUnusedImageIsKeptThroughItsGrace() {
+        val picked = newParticleImageId()
+        val files = mapOf("$picked.png" to 1_000L)
+        assertEquals(emptyList(), unreferencedFiles(files, emptySet(), now = 1_000L), "just picked, for a draft")
+        val justBefore = 1_000L + UNUSED_IMAGE_GRACE_MS - 1
+        assertEquals(emptyList(), unreferencedFiles(files, emptySet(), now = justBefore))
+        val after = 1_000L + UNUSED_IMAGE_GRACE_MS
+        assertEquals(listOf("$picked.png"), unreferencedFiles(files, emptySet(), now = after))
     }
 }

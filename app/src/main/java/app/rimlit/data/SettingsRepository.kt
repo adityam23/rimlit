@@ -149,6 +149,20 @@ class SettingsRepository internal constructor(
         store.edit { prefs -> written = transform(prefs.toSettings(names)).also(prefs::write) }
         return written
     }
+
+    /**
+     * Writes settings stored by an older version in today's form, once, so their migration (looking each app's name
+     * up, for palette looks) runs at start, not again on every read. Nothing when they are already current.
+     */
+    suspend fun migrate() {
+        store.edit { prefs ->
+            // Anything an older version stored that reading it migrates.
+            val older = Keys.PreLooks.all.any { it in prefs } ||
+                Keys.LEGACY_SHOW_WHEN_LOCKED in prefs ||
+                decodeRules(prefs[Keys.APP_RULES])?.palettes?.isNotEmpty() == true
+            if (older) prefs.write(prefs.toSettings(names))
+        }
+    }
 }
 
 private val defaults = GlowSettings()

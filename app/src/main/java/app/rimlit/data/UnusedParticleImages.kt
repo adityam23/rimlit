@@ -4,17 +4,16 @@ import app.rimlit.model.particleImageIds
 import java.io.IOException
 
 /**
- * Deletes the particle image files no stored look draws and [drafted] doesn't name (images picked for a look being
- * edited, not saved yet), through [retainOnly] ([ParticleImageStore.retainOnly]). The only way image files are cleaned
- * up: the looks come from [SettingsRepository.stored], which fails rather than fall back to defaults, so settings that
- * couldn't be read never read as "no look draws any image".
+ * Deletes the particle image files no stored look draws, through [retainOnly] ([ParticleImageStore.retainOnly], which
+ * keeps each through its grace, so one picked for a look still being edited survives). The only way image files are
+ * cleaned up: the looks come from [SettingsRepository.stored], which fails rather than fall back to defaults, so
+ * settings that couldn't be read never read as "no look draws any image".
  *
  * @throws IOException when the settings can't be read; nothing is deleted then.
  */
 internal suspend fun deleteUnusedParticleImages(
     repository: SettingsRepository,
     retainOnly: suspend (keep: Set<String>) -> Unit,
-    drafted: Set<String> = emptySet(),
 ) {
-    retainOnly(repository.stored().particleImageIds + drafted)
+    retainOnly(repository.stored().particleImageIds)
 }

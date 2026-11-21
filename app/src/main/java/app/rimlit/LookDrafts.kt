@@ -11,14 +11,13 @@ import kotlinx.coroutines.launch
 
 /**
  * What the look editor's draft needs of the library, run in [scope] so it outlives the screen: images imported for
- * the draft, kept until it is saved or discarded, and saving it.
+ * it, and saving it. Until saved, its images are kept by the clean-up's grace, so a discarded draft needs nothing.
  */
 class LookDrafts internal constructor(private val library: LookLibrary, private val scope: CoroutineScope) {
 
     /**
      * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]), up to [MAX_PARTICLE_IMAGES], for the
-     * draft; [onDone] gets their ids, kept until the draft is saved ([save]) or discarded ([discard]), and how many
-     * couldn't be added.
+     * draft; [onDone] gets their ids, and how many couldn't be added.
      */
     fun importImages(uris: List<Uri>, onDone: (ids: List<String>, rejected: Int) -> Unit) {
         scope.launch {
@@ -27,18 +26,8 @@ class LookDrafts internal constructor(private val library: LookLibrary, private 
         }
     }
 
-    /** Saves [look], applied as [useFor] says, and lets go of its draft's images, [images]; [onDone]: was it saved. */
-    fun save(look: Look, useFor: UseFor, images: Set<String>, onDone: (saved: Boolean) -> Unit) {
-        scope.launch { onDone(library.saveLook(look, useFor, images)) }
-    }
-
-    /** Keeps the images [images] of a draft restored after the app was away, until it is saved or discarded. */
-    fun keep(images: Set<String>) {
-        if (images.isNotEmpty()) scope.launch { library.keepDraftImages(images) }
-    }
-
-    /** Lets go of a discarded draft's images, [images]. */
-    fun discard(images: Set<String>) {
-        if (images.isNotEmpty()) scope.launch { library.discardDraft(images) }
+    /** Saves [look], applied as [useFor] says; [onDone] says whether it was saved. */
+    fun save(look: Look, useFor: UseFor, onDone: (saved: Boolean) -> Unit) {
+        scope.launch { onDone(library.saveLook(look, useFor)) }
     }
 }

@@ -6,6 +6,10 @@ import android.content.Intent
 /** A launchable app shown in the blocklist. Icons are rendered as letter avatars, not stored. */
 data class AppInfo(val packageName: String, val label: String)
 
+/** The apps whose name holds [query], ignoring case; all of them for a blank one. The one app search. */
+fun List<AppInfo>.matching(query: String): List<AppInfo> =
+    if (query.isBlank()) this else filter { it.label.contains(query.trim(), ignoreCase = true) }
+
 class AppListRepository(private val context: Context) {
 
     fun launchableApps(): List<AppInfo> {
