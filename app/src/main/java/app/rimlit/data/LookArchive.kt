@@ -25,27 +25,31 @@ import java.util.zip.ZipOutputStream
 /** The version of the look files this app writes, and the newest it reads. */
 internal const val LOOK_ARCHIVE_VERSION = 1
 
-/** The most bytes read from a look file: far more than 10 looks with all their images, far less than a bomb. */
+/**
+ * The most bytes read from a look file: far more than [MAX_LOOKS] looks with all their images (each a 128 px PNG, at
+ * most about 66 KB), far less than a bomb.
+ */
 internal const val MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
 
 /** The most bytes all of a file's entries expand to, counted as they are read. */
 internal const val MAX_ARCHIVE_EXPANDED_BYTES = 16 * 1024 * 1024
 
-/** The most entries a look file holds: `looks.json` and every image, with room to spare. */
-internal const val MAX_ARCHIVE_ENTRIES = 64
+/** Every image the most looks can draw; [IMAGE_ENTRY] names up to 100 of them. */
+private const val MAX_IMAGES = MAX_LOOKS * MAX_PARTICLE_IMAGES
 
-/** The most bytes `looks.json` expands to: 10 looks take a few kilobytes. */
+/** The most entries a look file holds: `looks.json` and every image the most looks can draw, with room to spare. */
+internal const val MAX_ARCHIVE_ENTRIES = MAX_IMAGES + 16
+
+/** The most bytes `looks.json` expands to: [MAX_LOOKS] looks take a few kilobytes. */
 internal const val MAX_LOOKS_JSON_BYTES = 256 * 1024
 
 /**
- * JSON opening more arrays and objects than this isn't a look file: ten looks open well under a hundred. The parser
+ * JSON opening more arrays and objects than this isn't a look file: [MAX_LOOKS] looks open about a hundred. The parser
  * recurses once per nested one, so deep nesting could overflow its stack. Every `[` and `{` counts, wherever it
  * stands: Android's parser also takes single-quoted strings and comments, so what is "inside a string" is its call,
  * and a bound that depended on it could be talked past.
  */
 internal const val MAX_JSON_OPENERS = 256
-
-private const val MAX_IMAGES = MAX_LOOKS * MAX_PARTICLE_IMAGES
 private const val LOOKS_ENTRY = "looks.json"
 private const val IMAGES_DIR = "images/"
 private const val PNG = ".png"

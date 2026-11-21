@@ -318,9 +318,11 @@ class GlowMachineModelCheckTest {
      * reducer and the resolver can't pass.
      */
     private fun autoColors(settings: GlowSettings, packageName: String): AutoColors? {
-        val rule = settings.appRules[packageName]
-        if (rule is Rule.UsePalette) return null
-        val look = (rule as? Rule.UseLook)?.let { named -> settings.looks.firstOrNull { it.id == named.lookId } }
+        val lookId = when (val rule = settings.appRules[packageName]) {
+            is Rule.UseLook -> rule.lookId
+            null -> null
+        }
+        val look = settings.looks.firstOrNull { it.id == lookId }
             ?: settings.looks.first { it.id == settings.defaultLookId }
         return look.autoColors.takeIf { look.colorMode == ColorMode.AUTO }
     }

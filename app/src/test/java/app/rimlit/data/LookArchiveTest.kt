@@ -7,6 +7,7 @@ import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
+import app.rimlit.model.MAX_PARTICLE_IMAGES
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
 import app.rimlit.model.ParticlePicture
@@ -207,6 +208,18 @@ class LookArchiveTest {
         assertEquals(full.looks, read(written(full)).looks)
         val openers = json(looks = full.looks).toString().count { it == '[' || it == '{' }
         assertTrue(openers * 2 < MAX_JSON_OPENERS, "$openers arrays and objects in the largest file")
+    }
+
+    @Test
+    fun theMostLooksWithTheMostImagesEachReadBack() {
+        val looks = List(MAX_LOOKS) { look ->
+            val picture = ParticlePicture.Custom(List(MAX_PARTICLE_IMAGES) { newParticleImageId() })
+            photos.copy(id = "look$look", name = "Look $look", particles = photos.particles?.copy(picture = picture))
+        }
+        val images = looks.particleImageIds.withIndex().associate { (n, id) -> id to byteArrayOf(n.toByte()) }
+        assertEquals(MAX_LOOKS * MAX_PARTICLE_IMAGES, images.size)
+        val full = LookArchive(looks, images)
+        assertSame(full, read(written(full)))
     }
 
     @Test

@@ -11,7 +11,6 @@ class LookEditsTest {
 
     private val app = "com.example.chat"
     private val red = 0xFFFF0000.toInt()
-    private val redPalette = GlowPalette.Colors(listOf(red))
 
     private val work = Look(id = "work", name = "Work", style = GlowStyle.BLADE, colorMode = ColorMode.RAINBOW)
     private val settings = GlowSettings(looks = listOf(Look(), work))
@@ -83,10 +82,10 @@ class LookEditsTest {
     fun deletingALookPrunesTheRulesThatUseItOnly() {
         val ruled = settings
             .withAppRule(app, Rule.UseLook("work"))
-            .withAppRule("com.example.mail", Rule.UsePalette(redPalette))
+            .withAppRule("com.example.mail", Rule.UseLook(DEFAULT_LOOK_ID))
         val deleted = ruled.deleteLook("work")
         assertNull(deleted.look("work"))
-        assertEquals(mapOf("com.example.mail" to Rule.UsePalette(redPalette)), deleted.appRules)
+        assertEquals(mapOf("com.example.mail" to Rule.UseLook(DEFAULT_LOOK_ID)), deleted.appRules)
         assertEquals(GlowStyle.GLOW, (deleted.resolve(app, listOf(red)) as Resolution.Ready).spec.style)
     }
 
@@ -100,19 +99,19 @@ class LookEditsTest {
     fun anAppRuleIsSetReplacedAndCleared() {
         val looked = settings.withAppRule(app, Rule.UseLook("work"))
         assertEquals(Rule.UseLook("work"), looked.appRules[app])
-        val painted = looked.withAppRule(app, Rule.UsePalette(redPalette))
-        assertEquals(Rule.UsePalette(redPalette), painted.appRules[app])
-        assertEquals(emptyMap(), painted.withAppRule(app, null).appRules)
+        val replaced = looked.withAppRule(app, Rule.UseLook(DEFAULT_LOOK_ID))
+        assertEquals(Rule.UseLook(DEFAULT_LOOK_ID), replaced.appRules[app])
+        assertEquals(emptyMap(), replaced.withAppRule(app, null).appRules)
     }
 
     @Test
     fun aRuleNamingAMissingLookAppliesAsTheDefaultLook() {
         val ruled = settings
             .withAppRule(app, Rule.UseLook("work"))
-            .withAppRule("com.example.mail", Rule.UsePalette(redPalette))
+            .withAppRule("com.example.mail", Rule.UseLook(DEFAULT_LOOK_ID))
             .withAppRule("com.example.old", Rule.UseLook("gone"))
         assertEquals(Rule.UseLook("work"), ruled.ruleFor(app))
-        assertEquals(Rule.UsePalette(redPalette), ruled.ruleFor("com.example.mail"))
+        assertEquals(Rule.UseLook(DEFAULT_LOOK_ID), ruled.ruleFor("com.example.mail"))
         assertNull(ruled.ruleFor("com.example.old"), "names a missing look")
         assertNull(ruled.ruleFor("com.example.none"), "no rule")
         assertEquals(

@@ -38,9 +38,14 @@ fun GlowSettings.addLook(from: Look, name: String, id: String = UUID.randomUUID(
 fun GlowSettings.addImportedLooks(
     imported: List<Look>,
     newId: () -> String = { UUID.randomUUID().toString() },
-): GlowSettings = imported.fold(this) { settings, look ->
-    settings.firstFreeName(numberedNames(look.name))?.let { settings.addLook(look, it, newId()) } ?: settings
-}
+): GlowSettings = imported.fold(this) { settings, look -> settings.addLookNumbered(look, look.name, newId()) }
+
+/**
+ * These settings with a copy of [from] added as [name] (a valid look name), numbered when taken, "Work (2)", under
+ * [id]; unchanged when no look fits or the id is taken.
+ */
+fun GlowSettings.addLookNumbered(from: Look, name: String, id: String): GlowSettings =
+    firstFreeName(numberedNames(name))?.let { addLook(from, it, id) } ?: this
 
 /** [name] (a valid look name), then numbered from 2, "Work (2)", cut so the number always fits. */
 private fun numberedNames(name: String): Sequence<String> =
