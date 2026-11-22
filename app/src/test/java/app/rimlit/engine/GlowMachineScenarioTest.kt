@@ -97,6 +97,21 @@ class GlowMachineScenarioTest {
     }
 
     @Test
+    fun aSilentlyUpdatingNotificationGlowsOnceNotOnEveryUpdate() {
+        // An upload's progress bar or a service's status, re-posted on every tick.
+        val tick = GlowEvent.Posted(post("a", updatesSilently = true))
+        val run = run().send(tick, opened(Surface.APP_OVERLAY)).fire(Timer.FADE_IN, Timer.HOLD, Timer.FADE_OUT)
+        assertNull(run.state.glow, "the first post glowed and ended")
+
+        run.send(tick)
+        assertNull(run.state.glow, "its updates don't glow again")
+        assertTrue(run.effects.isEmpty())
+
+        run.send(GlowEvent.Removed("a"), tick)
+        assertNotNull(run.state.glow, "posted again after removal, it is a new alert")
+    }
+
+    @Test
     fun onlyRemovingTheShownNotificationEndsTheGlowEarly() {
         val run = holding("a").send(posted("b"), GlowEvent.Removed("a"))
         assertEquals(Phase.FADING_IN, run.glow.phase, "removing a notification that isn't shown changes nothing")

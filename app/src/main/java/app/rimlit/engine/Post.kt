@@ -19,8 +19,11 @@ data class Post(
     val group: GroupRole,
     /** Which of its group's posts alert (`Notification.getGroupAlertBehavior`); only matters in a group. */
     val groupAlert: GroupAlert,
-    /** `FLAG_ONLY_ALERT_ONCE`: a re-post with it is a silent update. */
-    val onlyAlertOnce: Boolean,
+    /**
+     * A re-post under its key is a silent update: it is alert-once (`FLAG_ONLY_ALERT_ONCE`), shows a progress bar,
+     * or belongs to a foreground service, none of which Android treats as a new interruption. Its first post alerts.
+     */
+    val updatesSilently: Boolean,
     /** The posting app's channel importance; `null` if the ranking was unavailable. */
     val importance: Int?,
     /** False when Do Not Disturb hides this notification. */
@@ -71,8 +74,8 @@ internal fun Post.alerts(isUpdate: Boolean): Boolean = when {
 
     group == GroupRole.CHILD && groupAlert == GroupAlert.SUMMARY -> false
 
-    // Silent updates (alert-once) don't alert, so they don't glow.
-    isUpdate && onlyAlertOnce -> false
+    // Silent updates (alert-once, progress, a service's status) don't alert, so they don't glow.
+    isUpdate && updatesSilently -> false
 
     importance != null && importance < IMPORTANCE_DEFAULT -> false
 

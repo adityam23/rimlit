@@ -101,7 +101,7 @@ class GlowListenerService : NotificationListenerService() {
                 Notification.GROUP_ALERT_CHILDREN -> GroupAlert.CHILDREN
                 else -> GroupAlert.ALL
             },
-            onlyAlertOnce = flags and Notification.FLAG_ONLY_ALERT_ONCE != 0,
+            updatesSilently = flags and SILENT_UPDATE_FLAGS != 0 || notification.showsProgress(),
             importance = ranking?.importance,
             passesDnd = ranking?.matchesInterruptionFilter() ?: true,
             hiddenOnLockScreen = hiddenOnLockScreen(ranking),
@@ -130,6 +130,10 @@ class GlowListenerService : NotificationListenerService() {
     companion object {
         private const val TAG = "GlowListenerService"
 
+        /** Flags whose re-posts Android doesn't treat as a new alert: alert-once, and a foreground service's status. */
+        private const val SILENT_UPDATE_FLAGS =
+            Notification.FLAG_ONLY_ALERT_ONCE or Notification.FLAG_FOREGROUND_SERVICE
+
         /** `Settings.Secure.LOCK_SCREEN_SHOW_NOTIFICATIONS`: hidden from the SDK, but readable by any app. */
         private const val LOCK_SCREEN_SHOW_NOTIFICATIONS = "lock_screen_show_notifications"
 
@@ -138,3 +142,7 @@ class GlowListenerService : NotificationListenerService() {
             private set
     }
 }
+
+/** A progress bar, determinate or not (Android 16's `ProgressStyle` writes the same extras): a task's status. */
+private fun Notification.showsProgress(): Boolean = extras.getInt(Notification.EXTRA_PROGRESS_MAX) > 0 ||
+    extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE)
