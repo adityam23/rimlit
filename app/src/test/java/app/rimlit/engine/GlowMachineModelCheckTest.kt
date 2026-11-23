@@ -170,7 +170,7 @@ class GlowMachineModelCheckTest {
         surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: pendingViolation(old, event, step)
             ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
             ?: placementViolation(old, event, step) ?: openViolation(old, event, step)
-            ?: dismissViolation(old, event, step)
+            ?: dismissViolation(old, event, step) ?: silentUpdateViolation(old, event, step)
 
     /**
      * Dismissing: the shown glow fades out (it is already up, so there is something to fade). Its notification is
@@ -370,9 +370,6 @@ class GlowMachineModelCheckTest {
         val wasOpen = oldGlow != null && oldGlow.opened && oldGlow.surface == newGlow?.surface
         val endedRinging = event is GlowEvent.Posted && !event.post.isRinging && event.post.key in old.ringingKeys
         val ringingStarted = event is GlowEvent.Posted && event.post.isRinging
-        // A silent update glows only when it starts ringing: neither pending nor (re)started by it otherwise.
-        val silentUpdate = event is GlowEvent.Posted && event.post.updatesSilently &&
-            event.post.key in old.activeKeys && (!event.post.isRinging || event.post.key in old.ringingKeys)
         // Rimlit's own posts other than the test (the lock-screen trampoline) only update the posted keys.
         val trampoline = event is GlowEvent.Posted && event.post.isOwn && !event.post.isTest &&
             event.post.key !in old.ringingKeys
@@ -406,10 +403,34 @@ class GlowMachineModelCheckTest {
             ringingStarted && new.pending != null && new.pending.post != event.post ->
                 "a post pending from before a call could launch over its screen"
 
-            silentUpdate && new.pending != old.pending && new.pending?.post == event.post -> "a silent update is pending"
+            else -> null
+        }
+    }
 
-            silentUpdate && newGlow != oldGlow && newSource == newest && newGlow?.phase != Phase.FADING_OUT ->
-                "a silent update glowed"
+    /**
+     * A silent update glows only when it starts ringing. Otherwise it starts no extraction, opens nothing, arms no
+     * timer and leaves the glow as it was, except that ending its own ringing ends or fades out its glow.
+     */
+    private fun silentUpdateViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
+        val post = (event as? GlowEvent.Posted)?.post ?: return null
+        val silent = post.updatesSilently && post.key in old.activeKeys &&
+            (!post.isRinging || post.key in old.ringingKeys)
+        if (!silent) return null
+        val before = old.glow
+        val after = step.state.glow
+        val endedRinging = !post.isRinging && post.key in old.ringingKeys && before != null &&
+            before.source.post?.key == post.key
+        val fadedOut = endedRinging && before.phase != Phase.FADING_OUT &&
+            after == before.copy(phase = Phase.FADING_OUT, instant = false)
+        return when {
+            step.effects.any { it is GlowEffect.ExtractPalette } -> "a silent update started an extraction"
+
+            step.effects.any { it is GlowEffect.Open } -> "a silent update opened a surface"
+
+            after != null && after != before && !fadedOut -> "a silent update changed the glow"
+
+            step.effects.any { it is GlowEffect.Arm && !(fadedOut && it.timer == Timer.FADE_OUT) } ->
+                "a silent update restarted or extended a timer"
 
             else -> null
         }
