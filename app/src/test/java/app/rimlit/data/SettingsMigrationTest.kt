@@ -191,6 +191,19 @@ class SettingsMigrationTest {
     }
 
     @Test
+    fun theMigrationCompletesWhenALabelLookupFails() {
+        val dying = RuntimeException("DeadSystemException")
+        val names = FakePaletteLookNames(mapOf("com.b" to "Beta"), throwing = mapOf("com.a" to dying))
+        val migration = PaletteLooksMigration(names)
+        val migrated = runBlocking { migration.migrate(preLooks()) }
+        assertFalse(runBlocking { migration.shouldMigrate(migrated) }, "written, so never run again")
+        val settings = migrated.toSettings()
+        assertEquals(listOf("Default", "Beta colors", "com.a colors"), settings.looks.map { it.name })
+        assertEquals(Rule("colours:com.a"), settings.appRules["com.a"])
+        assertEquals(listOf<Pair<String, Exception>>("com.a" to dying), names.failures, "reported, not swallowed")
+    }
+
+    @Test
     fun settingsWithNoPalettesNeedNoMigration() {
         for (prefs in listOf(emptyPreferences(), mutablePreferencesOf().apply { write(GlowSettings()) })) {
             assertFalse(runBlocking { migration.shouldMigrate(prefs) })

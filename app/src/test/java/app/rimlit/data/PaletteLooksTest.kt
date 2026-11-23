@@ -8,8 +8,11 @@ import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.ParticlePreset
 import org.junit.Test
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.assertEquals
+import kotlin.test.assertFails
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 /** Older per-app palettes become looks: one per app while they fit, then shared by palette, then the default. */
 class PaletteLooksTest {
@@ -112,6 +115,26 @@ class PaletteLooksTest {
     }
 
     @Test
+    fun aLabelThatCantBeLookedUpNamesItByThePackageNameReported() {
+        val dying = RuntimeException("DeadSystemException")
+        val names = FakePaletteLookNames(mapOf("p1" to "Fine"), throwing = mapOf("p0" to dying))
+        val migrated = withRoom(2).withPaletteLooks(mapOf("p0" to red, "p1" to blue), names)
+        assertEquals("p0 colors", migrated.lookNameOf("p0"))
+        assertEquals("Fine colors", migrated.lookNameOf("p1"))
+        assertEquals(listOf<Pair<String, Exception>>("p0" to dying), names.failures)
+    }
+
+    @Test
+    fun cancellationAndErrorsStillPropagateFromALabelLookup() {
+        for (failure in listOf(CancellationException("cancelled"), OutOfMemoryError())) {
+            val names = FakePaletteLookNames(throwing = mapOf("p0" to failure))
+            val thrown = assertFails { withRoom(1).withPaletteLooks(mapOf("p0" to red), names) }
+            assertSame(failure, thrown)
+            assertEquals(emptyList(), names.failures)
+        }
+    }
+
+    @Test
     fun theLabelIsCutSoTheRestOfTheNameFits() {
         val long = "x".repeat(40)
         assertEquals("x".repeat(23) + " colors", names.fittedLookName(long, others = 0))
@@ -128,6 +151,8 @@ class PaletteLooksTest {
     fun aTranslationTooLongForAnyLabelIsCutWhole() {
         val wordy = object : PaletteLookNames {
             override fun label(packageName: String) = packageName
+
+            override fun labelFailed(packageName: String, failure: Exception) = Unit
 
             override fun lookName(label: String, others: Int) = "$label " + "y".repeat(40)
         }

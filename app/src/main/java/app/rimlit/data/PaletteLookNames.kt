@@ -2,10 +2,14 @@ package app.rimlit.data
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import app.rimlit.R
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.fitLookName
 import app.rimlit.model.isValidLookName
+import kotlin.coroutines.cancellation.CancellationException
+
+private const val TAG = "PaletteLookNames"
 
 /**
  * How the looks older per-app palettes migrate into are named (see `PaletteLooks.kt`), from their apps' names: only
@@ -13,8 +17,14 @@ import app.rimlit.model.isValidLookName
  */
 internal interface PaletteLookNames {
 
-    /** The name [packageName]'s app is shown by: its label, or the package name when it has none. */
+    /**
+     * The name [packageName]'s app is shown by: its label, or the package name when it has none. It may throw, as a
+     * system call does when the system is dying; read it through [labelOrPackageName].
+     */
     fun label(packageName: String): String
+
+    /** Reports that looking up [packageName]'s label failed with [failure]: its look is named by the package. */
+    fun labelFailed(packageName: String, failure: Exception)
 
     /**
      * The name, uncut, of a look in the colours of the app named [label], shared with [others] more apps: "WhatsApp
@@ -22,6 +32,18 @@ internal interface PaletteLookNames {
      */
     fun lookName(label: String, others: Int): String
 }
+
+/**
+ * [packageName]'s [PaletteLookNames.label], or the package name when the lookup fails, reported: the migration runs
+ * before the settings are first read, so a failure there would keep them from ever loading. Cancellation and errors
+ * still propagate.
+ */
+internal fun PaletteLookNames.labelOrPackageName(packageName: String): String =
+    runCatching { label(packageName) }.getOrElse { failure ->
+        if (failure !is Exception || failure is CancellationException) throw failure
+        labelFailed(packageName, failure)
+        packageName
+    }
 
 /**
  * The look name of the app named [label] and [others] more (see [PaletteLookNames.lookName]), the label cut so the
@@ -44,6 +66,10 @@ internal class AppPaletteLookNames(context: Context) : PaletteLookNames {
             .ifBlank { packageName }
     } catch (_: PackageManager.NameNotFoundException) {
         packageName // Uninstalled since: its package name still says which app it was.
+    }
+
+    override fun labelFailed(packageName: String, failure: Exception) {
+        Log.w(TAG, "Couldn't look up $packageName's label; naming its palette look by the package", failure)
     }
 
     override fun lookName(label: String, others: Int): String = if (others == 0) {

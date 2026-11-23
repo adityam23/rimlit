@@ -13,7 +13,8 @@ import java.util.Locale
 // Past the look limit the apps last by name share one look per palette, and only apps that even that can't fit go
 // back to the default. The migration runs once, as a DataStore migration that writes its result (see
 // `SettingsRepository.kt`), so the looks never change once made, whatever happens to the apps' names. The looks are
-// named by [PaletteLookNames], after the app's label, or its package name when the label can't make a look name.
+// named by [PaletteLookNames], after the app's label, or its package name when the label can't be looked up or can't
+// make a look name.
 
 /** These settings with [palettes] (by package name) migrated into looks, as described at the top of this file. */
 internal fun GlowSettings.withPaletteLooks(
@@ -21,7 +22,7 @@ internal fun GlowSettings.withPaletteLooks(
     names: PaletteLookNames,
 ): GlowSettings {
     if (palettes.isEmpty()) return this
-    val labels = palettes.keys.associateWith(names::label)
+    val labels = palettes.keys.associateWith(names::labelOrPackageName)
     val apps = palettes.keys.sortedWith(compareBy({ labels.getValue(it).lowercase(Locale.ROOT) }, { it }))
     val room = MAX_LOOKS - looks.size
     // As many apps as possible get looks of their own, while the rest still fit sharing one look per palette.
