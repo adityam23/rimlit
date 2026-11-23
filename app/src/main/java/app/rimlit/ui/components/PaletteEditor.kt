@@ -139,17 +139,10 @@ private fun Swatch(argb: Int, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
-/**
- * [colors] as a brush: a left-to-right gradient, or with [sweep] a sweep that closes back to the first
- * color so the seam is invisible. A single color is a solid fill.
- */
-fun paletteBrush(colors: List<Int>, sweep: Boolean = false): Brush {
+/** [colors] as a brush: a left-to-right gradient, and a single color a solid fill. */
+fun paletteBrush(colors: List<Int>): Brush {
     val stops = colors.map(::Color)
-    return when {
-        stops.size == 1 -> SolidColor(stops[0])
-        sweep -> Brush.sweepGradient(stops + stops.first())
-        else -> Brush.horizontalGradient(stops)
-    }
+    return if (stops.size == 1) SolidColor(stops[0]) else Brush.horizontalGradient(stops)
 }
 
 private fun shiftHue(argb: Int, degrees: Float): Int {

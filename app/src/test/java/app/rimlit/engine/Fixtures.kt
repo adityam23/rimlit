@@ -58,7 +58,7 @@ internal object Fixtures {
     val CHAT_LOOK = Look(id = "chat", name = "Chat", autoColors = AutoColors(AutoColorSource.APP_ICON, count = 3))
 
     /** Auto colours, with [OTHER_APP]'s rule picking [CHAT_LOOK]; Rimlit's own posts keep the default look. */
-    val RULED = AUTO.copy(looks = AUTO.looks + CHAT_LOOK, appRules = mapOf(OTHER_APP to Rule.UseLook(CHAT_LOOK.id)))
+    val RULED = AUTO.copy(looks = AUTO.looks + CHAT_LOOK, appRules = mapOf(OTHER_APP to Rule(CHAT_LOOK.id)))
 
     /** A clock time outside, then inside, the quiet hours below. */
     const val DAYTIME = 12 * 60

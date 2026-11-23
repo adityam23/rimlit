@@ -8,7 +8,6 @@ import app.rimlit.engine.Fixtures.SETTINGS
 import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
-import app.rimlit.model.Rule
 import org.junit.Test
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -318,10 +317,7 @@ class GlowMachineModelCheckTest {
      * reducer and the resolver can't pass.
      */
     private fun autoColors(settings: GlowSettings, packageName: String): AutoColors? {
-        val lookId = when (val rule = settings.appRules[packageName]) {
-            is Rule.UseLook -> rule.lookId
-            null -> null
-        }
+        val lookId = settings.appRules[packageName]?.lookId
         val look = settings.looks.firstOrNull { it.id == lookId }
             ?: settings.looks.first { it.id == settings.defaultLookId }
         return look.autoColors.takeIf { look.colorMode == ColorMode.AUTO }

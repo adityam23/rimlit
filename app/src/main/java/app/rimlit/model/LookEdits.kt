@@ -25,11 +25,7 @@ fun GlowSettings.firstFreeName(candidates: Sequence<String>): String? =
  * used, or the id is taken.
  */
 fun GlowSettings.addLook(from: Look, name: String, id: String = UUID.randomUUID().toString()): GlowSettings =
-    if (!canAddLook || !canName(name) || look(id) != null) {
-        this
-    } else {
-        copy(looks = looks + from.copy(id = id, name = name))
-    }
+    withLookAdded(from, name, id) ?: this
 
 /**
  * These settings with copies of [imported] added after their own looks, each under a new id from [newId], as many as
@@ -38,14 +34,24 @@ fun GlowSettings.addLook(from: Look, name: String, id: String = UUID.randomUUID(
 fun GlowSettings.addImportedLooks(
     imported: List<Look>,
     newId: () -> String = { UUID.randomUUID().toString() },
-): GlowSettings = imported.fold(this) { settings, look -> settings.addLookNumbered(look, look.name, newId()) }
+): GlowSettings = imported.fold(this) { settings, look ->
+    settings.addLookNumbered(look, look.name, newId()) ?: settings
+}
 
 /**
  * These settings with a copy of [from] added as [name] (a valid look name), numbered when taken, "Work (2)", under
- * [id]; unchanged when no look fits or the id is taken.
+ * [id]; `null` when it isn't added: no look fits, or the id is taken.
  */
-fun GlowSettings.addLookNumbered(from: Look, name: String, id: String): GlowSettings =
-    firstFreeName(numberedNames(name))?.let { addLook(from, it, id) } ?: this
+fun GlowSettings.addLookNumbered(from: Look, name: String, id: String): GlowSettings? =
+    firstFreeName(numberedNames(name))?.let { withLookAdded(from, it, id) }
+
+/** These settings with a copy of [from] added as [name] under [id]; `null` when it isn't allowed (see [addLook]). */
+private fun GlowSettings.withLookAdded(from: Look, name: String, id: String): GlowSettings? =
+    if (!canAddLook || !canName(name) || look(id) != null) {
+        null
+    } else {
+        copy(looks = looks + from.copy(id = id, name = name))
+    }
 
 /** [name] (a valid look name), then numbered from 2, "Work (2)", cut so the number always fits. */
 private fun numberedNames(name: String): Sequence<String> =
@@ -65,7 +71,7 @@ fun GlowSettings.renameLook(id: String, name: String): GlowSettings =
 fun GlowSettings.deleteLook(id: String): GlowSettings = if (id == defaultLookId) {
     this
 } else {
-    copy(looks = looks.filterNot { it.id == id }, appRules = appRules.filterValues { it != Rule.UseLook(id) })
+    copy(looks = looks.filterNot { it.id == id }, appRules = appRules.filterValues { it.lookId != id })
 }
 
 /** These settings with [rule] for [packageName], or without its rule for `null` (the default look). */

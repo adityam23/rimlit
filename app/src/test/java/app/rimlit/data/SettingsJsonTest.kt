@@ -79,9 +79,21 @@ class SettingsJsonTest {
 
     @Test
     fun rulesRoundTrip() {
-        val rules = mapOf("com.a" to Rule.UseLook("work"), "com.b" to Rule.UseLook("home"))
-        assertEquals(StoredRules(rules), decodeRules(encodeRules(rules)))
-        assertEquals(StoredRules(), decodeRules(encodeRules(emptyMap())))
+        val rules = mapOf("com.a" to Rule("work"), "com.b" to Rule("home"))
+        assertEquals(StoredRules(rules, emptyMap()), decodeRules(encodeRules(rules)))
+        assertEquals(StoredRules(emptyMap(), emptyMap()), decodeRules(encodeRules(emptyMap())))
+        assertEquals("""{"com.a":{"look":"work"}}""", encodeRules(mapOf("com.a" to Rule("work"))), "as before")
+    }
+
+    @Test
+    fun aColourIsEightDigitsOfHexAndDecodesBack() {
+        assertEquals("ff00bcd4", ColorHex.encode(0xFF00BCD4.toInt()))
+        assertEquals("0000000f", ColorHex.encode(0x0000000F))
+        for (argb in listOf(0, -1, 0x80FF0000.toInt(), 0x0000000F)) {
+            assertEquals(argb, ColorHex.decode(ColorHex.encode(argb)))
+            assertEquals(GlowPalette.Colors(listOf(argb)), decodePalette(sequenceOf(ColorHex.encode(argb))))
+        }
+        for (hex in listOf("", "xyz", "100000000", "-1")) assertEquals(null, ColorHex.decode(hex), hex)
     }
 
     @Test
@@ -198,13 +210,13 @@ class SettingsJsonTest {
 
         val rules = decodeRules("""{"a":{"palette":[$many]},"b":{"palette":["x"]},"c":{"look":""},"":{"look":"y"}}""")
         val palette = GlowPalette.Colors((1..5).map { 0xFF000000.toInt() + it })
-        assertEquals(StoredRules(palettes = mapOf("a" to palette)), rules, "older palette rules, to migrate")
+        assertEquals(StoredRules(emptyMap(), mapOf("a" to palette)), rules, "older palette rules, to migrate")
     }
 
     @Test
     fun aRuleWithALookAndAPaletteUsesTheLook() {
         val rules = decodeRules("""{"a":{"look":"work","palette":["ff0000ff"]}}""")
-        assertEquals(StoredRules(mapOf("a" to Rule.UseLook("work"))), rules)
+        assertEquals(StoredRules(mapOf("a" to Rule("work")), emptyMap()), rules)
     }
 
     @Test

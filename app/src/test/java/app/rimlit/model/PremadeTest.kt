@@ -1,6 +1,7 @@
 package app.rimlit.model
 
 import org.junit.Test
+import java.lang.reflect.Modifier
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -72,6 +73,45 @@ class PremadeTest {
             assertEquals(LookPart.entries.toSet() - part, custom.reset(part).changedParts(), "$part")
         }
         assertEquals(blade, LookPart.entries.fold(custom) { look, part -> look.reset(part) })
+    }
+
+    /** [Look]'s properties, one per constructor parameter, as fields. */
+    private val lookFields = Look::class.java.declaredFields
+        .filterNot { Modifier.isStatic(it.modifiers) }
+        .onEach { it.isAccessible = true }
+
+    /** Every property but the ones that name a look and its premade: the ones its parts hold. */
+    private val partFields = lookFields.map { it.name }.toSet() - setOf("id", "name", "basedOn")
+
+    /** The names of the properties that differ between [a] and [b]. */
+    private fun differing(a: Look, b: Look) = lookFields.filter { it.get(a) != it.get(b) }.map { it.name }.toSet()
+
+    @Test
+    fun everyPropertyButTheIdNameAndPremadeIsInExactlyOnePart() {
+        val everything = blade.copy(
+            style = GlowStyle.NONE,
+            region = EdgeRegion.CUTOUT,
+            colorMode = ColorMode.CUSTOM,
+            autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 3),
+            customColors = red,
+            particles = ParticlePreset.HEARTS.spec,
+            thicknessDp = 8f,
+            glowWidthDp = 10f,
+            speed = 2f,
+            brightness = 0.4f,
+        )
+        assertEquals(partFields, differing(everything, blade), "every property changed")
+        for (field in partFields) {
+            val parts = LookPart.entries.filter { field in differing(everything, everything.reset(it)) }
+            assertEquals(1, parts.size, "$field is reset by $parts")
+        }
+    }
+
+    @Test
+    fun theFirstLookIsGlowUntouched() {
+        assertEquals(Premade.GLOW, Look().basedOn)
+        assertEquals(emptySet(), Look().changedParts())
+        assertEquals(Premade.GLOW.look(id = DEFAULT_LOOK_ID, name = DEFAULT_LOOK_NAME), Look())
     }
 
     @Test

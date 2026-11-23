@@ -54,10 +54,7 @@ internal fun encodeRules(rules: Map<String, Rule>): String = JSONObject().apply 
  * The stored per-app rules: [rules], and the [palettes] older versions stored as rules of their own (the default look
  * painted in the app's colours), which migrate into looks (see `PaletteLooks.kt`).
  */
-internal data class StoredRules(
-    val rules: Map<String, Rule> = emptyMap(),
-    val palettes: Map<String, GlowPalette.Colors> = emptyMap(),
-)
+internal data class StoredRules(val rules: Map<String, Rule>, val palettes: Map<String, GlowPalette.Colors>)
 
 /** The rules in [json], skipping malformed ones; `null` when it is absent or malformed. */
 internal fun decodeRules(json: String?): StoredRules? {
@@ -76,8 +73,16 @@ internal fun decodeRules(json: String?): StoredRules? {
  * of them; `null` when there is none, so an invalid stored palette is dropped, never thrown.
  */
 internal fun decodePalette(colors: Sequence<String>): GlowPalette.Colors? =
-    colors.mapNotNull(PaletteJson::decodeColor).take(MAX_PALETTE_COLORS).toList().ifEmpty { null }
+    colors.mapNotNull(ColorHex::decode).take(MAX_PALETTE_COLORS).toList().ifEmpty { null }
         ?.let(GlowPalette::Colors)
+
+/** A color as a palette stores it: 8-digit ARGB hex, e.g. `ff00bcd4`. */
+internal object ColorHex {
+    fun encode(argb: Int): String = "%08x".format(Locale.ROOT, argb)
+
+    /** The color [hex] encodes, or `null` when it isn't a hex number in the ARGB range. */
+    fun decode(hex: String): Int? = hex.toLongOrNull(16)?.takeIf { it in 0..0xFFFFFFFFL }?.toInt()
+}
 
 internal inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E = toEnumOrNull<E>() ?: default
 
@@ -237,25 +242,19 @@ private object RuleJson {
     /** Only read, to migrate: a palette rule older versions wrote. */
     private const val PALETTE = "palette"
 
-    fun encode(rule: Rule): JSONObject = when (rule) {
-        is Rule.UseLook -> JSONObject().put(LOOK, rule.lookId)
-    }
+    fun encode(rule: Rule): JSONObject = JSONObject().put(LOOK, rule.lookId)
 
     /** The look rule [obj] holds; `null` when it holds none. */
-    fun decodeLook(obj: JSONObject): Rule? = obj.string(LOOK)?.takeIf { it.isNotEmpty() }?.let(Rule::UseLook)
+    fun decodeLook(obj: JSONObject): Rule? = obj.string(LOOK)?.takeIf { it.isNotEmpty() }?.let(::Rule)
 
     /** The palette of an older palette rule [obj]; `null` when it holds none. */
     fun decodePalette(obj: JSONObject): GlowPalette.Colors? = obj.optJSONArray(PALETTE)?.let(PaletteJson::decode)
 }
 
-/** A palette is a JSON array of colors as 8-digit ARGB hex. */
+/** A palette is a JSON array of colors as [ColorHex]. */
 private object PaletteJson {
-    fun encode(palette: GlowPalette.Colors) =
-        JSONArray().apply { palette.argb.forEach { put("%08x".format(Locale.ROOT, it)) } }
+    fun encode(palette: GlowPalette.Colors) = JSONArray().apply { palette.argb.forEach { put(ColorHex.encode(it)) } }
 
     fun decode(array: JSONArray): GlowPalette.Colors? =
         decodePalette((0 until array.length()).asSequence().mapNotNull { array.opt(it) as? String })
-
-    /** The color [hex] encodes, or `null` when it isn't a hex number in the ARGB range. */
-    fun decodeColor(hex: String): Int? = hex.toLongOrNull(16)?.takeIf { it in 0..0xFFFFFFFFL }?.toInt()
 }

@@ -23,7 +23,6 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
-import app.rimlit.model.Rule
 import app.rimlit.model.addLook
 import app.rimlit.model.canAddLook
 import app.rimlit.model.canName
@@ -97,7 +96,7 @@ internal fun LazyListScope.lookPickerSection(
 @ReadOnlyComposable
 private fun GlowSettings.usage(look: Look): String {
     if (look.id == defaultLookId) return stringResource(R.string.look_default_desc)
-    val apps = appRules.values.count { it == Rule.UseLook(look.id) }
+    val apps = appRules.values.count { it.lookId == look.id }
     return if (apps == 0) {
         stringResource(R.string.look_unused_desc)
     } else {

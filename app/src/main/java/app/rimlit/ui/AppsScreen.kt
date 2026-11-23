@@ -26,7 +26,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,7 +42,6 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.AppInfo
 import app.rimlit.model.GlowSettings
-import app.rimlit.model.Rule
 import app.rimlit.model.withAppRule
 import app.rimlit.ui.components.SubScreenScaffold
 
@@ -131,20 +129,12 @@ private fun AppList(
             AppRow(
                 app = app,
                 blocked = app.packageName in settings.blockedPackages,
-                ruleLabel = settings.ruleLabel(settings.ruleFor(app.packageName)),
+                ruleLabel = settings.appLook(app.packageName)?.let { stringResource(R.string.app_rule_look, it.name) },
                 onEditLook = { onEditLook(app) },
                 onToggle = { blocked -> onToggle(app, blocked) },
             )
         }
     }
-}
-
-/** What an app's [rule] (as [GlowSettings.ruleFor] applies it) reads as under its name; `null` for the default look. */
-@Composable
-@ReadOnlyComposable
-private fun GlowSettings.ruleLabel(rule: Rule?): String? = when (rule) {
-    is Rule.UseLook -> look(rule.lookId)?.let { stringResource(R.string.app_rule_look, it.name) }
-    null -> null
 }
 
 private fun GlowSettings.withBlocked(packageName: String, blocked: Boolean) =

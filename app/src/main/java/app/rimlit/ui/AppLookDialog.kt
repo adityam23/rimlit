@@ -21,10 +21,16 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.Rule
 import app.rimlit.ui.components.RadioCard
 
-/** Picks what [app] glows with: the default look (no rule, [onSave] gets `null`) or another look. */
+/**
+ * Picks what [app] glows with: the default look (no rule, [onSave] gets `null`) or another look. A rule naming the
+ * default look shows, and saves, as the default look.
+ */
 @Composable
 internal fun AppLookDialog(app: AppInfo, settings: GlowSettings, onSave: (Rule?) -> Unit, onDismiss: () -> Unit) {
-    var choice by remember(app.packageName) { mutableStateOf(settings.ruleFor(app.packageName)) }
+    // The id of the look chosen; `null` for the default look.
+    var choice by remember(app.packageName) {
+        mutableStateOf(settings.appLook(app.packageName)?.id?.takeUnless { it == settings.defaultLookId })
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.app_look_title, app.label)) },
@@ -40,13 +46,12 @@ internal fun AppLookDialog(app: AppInfo, settings: GlowSettings, onSave: (Rule?)
                     subtitle = settings.defaultLook.name,
                 )
                 for (look in settings.looks.filter { it.id != settings.defaultLookId }) {
-                    val rule = Rule.UseLook(look.id)
-                    RadioCard(title = look.name, selected = choice == rule, onSelect = { choice = rule })
+                    RadioCard(title = look.name, selected = choice == look.id, onSelect = { choice = look.id })
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(choice) }) {
+            TextButton(onClick = { onSave(choice?.let(::Rule)) }) {
                 Text(stringResource(R.string.save))
             }
         },

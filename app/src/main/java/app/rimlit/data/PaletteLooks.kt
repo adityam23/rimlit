@@ -9,12 +9,11 @@ import app.rimlit.model.addLookNumbered
 import java.util.Locale
 
 // Older versions could give an app the default look in colours of its own (a palette rule). Those rules migrate into
-// looks: each app gets a copy of the default look in its colours, named after it, and a look rule. Past the look limit
-// the apps last by name share one look per palette, and only apps that even that can't fit go back to the default.
-// The migration runs on every read until the settings are next written, so it is deterministic: the same stored
-// settings and app names always give the same looks, under the same ids. An app renamed or uninstalled between two
-// reads may rename or regroup the looks until then, harmlessly: they hold no images, and nothing is kept until the
-// settings are written. The looks are named by [PaletteLookNames].
+// looks: each app gets a copy of the default look (its particles too) in its colours, named after it, and a look rule.
+// Past the look limit the apps last by name share one look per palette, and only apps that even that can't fit go
+// back to the default. The migration runs once, as a DataStore migration that writes its result (see
+// `SettingsRepository.kt`), so the looks never change once made, whatever happens to the apps' names. The looks are
+// named by [PaletteLookNames], after the app's label, or its package name when the label can't make a look name.
 
 /** These settings with [palettes] (by package name) migrated into looks, as described at the top of this file. */
 internal fun GlowSettings.withPaletteLooks(
@@ -29,27 +28,25 @@ internal fun GlowSettings.withPaletteLooks(
     val own = (apps.size downTo 0).firstOrNull { k -> k + sharedPalettes(apps, k, palettes).size <= room } ?: 0
 
     var settings = this
+    // The look added in each palette, which the apps sharing that palette join.
     val lookOf = mutableMapOf<GlowPalette.Colors, String>()
     fun use(id: String, users: List<String>) {
-        settings = settings.copy(appRules = settings.appRules + users.associateWith { Rule.UseLook(id) })
+        settings = settings.copy(appRules = settings.appRules + users.associateWith { Rule(id) })
     }
     fun addLook(id: String, palette: GlowPalette.Colors, users: List<String>) {
+        val first = users.first()
+        val others = users.size - 1
+        val name = names.fittedLookName(labels.getValue(first), others) ?: names.fittedLookName(first, others)
         val look = defaultLook.copy(colorMode = ColorMode.CUSTOM, customColors = palette)
-        val added = settings.addLookNumbered(look, names.lookName(users.map(labels::getValue)), id)
-        // Not added (no room, or a look of the user's already has the id): these apps keep the default look.
-        if (added.looks.size == settings.looks.size) return
-        settings = added
+        // Not added (no name, no room, or a look of the user's already has the id): these apps keep the default look.
+        settings = name?.let { settings.addLookNumbered(look, it, id) } ?: return
         lookOf.putIfAbsent(palette, id)
         use(id, users)
     }
     for (app in apps.take(own)) addLook(id = "colours:$app", palette = palettes.getValue(app), users = listOf(app))
     for ((palette, users) in apps.drop(own).groupBy(palettes::getValue)) {
         lookOf[palette]?.let { use(it, users) }
-            ?: addLook(
-                id = "colours:" + palette.argb.joinToString(",") { "%08x".format(Locale.ROOT, it) },
-                palette,
-                users,
-            )
+            ?: addLook(id = "colours:" + palette.argb.joinToString(",", transform = ColorHex::encode), palette, users)
     }
     return settings
 }

@@ -2,6 +2,7 @@ package app.rimlit.data
 
 import android.content.Context
 import android.util.Log
+import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.MutablePreferences
@@ -43,6 +44,7 @@ private val Context.dataStore by preferencesDataStore(
         Log.w(TAG, "Settings file corrupt; reset to defaults", e)
         emptyPreferences()
     },
+    produceMigrations = { context -> listOf(PaletteLooksMigration(AppPaletteLookNames(context))) },
 )
 
 private object Keys {
@@ -106,13 +108,9 @@ private object Keys {
 }
 
 /** Single source of truth for user settings, backed by Preferences DataStore. */
-class SettingsRepository internal constructor(
-    private val store: DataStore<Preferences>,
-    /** Names the looks older per-app palettes migrate into. */
-    private val names: PaletteLookNames,
-) {
+class SettingsRepository internal constructor(private val store: DataStore<Preferences>) {
 
-    constructor(context: Context) : this(context.dataStore, AppPaletteLookNames(context))
+    constructor(context: Context) : this(context.dataStore)
 
     /**
      * The stored settings, to show and to glow by. On the first I/O error it emits defaults, then keeps retrying with
@@ -127,19 +125,19 @@ class SettingsRepository internal constructor(
             delay(READ_RETRY_MS shl attempt.coerceAtMost(MAX_RETRY_DOUBLINGS).toInt())
             true
         }
-        .map { it.toSettings(names) }
+        .map { it.toSettings() }
 
     /**
      * The settings as they are stored now, never a fallback: what to delete by.
      *
      * @throws IOException when they can't be read.
      */
-    suspend fun stored(): GlowSettings = store.data.first().toSettings(names)
+    suspend fun stored(): GlowSettings = store.data.first().toSettings()
 
     /** Atomically read-modify-writes the settings; the settings written. */
     suspend fun update(transform: (GlowSettings) -> GlowSettings): GlowSettings {
         lateinit var written: GlowSettings
-        store.edit { prefs -> written = transform(prefs.toSettings(names)).also(prefs::write) }
+        store.edit { prefs -> written = transform(prefs.toSettings()).also(prefs::write) }
         return written
     }
 }
@@ -148,18 +146,37 @@ private val defaults = GlowSettings()
 private val cutoutDefaults = CustomCutout()
 
 /**
- * Tolerant decode: unknown or out-of-range stored values fall back to defaults or are clamped. Settings from before
- * looks migrate: the global look becomes the default look. Per-app palettes, stored before looks or as palette rules
- * after, become looks of their own, named by [names] (see `PaletteLooks.kt`).
+ * Migrates the per-app palettes older versions stored (see [storedPalettes]) into looks of their own (see
+ * `PaletteLooks.kt`), once: its result is written, so the looks' ids and names never change between reads. DataStore
+ * runs it before the first read, off the main thread, where [names] looks the apps' labels up.
  */
-internal fun Preferences.toSettings(names: PaletteLookNames): GlowSettings {
+internal class PaletteLooksMigration(private val names: PaletteLookNames) : DataMigration<Preferences> {
+    override suspend fun shouldMigrate(currentData: Preferences): Boolean = currentData.storedPalettes().isNotEmpty()
+
+    /** Writing the settings drops the palettes: rules are written as look rules only, and the old keys removed. */
+    override suspend fun migrate(currentData: Preferences): Preferences = currentData.toMutablePreferences().apply {
+        write(currentData.toSettings().withPaletteLooks(currentData.storedPalettes(), names))
+    }
+
+    override suspend fun cleanUp() = Unit
+
+    /** The per-app palettes older versions stored: as palette rules, or before rules, as their own key. */
+    private fun Preferences.storedPalettes(): Map<String, GlowPalette.Colors> =
+        decoded(Keys.APP_RULES, ::decodeRules)?.palettes ?: preLooksPalettes()
+}
+
+/**
+ * Tolerant decode: unknown or out-of-range stored values fall back to defaults or are clamped. Settings from before
+ * looks migrate: the global look becomes the default look. Per-app palettes are left to [PaletteLooksMigration],
+ * which has always run by the time the settings are read.
+ */
+internal fun Preferences.toSettings(): GlowSettings {
     val looks = decoded(Keys.LOOKS, ::decodeLooks) ?: listOf(preLooksLook())
-    val rules = decoded(Keys.APP_RULES, ::decodeRules) ?: StoredRules(palettes = preLooksPalettes())
     return GlowSettings(
         enabled = valueOr(Keys.ENABLED, defaults.enabled),
         looks = looks,
         defaultLookId = this[Keys.DEFAULT_LOOK]?.takeIf { id -> looks.any { it.id == id } } ?: looks.first().id,
-        appRules = rules.rules,
+        appRules = decoded(Keys.APP_RULES, ::decodeRules)?.rules.orEmpty(),
         screenOffBrightness = clampedOrNull(
             Keys.SCREEN_OFF_BRIGHTNESS,
             defaults.screenOffBrightness,
@@ -182,7 +199,7 @@ internal fun Preferences.toSettings(names: PaletteLookNames): GlowSettings {
         cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
         customCutout = customCutout(),
         blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
-    ).withPaletteLooks(rules.palettes, names)
+    )
 }
 
 /** The cutout drawn by hand, only while its shape is stored; a missing field starts as in a new [CustomCutout]. */
