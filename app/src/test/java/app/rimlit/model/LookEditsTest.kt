@@ -178,4 +178,16 @@ class LookEditsTest {
         assertEquals((1..MAX_LOOKS - 2).map { "Imported $it" }, imported.looks.drop(2).map { it.name })
         assertEquals(full(), full().addImportedLooks(looks), "no room: unchanged")
     }
+
+    @Test
+    fun theFirstLookPickedReplacesTheDefaultLookAndIsNamedAfterItsPremade() {
+        val custom = settings.updateLook(DEFAULT_LOOK_ID) { it.copy(speed = 2f, colorMode = ColorMode.RAINBOW) }
+        val picked = custom.defaultLookSwitchedTo(Premade.WAVE, "Wave")
+        assertEquals(Premade.WAVE.look(DEFAULT_LOOK_ID, "Wave"), picked.defaultLook, "every change lost, same id")
+        assertEquals(settings.looks.map { it.id }, picked.looks.map { it.id }, "one look replaced, none added")
+        assertEquals(work, picked.look("work"))
+        assertEquals("Work (2)", settings.defaultLookSwitchedTo(Premade.BLADE, "Work").defaultLook.name)
+        val named = settings.renameLook(DEFAULT_LOOK_ID, "Blade")
+        assertEquals("Blade", named.defaultLookSwitchedTo(Premade.BLADE, "Blade").defaultLook.name, "its own name")
+    }
 }

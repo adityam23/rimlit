@@ -3,16 +3,12 @@ package app.rimlit.ui.editor
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import app.rimlit.R
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.LookControl
-import app.rimlit.model.Premade
-import app.rimlit.ui.PremadeGlow
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
-import app.rimlit.ui.descRes
-import app.rimlit.ui.title
+import app.rimlit.ui.premadeItems
 
 /**
  * The premade the look is based on, each playing its edge; picking another switches the whole look to it (asking
@@ -24,16 +20,13 @@ internal fun LazyListScope.baseTab(editor: LookEditorState, hasCutout: Boolean) 
     item(key = "premades") {
         SectionTitle(stringResource(R.string.editor_premade_section), changed = LookControl.STYLE in changed)
     }
-    items(Premade.entries, key = { "premade_${it.name}" }) { premade ->
-        RadioCard(
-            title = premade.title(),
-            selected = look.basedOn == premade,
-            onSelect = { if (look.basedOn != premade) editor.pickPremade(premade) },
-            subtitle = stringResource(premade.style.descRes),
-            // Still: the editor's own glow already plays the one picked, beside them.
-            leading = { PremadeGlow(premade, editor.settings, width = 32.dp, moving = false) },
-        )
-    }
+    // Still: the editor's own glow already plays the one picked, beside them.
+    premadeItems(
+        settings = editor.settings,
+        selected = look.basedOn,
+        onSelect = { if (look.basedOn != it) editor.pickPremade(it) },
+        moving = false,
+    )
     if (!editor.tinkering || !hasCutout) return
     item(key = "region") {
         SectionTitle(stringResource(R.string.region_section), changed = LookControl.REGION in changed)

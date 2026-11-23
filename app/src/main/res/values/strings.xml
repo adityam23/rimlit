@@ -15,7 +15,7 @@
     <!-- Each permission: its title, a one-line reason (Home's row), and the whole explanation (the row's sheet). -->
     <string name="perm_notification_title">Notification access</string>
     <string name="perm_notification_reason">To notice notifications as they arrive</string>
-    <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps.</string>
+    <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps. On Android 13 and newer, sideloaded apps may first need \"Allow restricted settings\" from Rimlit\'s App info menu.</string>
     <string name="perm_overlay_title">Display over other apps</string>
     <string name="perm_overlay_reason">To glow while the screen is on</string>
     <string name="perm_overlay_desc">Lets Rimlit glow while the screen is on.</string>
@@ -61,6 +61,38 @@
     <string name="nav_device_title">Screen fit</string>
     <string name="nav_device_subtitle">The screen\'s corners and the camera cutout the glow follows</string>
     <string name="every_glow_section">Every glow</string>
+    <string name="nav_setup_title">Run setup again</string>
+    <string name="nav_setup_subtitle">Permissions, screen fit and your first look, step by step</string>
+
+    <!-- The guided first launch -->
+    <string name="setup_progress">Setup progress</string>
+    <string name="setup_start">Get started</string>
+    <string name="setup_next">Next</string>
+    <string name="setup_finish">Finish</string>
+    <string name="setup_granted">Granted ✓</string>
+    <string name="setup_fallback">Fallback</string>
+    <string name="setup_welcome_pitch">The edges of your screen light up whenever an app posts a notification.</string>
+    <string name="setup_welcome_privacy">Rimlit works offline: it has no network permission, so nothing it sees leaves your phone.</string>
+    <string name="setup_access_title">Notice notifications</string>
+    <string name="setup_access_desc">Rimlit needs notification access to notice when an app posts a notification, and to take a glow\'s colours from it. This step can\'t be skipped: without it Rimlit can\'t glow.</string>
+    <string name="setup_restricted_title">How to allow restricted settings</string>
+    <string name="setup_restricted_desc">Greyed out, or \"Restricted setting\"? Android blocks this for apps installed from outside an app store. Tap here to open Rimlit\'s App info, choose \"Allow restricted settings\" from its ⋮ menu, then try again.</string>
+    <string name="setup_on_screen_title">Glow while the screen is on</string>
+    <string name="setup_on_screen_desc">Rimlit draws over other apps in one of two ways. The accessibility glow is recommended: it also glows above the lock screen, without Android\'s \"displaying over other apps\" notification, and it only draws: it can\'t read or control anything on your screen. Display over other apps is the fallback.</string>
+    <string name="setup_screen_off_title">Glow with the screen off</string>
+    <string name="setup_screen_off_desc">To glow while the screen is off, Rimlit posts a silent notification that wakes the screen into a black, always-on-display style glow. Allow notifications, then full-screen notifications.</string>
+    <string name="setup_battery_title">Glow on time</string>
+    <string name="setup_battery_desc">Battery optimisation can hold Rimlit back, so a glow arrives late. Letting it run unrestricted keeps glows on time.</string>
+    <string name="setup_fit_title">Fit your screen</string>
+    <string name="setup_fit_desc">The glow follows your screen\'s corners and its camera cutout. Check it round the edge of this screen, and adjust it if it doesn\'t sit right.</string>
+    <string name="setup_look_title">Pick a first look</string>
+    <string name="setup_look_desc">Every notification glows with your default look. Pick a style to start from; you can change it, and make more looks, at any time.</string>
+    <string name="setup_look_keep">Keep \"%1$s\"</string>
+    <string name="setup_look_customise">Customise it when setup is done</string>
+    <string name="setup_test_title">Try it</string>
+    <string name="setup_test_desc">Send yourself a test notification to see the glow, then finish to turn edge lighting on.</string>
+    <string name="setup_test_preview">Preview the glow</string>
+    <string name="setup_test_preview_note">Without notifications allowed, this shows a preview instead of a real test notification.</string>
 
     <!-- Behavior: the look editor -->
     <string name="look_editor_section">Look editor</string>

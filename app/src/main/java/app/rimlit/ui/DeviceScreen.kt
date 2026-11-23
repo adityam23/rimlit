@@ -22,17 +22,34 @@ import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.glow.DisplayShape
+import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 
-/**
- * How the glow fits this device: the screen's corners and the camera cutout, each the display's own until the user
- * draws their own. The default look glows round the real screen edge above it all, so each change shows where it
- * matters; around the cutout too, when there is one.
- */
+/** Behavior's screen fit: [DeviceFit] on a screen of its own. */
 @Composable
 fun DeviceScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val saved by viewModel.settings.collectAsStateWithLifecycle()
-    val editor = rememberSettingsDraft(saved, viewModel::update)
+    DeviceFit(saved, viewModel::update, modifier) { fitItems ->
+        SubScreenScaffold(title = stringResource(R.string.nav_device_title), onBack = onBack) { innerPadding ->
+            SettingsList(innerPadding) { fitItems() }
+        }
+    }
+}
+
+/**
+ * How the glow fits this device: the screen's corners and the camera cutout, each the display's own until the user
+ * draws their own, edited from the [saved] settings and persisted by [save]. [screen] lays out the fit's settings, the
+ * items it is given; the default look glows round the real screen edge above it all, so each change shows where it
+ * matters, around the cutout too when there is one. Shared by Behavior's screen fit and the guided first launch.
+ */
+@Composable
+internal fun DeviceFit(
+    saved: GlowSettings,
+    save: (SettingsEdit) -> Job,
+    modifier: Modifier = Modifier,
+    screen: @Composable (fitItems: LazyListScope.() -> Unit) -> Unit,
+) {
+    val editor = rememberSettingsDraft(saved, save)
     val draft = editor.value
     val displayCornerDp = rememberDisplayCornerDp()
     val cutoutSeed = rememberCutoutSeed()
@@ -43,11 +60,9 @@ fun DeviceScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifie
     val spec = draft.previewSpec(edge).copy(region = region, particles = null)
 
     Box(modifier = modifier.fillMaxSize()) {
-        SubScreenScaffold(title = stringResource(R.string.nav_device_title), onBack = onBack) { innerPadding ->
-            SettingsList(innerPadding) {
-                cornerRadiusItems(draft, displayCornerDp, editor)
-                if (cutoutSeed != null) cutoutItems(draft, cutoutSeed, editor)
-            }
+        screen {
+            cornerRadiusItems(draft, displayCornerDp, editor)
+            if (cutoutSeed != null) cutoutItems(draft, cutoutSeed, editor)
         }
         ScreenGlow(spec, lockScreen = false)
     }

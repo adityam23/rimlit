@@ -97,7 +97,7 @@ internal fun AttentionSheet(
 
 /** How much glows depend on it: "Required" or "Recommended", in its colour. */
 @Composable
-private fun NeedLabel(need: Need) {
+internal fun NeedLabel(need: Need) {
     Text(
         text = stringResource(
             when (need) {

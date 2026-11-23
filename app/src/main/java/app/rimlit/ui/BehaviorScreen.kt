@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MobileOff
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.TouchApp
@@ -61,6 +62,7 @@ fun BehaviorScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
     onOpenDevice: () -> Unit,
+    onOpenSetup: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val saved by viewModel.settings.collectAsStateWithLifecycle()
@@ -86,7 +88,7 @@ fun BehaviorScreen(
                     editor.commit { it.copy(quietHours = edit(it.quietHours)) }
                 }
                 gesturesSection(settings, editor::commit)
-                deviceAndEditorSections(uiPrefs.alwaysTinker, onOpenDevice) { on ->
+                deviceAndEditorSections(uiPrefs.alwaysTinker, onOpenDevice, onOpenSetup) { on ->
                     viewModel.updateUi { it.copy(alwaysTinker = on) }
                 }
                 attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
@@ -114,10 +116,14 @@ fun BehaviorScreen(
     AttentionSheet(attention = opened, onOpenSettings = viewModel::openPermission, onNotNow = null) { opened = null }
 }
 
-/** Screen fit, opened on its own screen ([onOpenDevice]); then the look editor's "Always tinker". */
+/**
+ * The device: how the glow fits the screen ([onOpenDevice]) and the guided first launch again ([onOpenSetup]); then
+ * the look editor's "Always tinker".
+ */
 private fun LazyListScope.deviceAndEditorSections(
     alwaysTinker: Boolean,
     onOpenDevice: () -> Unit,
+    onOpenSetup: () -> Unit,
     onAlwaysTinker: (Boolean) -> Unit,
 ) {
     item { SectionTitle(stringResource(R.string.device_section)) }
@@ -127,6 +133,14 @@ private fun LazyListScope.deviceAndEditorSections(
             title = stringResource(R.string.nav_device_title),
             subtitle = stringResource(R.string.nav_device_subtitle),
             onClick = onOpenDevice,
+        )
+    }
+    item {
+        NavCard(
+            icon = Icons.Filled.RestartAlt,
+            title = stringResource(R.string.nav_setup_title),
+            subtitle = stringResource(R.string.nav_setup_subtitle),
+            onClick = onOpenSetup,
         )
     }
     item { SectionTitle(stringResource(R.string.look_editor_section)) }

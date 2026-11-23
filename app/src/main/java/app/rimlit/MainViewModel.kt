@@ -30,6 +30,7 @@ import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.PermissionStatus
 import app.rimlit.permissions.Permissions
+import app.rimlit.permissions.canSendTest
 import app.rimlit.permissions.overlayFallback
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -192,6 +193,18 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
      */
     fun sendTestNotification() {
         GlowNotifications.postTest(getApplication(), settings.value.durationMs)
+    }
+
+    /**
+     * A real test notification when one can glow ([canSendTest]), and otherwise the default look previewed on screen,
+     * so the user always sees something.
+     */
+    fun testOrPreview() {
+        if (permissions.value.canSendTest) {
+            sendTestNotification()
+        } else {
+            preview(PreviewTarget.ON_SCREEN, settings.value.previewSpec())
+        }
     }
 
     companion object {
