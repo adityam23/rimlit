@@ -112,6 +112,27 @@ class GlowMachineScenarioTest {
     }
 
     @Test
+    fun aSilentlyUpdatingNotificationThatStartsRingingGlowsOnce() {
+        // A VoIP app's foreground-service "Connecting…", then the incoming call re-posted under the same key.
+        val connecting = GlowEvent.Posted(post("a", ongoing = true, updatesSilently = true))
+        val ringing = GlowEvent.Posted(post("a", fullScreenIntent = true, updatesSilently = true))
+        val run = run().send(connecting)
+        assertNull(run.state.glow, "an ongoing service notification doesn't glow")
+
+        run.send(ringing)
+        assertEquals(ringing.post, run.glow.source.post, "the re-post that starts ringing glows")
+        run.send(opened(Surface.APP_OVERLAY)).fire(Timer.FADE_IN, Timer.HOLD, Timer.FADE_OUT)
+
+        run.send(ringing)
+        assertNull(run.state.glow, "its re-posts while it keeps ringing are silent updates")
+        assertTrue(run.effects.isEmpty())
+
+        run.send(GlowEvent.Posted(post("a", updatesSilently = true)))
+        assertNull(run.state.glow, "a silent update that ends the ringing doesn't glow either")
+        assertTrue(run.state.ringingKeys.isEmpty())
+    }
+
+    @Test
     fun onlyRemovingTheShownNotificationEndsTheGlowEarly() {
         val run = holding("a").send(posted("b"), GlowEvent.Removed("a"))
         assertEquals(Phase.FADING_IN, run.glow.phase, "removing a notification that isn't shown changes nothing")

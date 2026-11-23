@@ -370,6 +370,9 @@ class GlowMachineModelCheckTest {
         val wasOpen = oldGlow != null && oldGlow.opened && oldGlow.surface == newGlow?.surface
         val endedRinging = event is GlowEvent.Posted && !event.post.isRinging && event.post.key in old.ringingKeys
         val ringingStarted = event is GlowEvent.Posted && event.post.isRinging
+        // A silent update glows only when it starts ringing: neither pending nor (re)started by it otherwise.
+        val silentUpdate = event is GlowEvent.Posted && event.post.updatesSilently &&
+            event.post.key in old.activeKeys && (!event.post.isRinging || event.post.key in old.ringingKeys)
         // Rimlit's own posts other than the test (the lock-screen trampoline) only update the posted keys.
         val trampoline = event is GlowEvent.Posted && event.post.isOwn && !event.post.isTest &&
             event.post.key !in old.ringingKeys
@@ -402,6 +405,11 @@ class GlowMachineModelCheckTest {
 
             ringingStarted && new.pending != null && new.pending.post != event.post ->
                 "a post pending from before a call could launch over its screen"
+
+            silentUpdate && new.pending != old.pending && new.pending?.post == event.post -> "a silent update is pending"
+
+            silentUpdate && newGlow != oldGlow && newSource == newest && newGlow?.phase != Phase.FADING_OUT ->
+                "a silent update glowed"
 
             else -> null
         }

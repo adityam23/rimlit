@@ -1,6 +1,7 @@
 package app.rimlit
 
 import android.app.Notification
+import android.os.Bundle
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -9,6 +10,8 @@ import app.rimlit.engine.GlowEvent
 import app.rimlit.engine.GroupAlert
 import app.rimlit.engine.GroupRole
 import app.rimlit.engine.Post
+import app.rimlit.engine.rings
+import app.rimlit.engine.updatesSilently
 import app.rimlit.notify.GlowNotifications
 
 /** Detects notifications from all apps and forwards them to the glow machine, which decides everything else. */
@@ -18,11 +21,12 @@ class GlowListenerService : NotificationListenerService() {
         super.onListenerConnected()
         connected = this
         GlowNotifications.createChannels(this)
-        val posts = activeNotifications.orEmpty().map { it.toPost(ranking = null) }
+        // Only the keys and which ones ring: no Post, so no notification's extras are unparcelled.
+        val active = activeNotifications.orEmpty()
         glowCoordinator.send(
             GlowEvent.ListenerConnected(
-                activeKeys = posts.mapTo(mutableSetOf()) { it.key },
-                ringingKeys = posts.filter { it.isRinging }.mapTo(mutableSetOf()) { it.key },
+                activeKeys = active.mapTo(mutableSetOf()) { it.key },
+                ringingKeys = active.filter { it.isRinging }.mapTo(mutableSetOf()) { it.key },
             ),
         )
     }
@@ -84,12 +88,14 @@ class GlowListenerService : NotificationListenerService() {
     /** The facts the machine decides on, captured now: the ranking map goes stale after this callback. */
     private fun StatusBarNotification.toPost(ranking: Ranking?): Post {
         val flags = notification.flags
+        // A public field an app can set to null, as the palette extraction also allows for.
+        val extras: Bundle? = notification.extras
         return Post(
             key = key,
             packageName = packageName,
-            isOwn = packageName == this@GlowListenerService.packageName,
+            isOwn = isOwn,
             isTest = GlowNotifications.isTest(this@GlowListenerService, this),
-            hasFullScreenIntent = notification.fullScreenIntent != null,
+            hasFullScreenIntent = hasFullScreenIntent,
             isOngoing = isOngoing,
             group = when {
                 notification.group == null -> GroupRole.NONE
@@ -101,12 +107,24 @@ class GlowListenerService : NotificationListenerService() {
                 Notification.GROUP_ALERT_CHILDREN -> GroupAlert.CHILDREN
                 else -> GroupAlert.ALL
             },
-            updatesSilently = flags and SILENT_UPDATE_FLAGS != 0 || notification.showsProgress(),
+            updatesSilently = updatesSilently(
+                flags = flags,
+                progress = extras?.getInt(Notification.EXTRA_PROGRESS) ?: 0,
+                progressMax = extras?.getInt(Notification.EXTRA_PROGRESS_MAX) ?: 0,
+                progressIndeterminate = extras?.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE) ?: false,
+            ),
             importance = ranking?.importance,
             passesDnd = ranking?.matchesInterruptionFilter() ?: true,
             hiddenOnLockScreen = hiddenOnLockScreen(ranking),
         )
     }
+
+    /** Posted by Rimlit itself. */
+    private val StatusBarNotification.isOwn: Boolean get() = packageName == this@GlowListenerService.packageName
+
+    private val StatusBarNotification.hasFullScreenIntent: Boolean get() = notification.fullScreenIntent != null
+
+    private val StatusBarNotification.isRinging: Boolean get() = rings(hasFullScreenIntent, isOngoing, isOwn)
 
     /**
      * Android keeps this notification off the lock screen, by the rules its own keyguard applies: the notification
@@ -130,10 +148,6 @@ class GlowListenerService : NotificationListenerService() {
     companion object {
         private const val TAG = "GlowListenerService"
 
-        /** Flags whose re-posts Android doesn't treat as a new alert: alert-once, and a foreground service's status. */
-        private const val SILENT_UPDATE_FLAGS =
-            Notification.FLAG_ONLY_ALERT_ONCE or Notification.FLAG_FOREGROUND_SERVICE
-
         /** `Settings.Secure.LOCK_SCREEN_SHOW_NOTIFICATIONS`: hidden from the SDK, but readable by any app. */
         private const val LOCK_SCREEN_SHOW_NOTIFICATIONS = "lock_screen_show_notifications"
 
@@ -142,7 +156,3 @@ class GlowListenerService : NotificationListenerService() {
             private set
     }
 }
-
-/** A progress bar, determinate or not (Android 16's `ProgressStyle` writes the same extras): a task's status. */
-private fun Notification.showsProgress(): Boolean = extras.getInt(Notification.EXTRA_PROGRESS_MAX) > 0 ||
-    extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE)

@@ -88,6 +88,9 @@ internal object Fixtures {
         post("a"),
         post("a", fullScreenIntent = true),
         post("a", updatesSilently = true),
+        // A VoIP app's foreground-service notification (silent updates) re-posted as the incoming call: after a
+        // silent post under "a", only its first ringing re-post glows.
+        post("a", fullScreenIntent = true, updatesSilently = true),
         post("a", importance = NotificationManager.IMPORTANCE_LOW),
         // Also an answered call: re-posted ongoing, without its full-screen intent.
         post("a", ongoing = true),
