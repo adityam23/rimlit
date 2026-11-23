@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,33 +67,67 @@ internal fun LookGallery(
     }
 }
 
+/**
+ * A look as a tile: its edge playing in a small phone (outlined while [selected]), its name and what it is, then
+ * [below]. The one face of a look wherever looks are listed: Home's gallery, an app's look sheet.
+ */
+@Composable
+internal fun LookCard(
+    settings: GlowSettings,
+    look: Look,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    below: @Composable () -> Unit = {},
+) {
+    val phoneWidth = TileWidth * 3 / 4
+    Column(modifier = modifier.width(TileWidth), horizontalAlignment = Alignment.CenterHorizontally) {
+        PhoneGlow(
+            settings.previewSpec(look),
+            width = phoneWidth,
+            modifier = Modifier
+                .border(
+                    width = 2.dp,
+                    color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    shape = RoundedCornerShape(phoneWidth / 8 + SelectionGap),
+                )
+                .padding(SelectionGap),
+        )
+        Text(
+            text = look.name,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            text = lookKind(look),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        below()
+    }
+}
+
+/** Room round a tile's phone for its selection outline, kept when unselected so tiles line up. */
+private val SelectionGap = 4.dp
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LookTile(settings: GlowSettings, look: Look, onOpen: () -> Unit, onAction: (TileAction) -> Unit) {
     var menu by rememberSaveable { mutableStateOf(false) }
     val actionsLabel = stringResource(R.string.look_actions)
     Box {
-        Column(
-            modifier = Modifier
-                .width(TileWidth)
-                .combinedClickable(onLongClickLabel = actionsLabel, onLongClick = { menu = true }, onClick = onOpen),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        LookCard(
+            settings = settings,
+            look = look,
+            modifier = Modifier.combinedClickable(
+                onLongClickLabel = actionsLabel,
+                onLongClick = { menu = true },
+                onClick = onOpen,
+            ),
         ) {
-            PhoneGlow(settings.previewSpec(look), width = TileWidth * 3 / 4)
-            Text(
-                text = look.name,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            Text(
-                text = lookKind(look),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
             Text(
                 text = settings.usage(look),
                 style = MaterialTheme.typography.labelSmall,
@@ -130,6 +165,7 @@ private fun NewLookTile(onNew: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
+                .padding(SelectionGap)
                 .size(width = TileWidth * 3 / 4, height = TileWidth * 3 / 2)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(TileWidth * 3 / 32)),
             contentAlignment = Alignment.Center,

@@ -30,7 +30,10 @@ internal fun LazyListScope.tabContent(editor: LookEditorState, hasCutout: Boolea
     editor.tab.part?.let { partFooter(editor, it) }
 }
 
-/** A look tab's footer: reset the part to the premade while it differs, and the tab's "Tinker" switch. */
+/**
+ * A look tab's footer: reset the part to the premade while it differs, and the tab's "Tinker" switch, which "Always
+ * tinker" hides (every tab tinkers then; each tab's own choice comes back when it is turned off).
+ */
 private fun LazyListScope.partFooter(editor: LookEditorState, part: LookPart) {
     item(key = "footer_reset") {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -42,6 +45,7 @@ private fun LazyListScope.partFooter(editor: LookEditorState, part: LookPart) {
             }
         }
     }
+    if (editor.alwaysTinker) return
     item(key = "footer_tinker") {
         SwitchCard(
             title = stringResource(R.string.editor_tinker_title),

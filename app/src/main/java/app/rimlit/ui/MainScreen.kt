@@ -185,7 +185,7 @@ private fun UiPrefs.putOff(name: String) = copy(dismissedPermissions = dismissed
 
 /** That no more looks fit: [MAX_LOOKS] at most. */
 @Composable
-private fun LookLimitNote() {
+internal fun LookLimitNote() {
     Text(
         text = pluralStringResource(R.plurals.look_limit, MAX_LOOKS, MAX_LOOKS),
         style = MaterialTheme.typography.bodySmall,

@@ -1,6 +1,7 @@
 package app.rimlit.model
 
-// Where looks apply: as the default look, or for apps of their own; and saving a look the editor made with it.
+// Where looks apply: as the default look, or for apps of their own (set from either side: the look's, or the app's);
+// and saving a look the editor made with it.
 
 /** Where a look applies: as the default look (every app without a look of its own), and for [apps], by package. */
 data class UseFor(val isDefault: Boolean, val apps: Set<String>)
@@ -31,6 +32,14 @@ sealed interface LookSave {
         ID_TAKEN,
     }
 }
+
+/** These settings with [rule] for [packageName], or without its rule for `null` (the default look). */
+fun GlowSettings.withAppRule(packageName: String, rule: Rule?): GlowSettings =
+    copy(appRules = if (rule == null) appRules - packageName else appRules + (packageName to rule))
+
+/** These settings with [packageName] glowing with the look [lookId]: no rule at all for the default look. */
+fun GlowSettings.withAppLook(packageName: String, lookId: String): GlowSettings =
+    withAppRule(packageName, Rule(lookId).takeIf { lookId != defaultLookId })
 
 /**
  * These settings with [edited] saved, replacing the look with its id or added as a new one, applied as [useFor] says:

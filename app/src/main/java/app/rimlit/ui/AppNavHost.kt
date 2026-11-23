@@ -19,7 +19,7 @@ private object Routes {
     const val DEVICE = "device"
 }
 
-/** The app's screens; the look editor is its own activity ([LookEditorActivity]), opened from Home. */
+/** The app's screens; the look editor is its own activity ([LookEditorActivity]), opened from Home and Apps. */
 @Composable
 fun AppNavHost(viewModel: MainViewModel, modifier: Modifier = Modifier) {
     val navController = rememberNavController()
@@ -37,7 +37,11 @@ fun AppNavHost(viewModel: MainViewModel, modifier: Modifier = Modifier) {
                 )
             }
             composable(Routes.APPS) {
-                AppsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                AppsScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
+                    onOpenEditor = openEditor,
+                )
             }
             composable(Routes.BEHAVIOR) {
                 BehaviorScreen(

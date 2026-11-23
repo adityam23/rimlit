@@ -2,9 +2,9 @@ package app.rimlit.model
 
 import java.util.UUID
 
-// The look library's edits on GlowSettings: adding, renaming and deleting looks (named as LookNames.kt allows), and
-// setting app rules. Each
-// returns the settings unchanged when the edit isn't allowed, so the settings' invariants always hold.
+// The look library's edits on GlowSettings: adding, renaming and deleting looks (named as LookNames.kt allows; an
+// app's look is set in UseFor.kt). Each returns the settings unchanged when the edit isn't allowed, so the settings'
+// invariants always hold.
 
 /** Whether another look fits, at most [MAX_LOOKS]. */
 val GlowSettings.canAddLook: Boolean get() = looks.size < MAX_LOOKS
@@ -55,7 +55,3 @@ fun GlowSettings.deleteLook(id: String): GlowSettings = if (id == defaultLookId)
 } else {
     copy(looks = looks.filterNot { it.id == id }, appRules = appRules.filterValues { it.lookId != id })
 }
-
-/** These settings with [rule] for [packageName], or without its rule for `null` (the default look). */
-fun GlowSettings.withAppRule(packageName: String, rule: Rule?): GlowSettings =
-    copy(appRules = if (rule == null) appRules - packageName else appRules + (packageName to rule))

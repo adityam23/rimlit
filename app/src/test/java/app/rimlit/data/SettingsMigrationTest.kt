@@ -261,6 +261,17 @@ class SettingsMigrationTest {
     }
 
     @Test
+    fun theChosenAppsReadBackTheSame() {
+        val settings = GlowSettings(
+            onlyChosenApps = true,
+            allowedPackages = setOf("com.example.chat"),
+            blockedPackages = setOf("com.example.game"),
+        )
+        val prefs = mutablePreferencesOf().apply { write(settings) }
+        assertEquals(settings, prefs.read())
+    }
+
+    @Test
     fun aMissingDefaultLookFallsBackToTheFirstLook() {
         val prefs = mutablePreferencesOf().apply {
             write(GlowSettings(looks = listOf(Look(id = "a", name = "A")), defaultLookId = "a"))

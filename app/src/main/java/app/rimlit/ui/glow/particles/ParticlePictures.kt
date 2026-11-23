@@ -1,19 +1,15 @@
 package app.rimlit.ui.glow.particles
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
-import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import app.rimlit.R
 import app.rimlit.data.ParticleImageStore
+import app.rimlit.data.appIcon
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticlePicture
-
-private const val TAG = "ParticlePictures"
 
 /** An app's icon is rasterised once at this size, about the largest particle on a dense screen. */
 private const val ICON_PX = 192
@@ -33,27 +29,14 @@ internal fun loadPicture(context: Context, store: ParticleImageStore, key: Pictu
 
         is ParticlePicture.Custom -> picture.ids.mapNotNull(store::load).map { it.toDrawable(context.resources) }
 
-        ParticlePicture.AppIcon -> listOf(appIcon(context, key.iconPackage ?: context.packageName))
+        ParticlePicture.AppIcon -> listOf(iconOf(context, key.iconPackage ?: context.packageName))
     }
 
-/**
- * [packageName]'s icon, rasterised here so a broken one fails now rather than mid-frame; the system's generic icon
- * when the app is gone (uninstalled since it posted, or not visible to Rimlit) or its icon doesn't load. Another
- * app's resources are untrusted input: no failure of theirs may take down the process, and the listener with it.
- */
-@Suppress("TooGenericExceptionCaught") // Untrusted input from any app: every failure falls back, none crashes.
-private fun appIcon(context: Context, packageName: String): Drawable {
+/** [packageName]'s icon (see [app.rimlit.data.appIcon]); the system's generic icon when it has none that loads. */
+private fun iconOf(context: Context, packageName: String): Drawable {
     val packages = context.packageManager
-    val icon = try {
-        packages.getApplicationIcon(packageName).toBitmap(ICON_PX, ICON_PX)
-    } catch (e: PackageManager.NameNotFoundException) {
-        Log.w(TAG, "No icon for $packageName", e)
-        null
-    } catch (e: RuntimeException) {
-        Log.w(TAG, "Skipping $packageName's broken icon", e)
-        null
-    }
-    return icon?.toDrawable(context.resources) ?: packages.defaultActivityIcon.mutate()
+    return packages.appIcon(packageName, ICON_PX)?.toDrawable(context.resources)
+        ?: packages.defaultActivityIcon.mutate()
 }
 
 @get:DrawableRes

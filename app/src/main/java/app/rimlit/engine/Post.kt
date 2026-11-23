@@ -45,9 +45,12 @@ enum class GroupRole { NONE, CHILD, SUMMARY }
 /** `Notification.GROUP_ALERT_*`: which posts of a group alert. */
 enum class GroupAlert { ALL, SUMMARY, CHILDREN }
 
-/** The user's settings allow a glow for this post. Our own test notification bypasses the master toggle. */
+/**
+ * The user's settings allow a glow for this post: on, and its app switched on (see [GlowSettings.glowsFor]). Our own
+ * test notification bypasses both, the master toggle and the app list, which never lists Rimlit.
+ */
 internal fun GlowSettings.wants(post: Post): Boolean =
-    (post.isTest || (enabled && !post.isOwn)) && post.packageName !in blockedPackages
+    post.isTest || (enabled && !post.isOwn && glowsFor(post.packageName))
 
 /**
  * The one lock-screen privacy rule: while the device is locked, [post] is one Android hides there, so the glow may

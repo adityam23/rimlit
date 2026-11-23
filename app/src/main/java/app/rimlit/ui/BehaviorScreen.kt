@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -92,6 +93,16 @@ fun BehaviorScreen(
                         title = stringResource(R.string.nav_device_title),
                         subtitle = stringResource(R.string.nav_device_subtitle),
                         onClick = onOpenDevice,
+                    )
+                }
+                item { SectionTitle(stringResource(R.string.look_editor_section)) }
+                item {
+                    SwitchCard(
+                        title = stringResource(R.string.always_tinker_title),
+                        checked = uiPrefs.alwaysTinker,
+                        onCheckedChange = { on -> viewModel.updateUi { it.copy(alwaysTinker = on) } },
+                        subtitle = stringResource(R.string.always_tinker_desc),
+                        leading = { SettingIcon(Icons.Filled.Tune) },
                     )
                 }
                 attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }

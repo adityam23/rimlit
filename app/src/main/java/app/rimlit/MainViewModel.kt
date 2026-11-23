@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import app.rimlit.data.AppIcons
 import app.rimlit.data.AppInfo
 import app.rimlit.data.AppListRepository
 import app.rimlit.data.LookArchive
@@ -31,6 +32,7 @@ import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.PermissionStatus
 import app.rimlit.permissions.Permissions
 import app.rimlit.permissions.overlayFallback
+import app.rimlit.ui.APP_ICON_DP
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +48,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.IOException
+import kotlin.math.roundToInt
 
 private const val TAG = "MainViewModel"
 
@@ -115,6 +118,13 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     val apps: StateFlow<List<AppInfo>> = flow { emit(appListRepository.launchableApps()) }
         .flowOn(ioDispatcher)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    /** The apps' icons, for the Apps list. */
+    val appIcons = AppIcons(
+        application.packageManager,
+        sizePx = (APP_ICON_DP * application.resources.displayMetrics.density).roundToInt(),
+        ioDispatcher,
+    )
 
     /** Re-evaluate permission grants; called from [MainActivity.onResume]. */
     fun refreshPermissions() {

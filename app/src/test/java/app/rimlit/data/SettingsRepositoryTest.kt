@@ -1,5 +1,6 @@
 package app.rimlit.data
 
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.rimlit.model.GlowSettings
@@ -20,7 +21,8 @@ class SettingsRepositoryTest {
     private val store = FakeStore()
     private val repository = SettingsRepository(store)
 
-    private val prefs = UiPrefs(tinkering = setOf(LookPart.COLOUR), dismissedPermissions = setOf("BATTERY"))
+    private val prefs =
+        UiPrefs(tinkering = setOf(LookPart.COLOUR), alwaysTinker = true, dismissedPermissions = setOf("BATTERY"))
 
     /** Runs [block] while every emission of [flow] is collected, as they come, into the list it gets. */
     private fun <T> collecting(flow: Flow<T>, block: suspend CoroutineScope.(List<T>) -> Unit) = runBlocking {
@@ -72,5 +74,20 @@ class SettingsRepositoryTest {
         assertEquals(prefs, stored.toUiPrefs())
         stored[stringSetPreferencesKey("tinkering")] = setOf("COLOUR", "SOMETHING_NEWER")
         assertEquals(setOf(LookPart.COLOUR), stored.toUiPrefs().tinkering)
+    }
+
+    @Test
+    fun alwaysTinkerStoredAsASettingReadsBackAsAUiPreference() {
+        val older = mutablePreferencesOf(booleanPreferencesKey("always_tinker") to true)
+        assertEquals(UiPrefs(alwaysTinker = true), older.toUiPrefs())
+    }
+
+    @Test
+    fun alwaysTinkerShowsEveryTabsControlsAndKeepsEachTabsOwnChoice() {
+        val tinkering = UiPrefs(tinkering = setOf(LookPart.COLOUR))
+        assertEquals(listOf(LookPart.COLOUR), LookPart.entries.filter(tinkering::tinkers))
+        val always = tinkering.copy(alwaysTinker = true)
+        assertEquals(LookPart.entries, LookPart.entries.filter(always::tinkers))
+        assertEquals(tinkering, always.copy(alwaysTinker = false), "turning it off brings back each tab's choice")
     }
 }

@@ -1,16 +1,10 @@
 package app.rimlit.ui.editor
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
+import app.rimlit.ui.components.AppSearchField
 import app.rimlit.ui.components.CheckboxCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SwitchCard
@@ -34,16 +28,7 @@ internal fun LazyListScope.appsTab(editor: LookEditorState) {
         )
     }
     item(key = "apps_title") { SectionTitle(stringResource(R.string.editor_apps_section)) }
-    item(key = "search") {
-        OutlinedTextField(
-            value = editor.appQuery,
-            onValueChange = { editor.appQuery = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.apps_search_hint)) },
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-            singleLine = true,
-        )
-    }
+    item(key = "search") { AppSearchField(editor.appQuery, onQueryChange = { editor.appQuery = it }) }
     items(editor.shownApps, key = { "app_${it.packageName}" }) { app ->
         CheckboxCard(
             title = app.label,
