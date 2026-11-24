@@ -50,7 +50,7 @@
     <!-- Home screen settings navigation -->
     <string name="section_settings">Settings</string>
     <string name="nav_apps_title">Apps</string>
-    <string name="nav_apps_subtitle">Choose which apps trigger edge lighting</string>
+    <string name="nav_apps_subtitle">Which apps glow, and with which look</string>
     <string name="nav_behavior_title">Behavior</string>
     <string name="nav_behavior_subtitle">Where and how long it glows, quiet hours, and this device\'s screen</string>
     <string name="back">Back</string>
@@ -62,10 +62,21 @@
     <string name="nav_device_subtitle">The screen\'s corners and the camera cutout the glow follows</string>
     <string name="every_glow_section">Every glow</string>
 
-    <!-- Apps (blocklist) screen -->
+    <!-- Behavior: the look editor -->
+    <string name="look_editor_section">Look editor</string>
+    <string name="always_tinker_title">Always tinker</string>
+    <string name="always_tinker_desc">Show every knob on every tab</string>
+
+    <!-- Apps screen -->
     <string name="apps_search_hint">Search apps</string>
     <string name="apps_empty">No apps found</string>
-    <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own look.</string>
+    <string name="apps_only_chosen_title">Only apps I choose</string>
+    <string name="apps_only_chosen_desc">Every other app stays dark</string>
+    <string name="apps_only_chosen_on_desc">Only the apps switched on below glow. Apps not listed here never do.</string>
+    <string name="apps_filter_all">All</string>
+    <string name="apps_filter_own_look">Own look</string>
+    <string name="apps_filter_off">Off</string>
+    <string name="apps_filter_on">On</string>
 
     <!-- Edge styles: each premade is named after its style -->
     <string name="style_basic_title">Basic</string>
@@ -193,11 +204,18 @@
     <string name="palette_remove">Remove selected color</string>
     <string name="palette_hue">Hue</string>
 
-    <!-- Per-app look -->
-    <string name="app_look_edit">Choose the app\'s look</string>
-    <string name="app_look_title">Look for %1$s</string>
-    <string name="app_look_default_title">Default look</string>
-    <string name="app_rule_look">Look: %1$s</string>
+    <!-- An app's look (the Apps screen's sheet) -->
+    <string name="app_look_open">Choose the app\'s look</string>
+    <string name="app_look_glows_with">Glows with</string>
+    <!-- An app with no look of its own: the default look, named. -->
+    <string name="app_look_default">Default (%1$s)</string>
+    <string name="app_look_edit">Edit %1$s</string>
+    <!-- Under "Edit <look>": other apps glow with the same look, so editing it changes them too. -->
+    <plurals name="app_look_shared">
+        <item quantity="one">Also used by %1$d other app</item>
+        <item quantity="other">Also used by %1$d other apps</item>
+    </plurals>
+    <string name="app_look_new">New look for %1$s</string>
     <string name="save">Save</string>
 
     <!-- Looks (Home's gallery) -->

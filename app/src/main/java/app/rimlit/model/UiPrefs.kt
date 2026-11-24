@@ -7,9 +7,14 @@ package app.rimlit.model
 data class UiPrefs(
     /** The look editor's tabs showing every control ("Tinker"). */
     val tinkering: Set<LookPart> = emptySet(),
+    /** Every editor tab shows every control, whatever its own "Tinker" says ("Always tinker", in Behavior). */
+    val alwaysTinker: Boolean = false,
     /**
      * The recommended permissions the user put off ("Not now"), by name (`app.rimlit.permissions.PermissionKind`):
      * shown in Behavior instead of on Home. Names, since the model knows nothing of Android's permissions.
      */
     val dismissedPermissions: Set<String> = emptySet(),
-)
+) {
+    /** The editor's [part] tab shows every control: "Always tinker", or that tab's own "Tinker". */
+    fun tinkers(part: LookPart): Boolean = alwaysTinker || part in tinkering
+}

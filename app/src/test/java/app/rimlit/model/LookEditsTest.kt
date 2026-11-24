@@ -105,6 +105,17 @@ class LookEditsTest {
     }
 
     @Test
+    fun anAppGivenALookGlowsWithItAndTheDefaultLookNeedsNoRule() {
+        assertEquals(DEFAULT_LOOK_ID, settings.lookFor(app).id, "no rule: the default look")
+        val looked = settings.withAppLook(app, "work")
+        assertEquals(Rule("work"), looked.appRules[app])
+        assertEquals("work", looked.lookFor(app).id)
+        val back = looked.withAppLook(app, DEFAULT_LOOK_ID)
+        assertEquals(emptyMap(), back.appRules, "back to the default look is no rule at all")
+        assertEquals(DEFAULT_LOOK_ID, settings.withAppRule(app, Rule("gone")).lookFor(app).id)
+    }
+
+    @Test
     fun aRuleNamingAMissingLookAppliesAsTheDefaultLook() {
         val ruled = settings
             .withAppRule(app, Rule("work"))

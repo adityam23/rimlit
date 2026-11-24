@@ -36,6 +36,7 @@ import app.rimlit.model.canAddLook
 import app.rimlit.model.changedControls
 import app.rimlit.model.changedParts
 import app.rimlit.model.freshName
+import app.rimlit.model.freshNameOrNull
 import app.rimlit.model.showingSomething
 import app.rimlit.model.switchedTo
 import app.rimlit.model.useFor
@@ -82,7 +83,12 @@ internal class EditorSources(
  * through their grace. Kept across process death by [rememberLookEditorState]. Main thread only.
  */
 @Stable
-internal class LookEditorState(private val sources: EditorSources, look: Look, isNew: Boolean) {
+internal class LookEditorState(
+    private val sources: EditorSources,
+    look: Look,
+    isNew: Boolean,
+    useFor: UseFor? = null,
+) {
     var look by mutableStateOf(look)
         private set
 
@@ -91,7 +97,7 @@ internal class LookEditorState(private val sources: EditorSources, look: Look, i
         private set
 
     /** Where the user set the look to apply; `null` while unchanged (as saved, or nowhere for a new look). */
-    private var useFor by mutableStateOf<UseFor?>(null)
+    private var useFor by mutableStateOf(useFor)
 
     /** A save is in flight: another, or leaving, waits for it. */
     var saving by mutableStateOf(false)
@@ -127,8 +133,11 @@ internal class LookEditorState(private val sources: EditorSources, look: Look, i
     val canSave: Boolean
         get() = unsaved && !saving && (!isNew || settings.canAddLook)
 
-    /** The open tab shows every control: its "Tinker" is on. */
-    val tinkering: Boolean get() = tab.part in sources.uiPrefs.value.tinkering
+    /** "Always tinker" is on: every tab shows every control, and the per-tab switches are hidden. */
+    val alwaysTinker: Boolean get() = sources.uiPrefs.value.alwaysTinker
+
+    /** The open tab shows every control: "Always tinker", or its own "Tinker", is on. */
+    val tinkering: Boolean get() = tab.part?.let(sources.uiPrefs.value::tinkers) == true
 
     /** Sets the draft to [look], always showing something (see [showingSomething]): as it will be saved. */
     fun edit(look: Look) {
@@ -234,7 +243,8 @@ internal class LookEditorState(private val sources: EditorSources, look: Look, i
 
         /**
          * The state for [target], from the loaded [settings]: the saved look, a copy of it, or a new look from a
-         * premade, each new one named as [names] say and numbered when taken. Holding `null` when that look is gone.
+         * premade, each new one named as [names] say (or after the app it is made for, and used for that app) and
+         * numbered when taken. Holding `null` when that look is gone.
          */
         fun held(sources: EditorSources, target: EditorTarget, names: EditorNames): Held {
             val saved = sources.settings.value
@@ -246,12 +256,16 @@ internal class LookEditorState(private val sources: EditorSources, look: Look, i
                 }
 
                 is EditorTarget.New -> target.premade.let { premade ->
-                    premade.look(id = UUID.randomUUID().toString(), name = saved.freshName(names.premade(premade)))
+                    // An app's label is untrusted: one that makes no look name ("   ") gives way to the premade's.
+                    val name = target.app?.label?.let(saved::freshNameOrNull) ?: saved.freshName(names.premade(premade))
+                    premade.look(id = UUID.randomUUID().toString(), name = name)
                 }
             }
-            return Held(
-                look?.let { LookEditorState(sources, it, isNew = target !is EditorTarget.Edit) },
-            )
+            val useFor = (target as? EditorTarget.New)?.app?.let {
+                UseFor(isDefault = false, apps = setOf(it.packageName))
+            }
+            val isNew = target !is EditorTarget.Edit
+            return Held(look?.let { LookEditorState(sources, it, isNew, useFor) })
         }
 
         private const val LEAVE = "leave"

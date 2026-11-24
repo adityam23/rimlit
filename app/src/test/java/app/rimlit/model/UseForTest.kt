@@ -3,6 +3,7 @@ package app.rimlit.model
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 /** Saving an edited look with where it applies: its apps exactly, and the default look always one of them. */
 class UseForTest {
@@ -99,6 +100,25 @@ class UseForTest {
         assertEquals("Work (2)", settings.numberedName("Work"))
         assertEquals("Work (2)", settings.freshName("Work"))
         assertEquals("x".repeat(30), settings.freshName("x".repeat(40)), "cut to fit first")
+    }
+
+    @Test
+    fun aNameFromAnAppsLabelIsFreshOrNoneWhenItMakesNoName() {
+        assertEquals("Work (2)", settings.freshNameOrNull("Work"))
+        assertEquals("x".repeat(30), settings.freshNameOrNull("x".repeat(40)), "cut to fit first")
+        assertEquals("Chat", settings.freshNameOrNull("  Chat  "), "trimmed")
+        for (label in listOf("", "   ")) {
+            assertNull(settings.freshNameOrNull(label), "label '$label'")
+        }
+    }
+
+    @Test
+    fun anAppsLookIsSharedWithTheOtherAppsThatHaveItAsTheirOwn() {
+        assertEquals(1, settings.otherAppsSharingLook("a"), "b has work too")
+        assertEquals(0, settings.withAppLook("b", DEFAULT_LOOK_ID).otherAppsSharingLook("a"), "a alone")
+        assertEquals(0, settings.otherAppsSharingLook("c"), "a rule naming the default look")
+        assertEquals(0, settings.otherAppsSharingLook("d"), "no look of its own")
+        assertEquals(0, settings.withAppRule("d", Rule("gone")).otherAppsSharingLook("d"), "a missing look")
     }
 
     @Test

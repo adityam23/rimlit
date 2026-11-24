@@ -1,6 +1,7 @@
 package app.rimlit.model
 
-// Where looks apply: as the default look, or for apps of their own; and saving a look the editor made with it.
+// Where looks apply: as the default look, or for apps of their own (set from either side: the look's, or the app's);
+// and saving a look the editor made with it.
 
 /** Where a look applies: as the default look (every app without a look of its own), and for [apps], by package. */
 data class UseFor(val isDefault: Boolean, val apps: Set<String>)
@@ -11,6 +12,15 @@ fun GlowSettings.useFor(id: String): UseFor =
 
 /** How many apps have the look [id] as their own: those that go back to the default look if it is deleted. */
 fun GlowSettings.appsUsing(id: String): Int = appRules.values.count { it == Rule(id) }
+
+/**
+ * How many other apps have [packageName]'s own look as theirs too, so editing it changes them as well; 0 when it has
+ * none of its own, or its rule names the default look.
+ */
+fun GlowSettings.otherAppsSharingLook(packageName: String): Int {
+    val look = appLook(packageName)?.takeIf { it.id != defaultLookId } ?: return 0
+    return appsUsing(look.id) - 1
+}
 
 /** What saving a look the editor made comes to: the settings with it [Saved], or why it was [Refused]. */
 sealed interface LookSave {
@@ -31,6 +41,14 @@ sealed interface LookSave {
         ID_TAKEN,
     }
 }
+
+/** These settings with [rule] for [packageName], or without its rule for `null` (the default look). */
+fun GlowSettings.withAppRule(packageName: String, rule: Rule?): GlowSettings =
+    copy(appRules = if (rule == null) appRules - packageName else appRules + (packageName to rule))
+
+/** These settings with [packageName] glowing with the look [lookId]: no rule at all for the default look. */
+fun GlowSettings.withAppLook(packageName: String, lookId: String): GlowSettings =
+    withAppRule(packageName, Rule(lookId).takeIf { lookId != defaultLookId })
 
 /**
  * These settings with [edited] saved, replacing the look with its id or added as a new one, applied as [useFor] says:

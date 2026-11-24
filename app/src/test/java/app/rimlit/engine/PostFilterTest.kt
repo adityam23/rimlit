@@ -5,6 +5,7 @@ import app.rimlit.engine.Fixtures.AUTO
 import app.rimlit.engine.Fixtures.OTHER_APP
 import app.rimlit.engine.Fixtures.post
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -17,6 +18,34 @@ class PostFilterTest {
         assertFalse(AUTO.copy(blockedPackages = setOf(OTHER_APP)).wants(post("a")))
         assertFalse(AUTO.wants(post("a", own = true)), "Rimlit's own trampoline never glows")
         assertTrue(AUTO.copy(enabled = false).wants(post("a", own = true, test = true)), "the test bypasses the toggle")
+    }
+
+    @Test
+    fun onlyChosenAppsGlowOnlyTheAppsSwitchedOn() {
+        val chosen = AUTO.copy(onlyChosenApps = true)
+        assertFalse(chosen.wants(post("a")), "nothing is switched on at first")
+        assertTrue(chosen.copy(allowedPackages = setOf(OTHER_APP)).wants(post("a")))
+        assertFalse(
+            chosen.copy(allowedPackages = setOf(OTHER_APP), enabled = false).wants(post("a")),
+            "the master toggle still rules",
+        )
+        assertTrue(AUTO.wants(post("a")), "the chosen list counts only in its mode")
+        assertTrue(
+            chosen.copy(blockedPackages = setOf(OTHER_APP), allowedPackages = setOf(OTHER_APP)).wants(post("a")),
+            "and the switched-off list only in its own",
+        )
+        assertTrue(chosen.wants(post("t", own = true, test = true)), "the test glows in both modes")
+    }
+
+    @Test
+    fun switchingAnAppTouchesOnlyTheCurrentModesList() {
+        val blocked = AUTO.copy(blockedPackages = setOf("x")).withAppSwitched(OTHER_APP, on = false)
+        assertEquals(setOf("x", OTHER_APP), blocked.blockedPackages)
+        val chosen = blocked.copy(onlyChosenApps = true).withAppSwitched(OTHER_APP, on = true)
+        assertEquals(setOf(OTHER_APP), chosen.allowedPackages)
+        assertEquals(blocked.blockedPackages, chosen.blockedPackages, "flipping the mode loses neither list")
+        assertTrue(chosen.glowsFor(OTHER_APP))
+        assertFalse(chosen.copy(onlyChosenApps = false).glowsFor(OTHER_APP))
     }
 
     @Test

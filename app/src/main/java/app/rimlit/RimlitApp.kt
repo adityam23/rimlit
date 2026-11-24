@@ -2,6 +2,7 @@ package app.rimlit
 
 import android.app.Application
 import android.content.Context
+import app.rimlit.data.AppIcons
 import app.rimlit.data.LookFiles
 import app.rimlit.data.LookLibrary
 import app.rimlit.data.ParticleImageStore
@@ -19,8 +20,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Owns, for the life of the process, the glow machine and what every screen shares: the settings, the particle image
- * files, the look library (its lock and its clean-up) and the look editor's drafts. `onCreate` runs before any
- * component, so they exist before the first notification, preview, surface report or screen.
+ * files, the look library (its lock and its clean-up), the look editor's drafts and the app icons. `onCreate` runs
+ * before any component, so they exist before the first notification, preview, surface report or screen.
  */
 class RimlitApp(private val io: CoroutineDispatcher = Dispatchers.IO) : Application() {
 
@@ -36,6 +37,8 @@ class RimlitApp(private val io: CoroutineDispatcher = Dispatchers.IO) : Applicat
         private set
     lateinit var drafts: LookDrafts
         private set
+    lateinit var appIcons: AppIcons
+        private set
 
     /** Lives as long as the process: settings collection, glow timers, extraction deliveries and the look library. */
     private val scope = MainScope()
@@ -47,6 +50,7 @@ class RimlitApp(private val io: CoroutineDispatcher = Dispatchers.IO) : Applicat
         lookFiles = LookFiles(this, particleImages, io)
         library = LookLibrary(settings, particleImages)
         drafts = LookDrafts(library, scope)
+        appIcons = AppIcons(packageManager, io)
         coordinator = GlowCoordinator { AndroidGlowDriver(this, it, scope) }
         ScreenStateReceiver(coordinator).register(this)
         settings.settings.onEach(coordinator::settingsChanged).launchIn(scope)
@@ -75,3 +79,6 @@ val Context.lookLibrary: LookLibrary get() = app.library
 
 /** The process's look editor drafts. */
 val Context.lookDrafts: LookDrafts get() = app.drafts
+
+/** The process's app icons for lists, one cache for Home's windows and the editor's. */
+val Context.appIcons: AppIcons get() = app.appIcons

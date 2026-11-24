@@ -81,6 +81,8 @@ private object Keys {
     val CUTOUT_OFFSET_X_DP = floatPreferencesKey("cutout_offset_x_dp")
     val CUTOUT_OFFSET_Y_DP = floatPreferencesKey("cutout_offset_y_dp")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
+    val ONLY_CHOSEN_APPS = booleanPreferencesKey("only_chosen_apps")
+    val ALLOWED_PACKAGES = stringSetPreferencesKey("allowed_packages")
 
     /** One toggle for both locked places; read only to migrate into [SHOW_WHEN_SCREEN_OFF], [SHOW_ON_LOCK_SCREEN]. */
     val LEGACY_SHOW_WHEN_LOCKED = booleanPreferencesKey("show_when_locked")
@@ -219,6 +221,8 @@ internal fun Preferences.toSettings(): GlowSettings {
         cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
         customCutout = customCutout(),
         blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
+        onlyChosenApps = valueOr(Keys.ONLY_CHOSEN_APPS, defaults.onlyChosenApps),
+        allowedPackages = valueOr(Keys.ALLOWED_PACKAGES, defaults.allowedPackages),
     )
 }
 
@@ -327,6 +331,8 @@ internal fun MutablePreferences.write(settings: GlowSettings) {
     setOrRemove(Keys.CUTOUT_OFFSET_X_DP, cutout?.offsetXDp)
     setOrRemove(Keys.CUTOUT_OFFSET_Y_DP, cutout?.offsetYDp)
     this[Keys.BLOCKED_PACKAGES] = settings.blockedPackages
+    this[Keys.ONLY_CHOSEN_APPS] = settings.onlyChosenApps
+    this[Keys.ALLOWED_PACKAGES] = settings.allowedPackages
     remove(Keys.LEGACY_SHOW_WHEN_LOCKED)
     Keys.PreLooks.all.forEach { remove(it) }
 }

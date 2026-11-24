@@ -3,7 +3,7 @@ package app.rimlit.data
 import android.content.Context
 import android.content.Intent
 
-/** A launchable app shown in the blocklist. Icons are rendered as letter avatars, not stored. */
+/** A launchable app, as the Apps list shows it; its icon is loaded apart ([AppIcons]). */
 data class AppInfo(val packageName: String, val label: String)
 
 /** The apps whose name holds [query], ignoring case; all of them for a blank one. The one app search. */

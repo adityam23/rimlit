@@ -20,16 +20,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.model.GlowSettings
-import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.UiPrefs
 import app.rimlit.model.canAddLook
+import app.rimlit.ui.components.LookLimitNote
 import app.rimlit.ui.components.NavCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingsList
@@ -182,16 +181,6 @@ private fun LazyListScope.settingsItems(onOpenApps: () -> Unit, onOpenBehavior: 
 
 /** These preferences with the recommended permission [name] put off: it shows in Behavior instead of on Home. */
 private fun UiPrefs.putOff(name: String) = copy(dismissedPermissions = dismissedPermissions + name)
-
-/** That no more looks fit: [MAX_LOOKS] at most. */
-@Composable
-private fun LookLimitNote() {
-    Text(
-        text = pluralStringResource(R.plurals.look_limit, MAX_LOOKS, MAX_LOOKS),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
 
 /** The gallery's menu: import a look file (while another look fits), and export or share several looks. */
 @Composable
