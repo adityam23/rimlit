@@ -36,10 +36,12 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.toEnumOrNull
 import app.rimlit.model.Premade
+import app.rimlit.model.SetupRun
 import app.rimlit.permissions.Permissions
 import app.rimlit.ui.DeviceFit
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.title
+import java.util.UUID
 
 /**
  * The guided first launch, one step at a time (see [SetupStep]); back goes a step back, and on the first leaves it.
@@ -55,6 +57,8 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
     // Settled as the screen opens (the stored preferences are read by then: the app draws nothing before), so
     // finishing the first run doesn't make it a rerun.
     val run = rememberSaveable(saver = RunSaver) { SetupRun.of(viewModel.storedUiPrefs.value) }
+    // The id a rerun adds its look under, so picking again replaces that look rather than adding another.
+    val addedId = rememberSaveable { UUID.randomUUID().toString() }
     var step by rememberSaveable(stateSaver = StepSaver) { mutableStateOf(SetupStep.WELCOME) }
     // The premade picked for the first look, applied on moving on; null keeps the default look as it is.
     var picked by rememberSaveable(stateSaver = PremadeSaver) { mutableStateOf<Premade?>(null) }
@@ -75,7 +79,7 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
         if (step == SetupStep.FIRST_LOOK && pickedLook != null) {
             val (premade, name) = pickedLook
             // Not picked when it no longer can be (a look added meanwhile, past the limit): the default stays.
-            viewModel.update { run.picking(it, premade, name) ?: it }
+            viewModel.update { run.picking(it, premade, name, addedId) ?: it }
             picked = null
         }
         val next = step.next
@@ -99,7 +103,8 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
             SetupStep.DEVICE_FIT -> DeviceFit(settings, viewModel::update) { fitItems -> frame(fitItems) }
 
             SetupStep.FIRST_LOOK -> frame {
-                firstLookItems(settings, run, picked, { picked = it }, customise, { customise = it })
+                val canPick = run.canPick(settings, addedId)
+                firstLookItems(settings, canPick, picked, { picked = it }, customise, { customise = it })
             }
 
             SetupStep.TEST -> frame { testItems(play, onTest) }

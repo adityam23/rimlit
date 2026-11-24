@@ -69,13 +69,13 @@ internal fun LazyListScope.stepHeading(step: SetupStep) {
 }
 
 /**
- * The first look: keep the default look ([picked] `null`, as it starts) or pick a premade for it, as [run] picks one,
- * each playing its edge ([onPick]), or a note when none can be picked; and whether to open it in the editor once setup
- * is done ([customise], [onCustomise]).
+ * The first look: keep the default look ([picked] `null`, as it starts) or pick a premade for it, each playing its
+ * edge ([onPick]), or, when none [canPick], a note that no more looks fit; and whether to open it in the editor once
+ * setup is done ([customise], [onCustomise]).
  */
 internal fun LazyListScope.firstLookItems(
     settings: GlowSettings,
-    run: SetupRun,
+    canPick: Boolean,
     picked: Premade?,
     onPick: (Premade?) -> Unit,
     customise: Boolean,
@@ -93,7 +93,7 @@ internal fun LazyListScope.firstLookItems(
             },
         )
     }
-    if (run.canPick(settings)) {
+    if (canPick) {
         // Only the chosen row's edge moves: a list of moving glows would be busy, and costly to draw.
         premadeItems(settings, selected = picked, onSelect = onPick, animatesSelected = true)
     } else {
