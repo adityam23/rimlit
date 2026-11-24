@@ -36,7 +36,6 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.toEnumOrNull
 import app.rimlit.model.Premade
-import app.rimlit.model.defaultLookSwitchedTo
 import app.rimlit.permissions.Permissions
 import app.rimlit.ui.DeviceFit
 import app.rimlit.ui.components.SettingsList
@@ -44,14 +43,18 @@ import app.rimlit.ui.title
 
 /**
  * The guided first launch, one step at a time (see [SetupStep]); back goes a step back, and on the first leaves it.
- * Finishing marks setup done and turns glowing on, then [onFinish] gets the default look's id to open in the editor,
- * when the user asked to customise it, or `null`.
+ * Finishing marks setup done and, the first time only ([SetupRun]), turns glowing on, then [onFinish] gets the default
+ * look's id to open in the editor, when the user asked to customise it, or `null`.
  */
 @Composable
 fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -> Unit, modifier: Modifier = Modifier) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val statuses by viewModel.permissions.collectAsStateWithLifecycle()
     val testPostable by viewModel.testPostable.collectAsStateWithLifecycle()
+    val overlayFallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
+    // Settled as the screen opens (the stored preferences are read by then: the app draws nothing before), so
+    // finishing the first run doesn't make it a rerun.
+    val run = rememberSaveable(saver = RunSaver) { SetupRun.of(viewModel.storedUiPrefs.value) }
     var step by rememberSaveable(stateSaver = StepSaver) { mutableStateOf(SetupStep.WELCOME) }
     // The premade picked for the first look, applied on moving on; null keeps the default look as it is.
     var picked by rememberSaveable(stateSaver = PremadeSaver) { mutableStateOf<Premade?>(null) }
@@ -60,7 +63,7 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
     var finished by rememberSaveable { mutableStateOf(false) }
     // "Try it" taps played in Rimlit's window (TestPlay.IN_WINDOW).
     var windowPlays by remember { mutableIntStateOf(0) }
-    val play = testPlay(statuses, testPostable)
+    val play = testPlay(statuses, testPostable, overlayFallback)
     val context = LocalContext.current
     val openGrant = rememberPermissionOpener(viewModel::openPermission, viewModel::refreshPermissions)
     // The look is named after its premade, in the user's language.
@@ -71,7 +74,8 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
     val onOnward = {
         if (step == SetupStep.FIRST_LOOK && pickedLook != null) {
             val (premade, name) = pickedLook
-            viewModel.update { it.defaultLookSwitchedTo(premade, name) }
+            // Not picked when it no longer can be (a look added meanwhile, past the limit): the default stays.
+            viewModel.update { run.picking(it, premade, name) ?: it }
             picked = null
         }
         val next = step.next
@@ -79,7 +83,7 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
             step = next
         } else if (!finished) {
             finished = true
-            viewModel.update { it.copy(enabled = true) }
+            viewModel.update(run::finishing)
             viewModel.updateUi { it.copy(setupDone = true) }
             onFinish(settings.defaultLookId.takeIf { customise })
         }
@@ -95,7 +99,7 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
             SetupStep.DEVICE_FIT -> DeviceFit(settings, viewModel::update) { fitItems -> frame(fitItems) }
 
             SetupStep.FIRST_LOOK -> frame {
-                firstLookItems(settings, picked, { picked = it }, customise, { customise = it })
+                firstLookItems(settings, run, picked, { picked = it }, customise, { customise = it })
             }
 
             SetupStep.TEST -> frame { testItems(play, onTest) }
@@ -108,6 +112,9 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
 
 /** Saves a step by name; one an update renamed or dropped restores as the welcome. */
 private val StepSaver = Saver<SetupStep, String>(save = { it.name }, restore = { it.toEnumOrNull<SetupStep>() })
+
+/** Saves the run by name; one an update renamed or dropped is settled again from the stored preferences. */
+private val RunSaver = Saver<SetupRun, String>(save = { it.name }, restore = { it.toEnumOrNull<SetupRun>() })
 
 /** Saves the picked premade by name, none unsaved; one an update renamed or dropped restores as none. */
 private val PremadeSaver = Saver<Premade?, String>(save = { it?.name }, restore = { it.toEnumOrNull<Premade>() })

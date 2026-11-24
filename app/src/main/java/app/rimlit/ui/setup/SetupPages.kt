@@ -20,6 +20,7 @@ import app.rimlit.model.GlowSettings
 import app.rimlit.model.Premade
 import app.rimlit.ui.PhoneGlow
 import app.rimlit.ui.components.CheckboxCard
+import app.rimlit.ui.components.LookLimitNote
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.lookKind
 import app.rimlit.ui.premadeItems
@@ -68,11 +69,13 @@ internal fun LazyListScope.stepHeading(step: SetupStep) {
 }
 
 /**
- * The first look: keep the default look ([picked] `null`, as it starts) or switch it to a premade, each playing its
- * edge ([onPick]); and whether to open it in the editor once setup is done ([customise], [onCustomise]).
+ * The first look: keep the default look ([picked] `null`, as it starts) or pick a premade for it, as [run] picks one,
+ * each playing its edge ([onPick]), or a note when none can be picked; and whether to open it in the editor once setup
+ * is done ([customise], [onCustomise]).
  */
 internal fun LazyListScope.firstLookItems(
     settings: GlowSettings,
+    run: SetupRun,
     picked: Premade?,
     onPick: (Premade?) -> Unit,
     customise: Boolean,
@@ -90,8 +93,12 @@ internal fun LazyListScope.firstLookItems(
             },
         )
     }
-    // Only the chosen row's edge moves: a list of moving glows would be busy, and costly to draw.
-    premadeItems(settings, selected = picked, onSelect = onPick, animatesSelected = true)
+    if (run.canPick(settings)) {
+        // Only the chosen row's edge moves: a list of moving glows would be busy, and costly to draw.
+        premadeItems(settings, selected = picked, onSelect = onPick, animatesSelected = true)
+    } else {
+        item(key = "look_limit") { LookLimitNote() }
+    }
     item(key = "customise") {
         CheckboxCard(
             title = stringResource(R.string.setup_look_customise),

@@ -14,4 +14,20 @@ class StartRouteTest {
         assertEquals(Routes.SETUP, startRoute(UiPrefs()))
         assertEquals(Routes.HOME, startRoute(UiPrefs(setupDone = true)))
     }
+
+    @Test
+    fun theStartIsChosenOnceTheyAreRead() {
+        assertNull(startRoute(pinned = null, prefs = null))
+        assertEquals(Routes.SETUP, startRoute(pinned = null, prefs = UiPrefs()))
+        assertEquals(Routes.HOME, startRoute(pinned = null, prefs = UiPrefs(setupDone = true)))
+    }
+
+    @Test
+    fun finishingSetupLeavesThePinnedStart() {
+        assertEquals(
+            Routes.SETUP,
+            startRoute(pinned = Routes.SETUP, prefs = UiPrefs(setupDone = true)),
+            "Finish has already gone Home; moving the start would rebuild the screens there",
+        )
+    }
 }

@@ -25,6 +25,7 @@ import app.rimlit.engine.FADE_IN_MS
 import app.rimlit.engine.FADE_OUT_MS
 import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.GlowSettings
+import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionStatus
 import app.rimlit.permissions.canSendTest
 import app.rimlit.ui.ScreenGlow
@@ -40,17 +41,24 @@ internal enum class TestPlay {
     /** The default look previewed through the machine, on screen over other apps: no notification can glow. */
     ON_SCREEN,
 
-    /** The default look played in Rimlit's own window: nothing may draw over other apps. */
+    /** The default look played in Rimlit's own window: nothing can draw over other apps. */
     IN_WINDOW,
 }
 
 /**
- * How "Try it" shows the glow, given the grants in [statuses] and whether the test notification can be posted
- * ([testPostable]): in Rimlit's window while nothing may draw on screen, since neither a test nor a preview would show,
- * else a real test notification when it can glow, else a preview on screen.
+ * How "Try it" shows the glow, given the grants in [statuses], whether the test notification can be posted
+ * ([testPostable]) and why the engine's on-screen overlay isn't the accessibility one ([overlayFallback], `null` while
+ * it is, or before the engine has started): in Rimlit's window while nothing can draw on screen, since neither a test
+ * nor a preview would show, else a real test notification when it can glow, else a preview on screen. Nothing can
+ * draw when the engine has no overlay to draw in, such as an accessibility service on but not running without Display
+ * over other apps, or, before the engine has started, when neither is granted.
  */
-internal fun testPlay(statuses: List<PermissionStatus>, testPostable: Boolean): TestPlay = when {
-    !SetupStep.ON_SCREEN.granted(statuses) -> TestPlay.IN_WINDOW
+internal fun testPlay(
+    statuses: List<PermissionStatus>,
+    testPostable: Boolean,
+    overlayFallback: OverlayFallback?,
+): TestPlay = when {
+    overlayFallback == OverlayFallback.NO_OVERLAY || !SetupStep.ON_SCREEN.granted(statuses) -> TestPlay.IN_WINDOW
     statuses.canSendTest(testPostable) -> TestPlay.NOTIFICATION
     else -> TestPlay.ON_SCREEN
 }

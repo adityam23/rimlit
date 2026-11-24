@@ -16,3 +16,9 @@ internal object Routes {
  * guided first launch until it is finished, then Home.
  */
 internal fun startRoute(prefs: UiPrefs?): String? = prefs?.let { if (it.setupDone) Routes.HOME else Routes.SETUP }
+
+/**
+ * Where the app opens: [pinned], the start once chosen, or else [startRoute]. Pinned, finishing setup leaves the start
+ * as it was, rather than moving it to Home and rebuilding the screens there, where Finish has just gone anyway.
+ */
+internal fun startRoute(pinned: String?, prefs: UiPrefs?): String? = pinned ?: startRoute(prefs)

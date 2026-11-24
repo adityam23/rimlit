@@ -3,6 +3,7 @@ package app.rimlit.model
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -198,5 +199,18 @@ class LookEditsTest {
         assertEquals("Work (2)", settings.defaultLookSwitchedTo(Premade.BLADE, "Work").defaultLook.name)
         val named = settings.renameLook(DEFAULT_LOOK_ID, "Blade")
         assertEquals("Blade", named.defaultLookSwitchedTo(Premade.BLADE, "Blade").defaultLook.name, "its own name")
+    }
+
+    @Test
+    fun aPremadeAddedAsTheDefaultLookKeepsTheOldOne() {
+        val custom = settings.updateLook(DEFAULT_LOOK_ID) { it.copy(speed = 2f) }
+        val added = assertNotNull(custom.defaultLookAdded(Premade.WAVE, "Wave", id = "wave"))
+        assertEquals(Premade.WAVE.look("wave", "Wave"), added.defaultLook, "a new look, the default")
+        assertEquals(custom.looks, added.looks.dropLast(1), "the old default and every other look as they were")
+        assertEquals("Work (2)", settings.defaultLookAdded(Premade.BLADE, "Work", id = "new")?.defaultLook?.name)
+        assertEquals("x".repeat(30), settings.defaultLookAdded(Premade.BLADE, "x".repeat(40))?.defaultLook?.name)
+        assertNull(full().defaultLookAdded(Premade.WAVE, "Wave"), "no room")
+        assertNull(settings.defaultLookAdded(Premade.WAVE, "Wave", id = "work"), "id taken")
+        assertNull(settings.defaultLookAdded(Premade.WAVE, "   "), "no look name")
     }
 }
