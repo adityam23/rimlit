@@ -1,15 +1,15 @@
 package app.rimlit.ui.glow
 
 import app.rimlit.model.EdgeRegion
-import app.rimlit.model.ScreenSide
-import kotlin.math.max
+import app.rimlit.model.GlowSpec
 
-/** A side's fade toward an unlit neighbour is at least this many line thicknesses long, however narrow its halo. */
-private const val MIN_TAPER_THICKNESSES = 8f
+/** The gap between the cutout and the ring round it. */
+private const val CUTOUT_GAP_DP = 4f
 
 /**
- * Everything the outlines and their halos depend on. Colors, style, speed, brightness and duration don't change them,
- * so editing those (e.g. dragging a preview slider) reuses the built [GlowLayout].
+ * Everything the outlines and their halos depend on. Colors, style, speed, brightness, duration and the lit sides
+ * (masked apart, see [SideMaskKey]) don't change them, so editing those (e.g. dragging a preview slider) reuses the
+ * built [GlowLayout].
  */
 internal data class GlowLayoutKey(
     val width: Float,
@@ -17,13 +17,27 @@ internal data class GlowLayoutKey(
     val shape: DisplayShape,
     /** Which outlines to draw; one that rings the cutout draws the screen edge instead when [shape] has none. */
     val region: EdgeRegion,
-    /** The sides of the screen-edge outline its drawing shows on (see [GlowOutline.sideMask]). */
-    val sides: Set<ScreenSide>,
     val thicknessPx: Float,
     val cutoutGapPx: Float,
     /** Glow width: the halo's blur radius. */
     val glowPx: Float,
-)
+) {
+    /** The halo's line: twice the glow's thickness, so the halo rises from beneath the whole stroke. */
+    val haloStrokePx: Float get() = thicknessPx * 2f
+
+    companion object {
+        /** The layout [spec] draws in a [width] × [height] window of [shape], at [density] pixels per dp. */
+        fun of(spec: GlowSpec, width: Float, height: Float, shape: DisplayShape, density: Float) = GlowLayoutKey(
+            width = width,
+            height = height,
+            shape = shape,
+            region = spec.region,
+            thicknessPx = spec.thicknessDp * density,
+            cutoutGapPx = CUTOUT_GAP_DP * density,
+            glowPx = spec.glowWidthDp * density,
+        )
+    }
+}
 
 /**
  * Data an effect derives from one outline and its layout (e.g. wave samples), built on first use and kept as long as
@@ -44,29 +58,13 @@ internal class GlowOutline(val geometry: GlowGeometry, val key: GlowLayoutKey) {
      */
     val opensInward: Boolean get() = geometry.shape.opensInward
 
-    /** The halo's line: twice the glow's thickness, so the halo rises from beneath the whole stroke. */
-    private val haloStrokePx: Float get() = key.thicknessPx * 2f
-
     val bloom: BloomMask? by lazy(LazyThreadSafetyMode.NONE) {
         // A zero-radius blur is invalid.
         if (key.glowPx > 0f) {
-            BloomMask(geometry, key.width, key.height, strokePx = haloStrokePx, blurPx = key.glowPx)
+            BloomMask(geometry, key.width, key.height, strokePx = key.haloStrokePx, blurPx = key.glowPx)
         } else {
             null
         }
-    }
-
-    /**
-     * What keeps this outline's drawing, halo and all, to the lit [GlowLayoutKey.sides]: `null` when every side is lit,
-     * and for the cutout ring, which sides don't touch. A side fades out toward an unlit one over its halo's reach, so
-     * the halo's end is as soft as its edges, and at least [MIN_TAPER_THICKNESSES] lines, so a line with no halo still
-     * fades rather than stops.
-     */
-    val sideMask: SideMask? by lazy(LazyThreadSafetyMode.NONE) {
-        val taperPx = max(haloReach(haloStrokePx, key.glowPx), key.thicknessPx * MIN_TAPER_THICKNESSES)
-        (geometry.shape as? RoundRect)
-            ?.let { SideLight.of(it, key.sides, taperPx) }
-            ?.let { SideMask(it, key.width, key.height) }
     }
 
     private val parts = HashMap<OutlinePart<*>, Any>()

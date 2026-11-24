@@ -18,13 +18,12 @@ private val BLADES = setOf(GlowStyle.BLADE, GlowStyle.LOOP, GlowStyle.MIRROR, Gl
 
 /**
  * The painter for this style on [brush]'s outline. A still blade can't race, so it glows: the whole outline lit, with
- * its halo. On a screen edge lit on only some sides, everything it draws is kept to them (see [SideMasked]).
+ * its halo. Under a [sideMask] (a screen edge lit on only some sides), everything it draws is kept to them (see
+ * [SideMasked]).
  */
-internal fun GlowStyle.painter(brush: OutlineBrush): GlowEffectPainter {
+internal fun GlowStyle.painter(brush: OutlineBrush, sideMask: SideMask?): GlowEffectPainter {
     val painter = if (brush.still && this in BLADES) GlowEffect(brush) else movingPainter(brush)
-    // No edge draws nothing to mask.
-    if (this == GlowStyle.NONE) return painter
-    return brush.outline.sideMask?.let { SideMasked(painter, it) } ?: painter
+    return sideMask?.let { SideMasked(painter, it) } ?: painter
 }
 
 /**
