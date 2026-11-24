@@ -7,6 +7,7 @@ import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
+import app.rimlit.model.MAX_PARTICLE_IMAGES
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
 import app.rimlit.model.ParticlePicture
@@ -147,6 +148,29 @@ class LookArchiveTest {
     }
 
     @Test
+    fun everyFileIsWrittenAsVersionTwo() {
+        assertEquals(2, LOOK_ARCHIVE_VERSION)
+        val zip = java.util.zip.ZipInputStream(ByteArrayInputStream(written(archive)))
+        assertEquals("looks.json", zip.nextEntry?.name)
+        assertEquals(LOOK_ARCHIVE_VERSION, JSONObject(zip.readBytes().decodeToString()).getInt("version"))
+    }
+
+    @Test
+    fun aVersionOneFileStillReads() {
+        val photosOnly = LookArchive(listOf(photos), mapOf(imageA to pngA, imageB to pngB))
+        assertSame(photosOnly, read(zip(looksEntry(json(version = 1)), *imageEntries())))
+    }
+
+    @Test
+    fun theImageIndicesRunBelowTheImageLimit() {
+        assertEquals(0, imageIndex("images/0.png"))
+        assertEquals(MAX_IMAGES - 1, imageIndex("images/${MAX_IMAGES - 1}.png"))
+        for (name in listOf("images/$MAX_IMAGES.png", "images/00.png", "images/-1.png", "images/${Long.MAX_VALUE}.png")) {
+            assertEquals(null, imageIndex(name), name)
+        }
+    }
+
+    @Test
     fun theVersionIsRequiredAndANewerOneRefused() {
         assertSame(read(zip(looksEntry(), *imageEntries())), read(zip(looksEntry(json(version = 1)), *imageEntries())))
         assertRefused(Problem.NEWER_VERSION, zip(looksEntry(json(version = LOOK_ARCHIVE_VERSION + 1)), *imageEntries()))
@@ -207,6 +231,18 @@ class LookArchiveTest {
         assertEquals(full.looks, read(written(full)).looks)
         val openers = json(looks = full.looks).toString().count { it == '[' || it == '{' }
         assertTrue(openers * 2 < MAX_JSON_OPENERS, "$openers arrays and objects in the largest file")
+    }
+
+    @Test
+    fun theMostLooksWithTheMostImagesEachReadBack() {
+        val looks = List(MAX_LOOKS) { look ->
+            val picture = ParticlePicture.Custom(List(MAX_PARTICLE_IMAGES) { newParticleImageId() })
+            photos.copy(id = "look$look", name = "Look $look", particles = photos.particles?.copy(picture = picture))
+        }
+        val images = looks.particleImageIds.withIndex().associate { (n, id) -> id to byteArrayOf(n.toByte()) }
+        assertEquals(MAX_LOOKS * MAX_PARTICLE_IMAGES, images.size)
+        val full = LookArchive(looks, images)
+        assertSame(full, read(written(full)))
     }
 
     @Test

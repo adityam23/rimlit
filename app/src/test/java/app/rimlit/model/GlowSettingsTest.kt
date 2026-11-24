@@ -29,7 +29,7 @@ class GlowSettingsTest {
 
     @Test
     fun anAppsLookRuleWinsOverTheDefaultLook() {
-        val spec = settings.copy(appRules = mapOf(app to Rule.UseLook("work"))).ready()
+        val spec = settings.copy(appRules = mapOf(app to Rule("work"))).ready()
         assertEquals(GlowStyle.BLADE, spec.style)
         assertEquals(GlowPalette.Rainbow, spec.palette)
         assertEquals(GlowStyle.GLOW, settings.ready("com.example.other").style, "other apps keep the default")
@@ -37,21 +37,15 @@ class GlowSettingsTest {
 
     @Test
     fun aRuleNamingAMissingLookFallsBackToTheDefaultLook() {
-        val spec = settings.copy(appRules = mapOf(app to Rule.UseLook("gone"))).ready()
+        val spec = settings.copy(appRules = mapOf(app to Rule("gone"))).ready()
         assertEquals(settings.ready(), spec)
     }
 
     @Test
-    fun aPaletteRulePaintsTheDefaultLook() {
-        val spec = settings.copy(appRules = mapOf(app to Rule.UsePalette(red))).ready()
-        assertEquals(GlowStyle.GLOW, spec.style)
-        assertEquals(red, spec.palette)
-    }
-
-    @Test
-    fun aPaletteRuleOverridesAutoColours() {
-        val auto = GlowSettings(appRules = mapOf(app to Rule.UsePalette(red)))
-        assertEquals(red, (auto.resolve(app) as Resolution.Ready).spec.palette)
+    fun aRuledLooksOwnColoursApplyOverTheDefaultLooks() {
+        val painted = Look(id = "red", name = "Red", colorMode = ColorMode.CUSTOM, customColors = red)
+        val auto = GlowSettings(looks = listOf(Look(), painted), appRules = mapOf(app to Rule("red")))
+        assertEquals(red, (auto.resolve(app) as Resolution.Ready).spec.palette, "no extraction needed")
     }
 
     @Test
@@ -59,7 +53,7 @@ class GlowSettingsTest {
         val image = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 2)
         val auto = settings.copy(
             looks = settings.looks + Look(id = "photo", name = "Photo", autoColors = image),
-            appRules = mapOf(app to Rule.UseLook("photo")),
+            appRules = mapOf(app to Rule("photo")),
         )
         assertEquals(Resolution.Extract(image), auto.resolve(app))
         assertEquals(GlowPalette.Colors(extracted), auto.ready().palette)
@@ -92,7 +86,7 @@ class GlowSettingsTest {
     fun theSpecCarriesTheResolvedLooksParticles() {
         val hearts = ParticlePreset.HEARTS.spec
         val withHearts = settings.updateLook("work") { it.copy(style = GlowStyle.NONE, particles = hearts) }
-        val spec = withHearts.copy(appRules = mapOf(app to Rule.UseLook("work"))).ready()
+        val spec = withHearts.copy(appRules = mapOf(app to Rule("work"))).ready()
         assertEquals(hearts, spec.particles)
         assertEquals(GlowStyle.NONE, spec.style, "a look may show its particles alone")
         assertEquals(hearts, withHearts.previewSpec(withHearts.look("work")!!).particles)

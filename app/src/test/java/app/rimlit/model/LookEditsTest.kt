@@ -11,7 +11,6 @@ class LookEditsTest {
 
     private val app = "com.example.chat"
     private val red = 0xFFFF0000.toInt()
-    private val redPalette = GlowPalette.Colors(listOf(red))
 
     private val work = Look(id = "work", name = "Work", style = GlowStyle.BLADE, colorMode = ColorMode.RAINBOW)
     private val settings = GlowSettings(looks = listOf(Look(), work))
@@ -82,43 +81,43 @@ class LookEditsTest {
     @Test
     fun deletingALookPrunesTheRulesThatUseItOnly() {
         val ruled = settings
-            .withAppRule(app, Rule.UseLook("work"))
-            .withAppRule("com.example.mail", Rule.UsePalette(redPalette))
+            .withAppRule(app, Rule("work"))
+            .withAppRule("com.example.mail", Rule(DEFAULT_LOOK_ID))
         val deleted = ruled.deleteLook("work")
         assertNull(deleted.look("work"))
-        assertEquals(mapOf("com.example.mail" to Rule.UsePalette(redPalette)), deleted.appRules)
+        assertEquals(mapOf("com.example.mail" to Rule(DEFAULT_LOOK_ID)), deleted.appRules)
         assertEquals(GlowStyle.GLOW, (deleted.resolve(app, listOf(red)) as Resolution.Ready).spec.style)
     }
 
     @Test
     fun theDefaultLookCannotBeDeleted() {
-        val ruled = settings.withAppRule(app, Rule.UseLook("work"))
+        val ruled = settings.withAppRule(app, Rule("work"))
         assertEquals(ruled, ruled.deleteLook(DEFAULT_LOOK_ID))
     }
 
     @Test
     fun anAppRuleIsSetReplacedAndCleared() {
-        val looked = settings.withAppRule(app, Rule.UseLook("work"))
-        assertEquals(Rule.UseLook("work"), looked.appRules[app])
-        val painted = looked.withAppRule(app, Rule.UsePalette(redPalette))
-        assertEquals(Rule.UsePalette(redPalette), painted.appRules[app])
-        assertEquals(emptyMap(), painted.withAppRule(app, null).appRules)
+        val looked = settings.withAppRule(app, Rule("work"))
+        assertEquals(Rule("work"), looked.appRules[app])
+        val replaced = looked.withAppRule(app, Rule(DEFAULT_LOOK_ID))
+        assertEquals(Rule(DEFAULT_LOOK_ID), replaced.appRules[app])
+        assertEquals(emptyMap(), replaced.withAppRule(app, null).appRules)
     }
 
     @Test
     fun aRuleNamingAMissingLookAppliesAsTheDefaultLook() {
         val ruled = settings
-            .withAppRule(app, Rule.UseLook("work"))
-            .withAppRule("com.example.mail", Rule.UsePalette(redPalette))
-            .withAppRule("com.example.old", Rule.UseLook("gone"))
-        assertEquals(Rule.UseLook("work"), ruled.ruleFor(app))
-        assertEquals(Rule.UsePalette(redPalette), ruled.ruleFor("com.example.mail"))
-        assertNull(ruled.ruleFor("com.example.old"), "names a missing look")
-        assertNull(ruled.ruleFor("com.example.none"), "no rule")
+            .withAppRule(app, Rule("work"))
+            .withAppRule("com.example.mail", Rule(DEFAULT_LOOK_ID))
+            .withAppRule("com.example.old", Rule("gone"))
+        assertEquals(work, ruled.appLook(app))
+        assertEquals(Look(), ruled.appLook("com.example.mail"))
+        assertNull(ruled.appLook("com.example.old"), "names a missing look")
+        assertNull(ruled.appLook("com.example.none"), "no rule")
         assertEquals(
             ruled.resolve("com.example.none", listOf(red)),
             ruled.resolve("com.example.old", listOf(red)),
-            "the resolver applies it as ruleFor says",
+            "the resolver applies it as appLook says",
         )
     }
 
@@ -134,7 +133,7 @@ class LookEditsTest {
 
     @Test
     fun importedLooksAreAddedUnderNewIdsWithClashingNamesNumbered() {
-        val ruled = settings.withAppRule(app, Rule.UseLook("work"))
+        val ruled = settings.withAppRule(app, Rule("work"))
         val night = Look(id = "work", name = "Night", style = GlowStyle.BASIC)
         val ids = generateSequence(1) { it + 1 }.map { "new$it" }.iterator()
         val imported = ruled.addImportedLooks(listOf(work, Look(), night)) { ids.next() }
@@ -151,6 +150,13 @@ class LookEditsTest {
         val long = Look(id = "long", name = "x".repeat(30))
         val twice = settings.addImportedLooks(listOf(long, long))
         assertEquals(listOf("x".repeat(30), "x".repeat(26) + " (2)"), twice.looks.drop(2).map { it.name })
+    }
+
+    @Test
+    fun aNumberedLookIsAddedElseNothingIs() {
+        assertEquals(work.copy(id = "new", name = "Work (2)"), settings.addLookNumbered(work, "Work", "new")?.look("new"))
+        assertNull(full().addLookNumbered(work, "Night", "new"), "full")
+        assertNull(settings.addLookNumbered(work, "Night", "work"), "id taken")
     }
 
     @Test

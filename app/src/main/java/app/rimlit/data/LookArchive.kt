@@ -22,36 +22,45 @@ import java.util.zip.ZipOutputStream
 // stored as `images/<n>.png`). Fields a reader doesn't know are ignored, so a newer writer may add some without
 // changing the version; a change older readers would misread raises it.
 
-/** The version of the look files this app writes, and the newest it reads. */
-internal const val LOOK_ARCHIVE_VERSION = 1
+/**
+ * The version of the look files this app writes, and the newest it reads; it reads every older one too. Version 2
+ * raised the limits to [MAX_LOOKS] looks and [MAX_IMAGES] images (version 1 held at most 10 and 50), so every file is
+ * written as version 2: an app that only reads version 1 says it was made by a newer version, rather than failing on
+ * a file past its limits.
+ */
+internal const val LOOK_ARCHIVE_VERSION = 2
 
-/** The most bytes read from a look file: far more than 10 looks with all their images, far less than a bomb. */
+/**
+ * The most bytes read from a look file: far more than [MAX_LOOKS] looks with all their images (each a 128 px PNG, at
+ * most about 66 KB), far less than a bomb.
+ */
 internal const val MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
 
 /** The most bytes all of a file's entries expand to, counted as they are read. */
 internal const val MAX_ARCHIVE_EXPANDED_BYTES = 16 * 1024 * 1024
 
-/** The most entries a look file holds: `looks.json` and every image, with room to spare. */
-internal const val MAX_ARCHIVE_ENTRIES = 64
+/** Every image the most looks can draw: a file names them `images/0.png` to `images/<MAX_IMAGES - 1>.png`. */
+internal const val MAX_IMAGES = MAX_LOOKS * MAX_PARTICLE_IMAGES
 
-/** The most bytes `looks.json` expands to: 10 looks take a few kilobytes. */
+/** The most entries a look file holds: `looks.json` and every image the most looks can draw, with room to spare. */
+internal const val MAX_ARCHIVE_ENTRIES = MAX_IMAGES + 16
+
+/** The most bytes `looks.json` expands to: [MAX_LOOKS] looks take a few kilobytes. */
 internal const val MAX_LOOKS_JSON_BYTES = 256 * 1024
 
 /**
- * JSON opening more arrays and objects than this isn't a look file: ten looks open well under a hundred. The parser
+ * JSON opening more arrays and objects than this isn't a look file: [MAX_LOOKS] looks open about a hundred. The parser
  * recurses once per nested one, so deep nesting could overflow its stack. Every `[` and `{` counts, wherever it
  * stands: Android's parser also takes single-quoted strings and comments, so what is "inside a string" is its call,
  * and a bound that depended on it could be talked past.
  */
 internal const val MAX_JSON_OPENERS = 256
-
-private const val MAX_IMAGES = MAX_LOOKS * MAX_PARTICLE_IMAGES
 private const val LOOKS_ENTRY = "looks.json"
 private const val IMAGES_DIR = "images/"
 private const val PNG = ".png"
 
-/** An image entry's name: a plain index, never a path; any other name is ignored. */
-private val IMAGE_ENTRY = Regex("images/(0|[1-9][0-9]?)\\.png")
+/** An image entry's name: a plain index with no leading zero, never a path; any other name is ignored. */
+private val IMAGE_ENTRY = Regex("images/(0|[1-9][0-9]*)\\.png")
 
 private const val VERSION = "version"
 private const val LOOKS = "looks"
@@ -126,7 +135,7 @@ private fun readEntries(zip: ZipInputStream): Pair<ByteArray?, Map<Int, ByteArra
     while (true) {
         val entry = zip.nextEntry ?: break
         if (++entries > MAX_ARCHIVE_ENTRIES) tooLarge("More than $MAX_ARCHIVE_ENTRIES entries")
-        val index = IMAGE_ENTRY.matchEntire(entry.name)?.groupValues?.get(1)?.toInt()
+        val index = imageIndex(entry.name)
         val cap = if (entry.name == LOOKS_ENTRY) MAX_LOOKS_JSON_BYTES else MAX_STORED_BYTES
         val bytes = zip.readCapped(cap) ?: tooLarge("An entry expands past $cap bytes")
         expanded += bytes.size
@@ -138,6 +147,10 @@ private fun readEntries(zip: ZipInputStream): Pair<ByteArray?, Map<Int, ByteArra
     }
     return json to images
 }
+
+/** The index of the image entry named [name], below [MAX_IMAGES]; `null` when it names none. */
+internal fun imageIndex(name: String): Int? =
+    IMAGE_ENTRY.matchEntire(name)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it < MAX_IMAGES }
 
 /** The looks [json] describes, with the [images] by index it names. */
 private fun decodeArchive(json: ByteArray, images: Map<Int, ByteArray>): LookArchive {

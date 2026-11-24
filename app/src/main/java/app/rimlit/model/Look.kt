@@ -9,16 +9,19 @@ const val DEFAULT_LOOK_ID = "default"
 const val DEFAULT_LOOK_NAME = "Default"
 
 /** At most this many looks are saved. */
-const val MAX_LOOKS = 10
+const val MAX_LOOKS = 20
 
 /**
- * A named, saved bundle of how a glow looks: its style, colours, region, tuning and particles. Notifications glow
+ * A named, saved bundle of how a glow looks: its style, colours, region, tuning and particles, started from a
+ * [Premade] and holding all its own values (a copy, not the changes). Notifications glow
  * with the default look unless their app's [Rule] picks another (see [GlowSettings.resolve]); how long and where
  * glows show stays global in [GlowSettings].
  */
 data class Look(
     val id: String = DEFAULT_LOOK_ID,
     val name: String = DEFAULT_LOOK_NAME,
+    /** The premade this look started from, and is custom wherever it differs from (see [changedParts]). */
+    val basedOn: Premade = Premade.GLOW,
     val style: GlowStyle = GlowStyle.GLOW,
     val colorMode: ColorMode = ColorMode.AUTO,
     val autoColors: AutoColors = AutoColors(),

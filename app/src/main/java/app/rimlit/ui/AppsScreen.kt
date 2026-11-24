@@ -26,7 +26,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,10 +42,8 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.AppInfo
 import app.rimlit.model.GlowSettings
-import app.rimlit.model.Rule
 import app.rimlit.model.withAppRule
 import app.rimlit.ui.components.SubScreenScaffold
-import app.rimlit.ui.components.paletteBrush
 
 @Composable
 fun AppsScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -129,26 +126,15 @@ private fun AppList(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items(apps, key = { it.packageName }) { app ->
-            val rule = settings.ruleFor(app.packageName)
             AppRow(
                 app = app,
                 blocked = app.packageName in settings.blockedPackages,
-                palette = (rule as? Rule.UsePalette)?.palette?.argb,
-                ruleLabel = settings.ruleLabel(rule),
+                ruleLabel = settings.appLook(app.packageName)?.let { stringResource(R.string.app_rule_look, it.name) },
                 onEditLook = { onEditLook(app) },
                 onToggle = { blocked -> onToggle(app, blocked) },
             )
         }
     }
-}
-
-/** What an app's [rule] (as [GlowSettings.ruleFor] applies it) reads as under its name; `null` for the default look. */
-@Composable
-@ReadOnlyComposable
-private fun GlowSettings.ruleLabel(rule: Rule?): String? = when (rule) {
-    is Rule.UseLook -> look(rule.lookId)?.let { stringResource(R.string.app_rule_look, it.name) }
-    is Rule.UsePalette -> stringResource(R.string.app_rule_palette)
-    null -> null
 }
 
 private fun GlowSettings.withBlocked(packageName: String, blocked: Boolean) =
@@ -158,7 +144,6 @@ private fun GlowSettings.withBlocked(packageName: String, blocked: Boolean) =
 private fun AppRow(
     app: AppInfo,
     blocked: Boolean,
-    palette: List<Int>?,
     ruleLabel: String?,
     onEditLook: () -> Unit,
     onToggle: (Boolean) -> Unit,
@@ -182,34 +167,31 @@ private fun AppRow(
                 Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             }
         }
-        PaletteButton(palette = palette, onClick = onEditLook)
+        LookButton(onClick = onEditLook)
         Spacer(modifier = Modifier.width(12.dp))
         // Switch shows "allowed"; checked means NOT blocked.
         Switch(checked = !blocked, onCheckedChange = { allowed -> onToggle(!allowed) })
     }
 }
 
-/** Opens the app's look: shows the app's own palette, or a palette icon when it glows with a look's colors. */
+/** Opens the app's look. */
 @Composable
-private fun PaletteButton(palette: List<Int>?, onClick: () -> Unit) {
+private fun LookButton(onClick: () -> Unit) {
     val description = stringResource(R.string.app_look_edit)
     Box(
         modifier = Modifier
             .size(32.dp)
             .clip(CircleShape)
-            .then(if (palette != null) Modifier.background(paletteBrush(palette, sweep = true)) else Modifier)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
             .clickable(onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (palette == null) {
-            Icon(
-                Icons.Filled.Palette,
-                contentDescription = description,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-        }
+        Icon(
+            Icons.Filled.Palette,
+            contentDescription = description,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 

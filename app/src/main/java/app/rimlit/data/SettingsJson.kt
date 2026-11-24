@@ -11,6 +11,7 @@ import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
 import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticleSpec
+import app.rimlit.model.Premade
 import app.rimlit.model.Rule
 import app.rimlit.model.isValidLookName
 import app.rimlit.model.isValidParticleImageId
@@ -49,13 +50,22 @@ internal fun encodeRules(rules: Map<String, Rule>): String = JSONObject().apply 
     for ((key, rule) in rules) put(key, RuleJson.encode(rule))
 }.toString()
 
+/**
+ * The stored per-app rules: [rules], and the [palettes] older versions stored as rules of their own (the default look
+ * painted in the app's colours), which migrate into looks (see `PaletteLooks.kt`).
+ */
+internal data class StoredRules(val rules: Map<String, Rule>, val palettes: Map<String, GlowPalette.Colors>)
+
 /** The rules in [json], skipping malformed ones; `null` when it is absent or malformed. */
-internal fun decodeRules(json: String?): Map<String, Rule>? {
+internal fun decodeRules(json: String?): StoredRules? {
     val obj = json?.let { parsedOrNull { JSONObject(it) } } ?: return null
-    return obj.keys().asSequence()
-        .filter { it.isNotEmpty() }
-        .mapNotNull { key -> obj.optJSONObject(key)?.let(RuleJson::decode)?.let { key to it } }
-        .toMap()
+    val rules = mutableMapOf<String, Rule>()
+    val palettes = mutableMapOf<String, GlowPalette.Colors>()
+    for (key in obj.keys()) {
+        val rule = obj.optJSONObject(key)?.takeIf { key.isNotEmpty() } ?: continue
+        RuleJson.decodeLook(rule)?.let { rules[key] = it } ?: RuleJson.decodePalette(rule)?.let { palettes[key] = it }
+    }
+    return StoredRules(rules, palettes)
 }
 
 /**
@@ -63,8 +73,16 @@ internal fun decodeRules(json: String?): Map<String, Rule>? {
  * of them; `null` when there is none, so an invalid stored palette is dropped, never thrown.
  */
 internal fun decodePalette(colors: Sequence<String>): GlowPalette.Colors? =
-    colors.mapNotNull(PaletteJson::decodeColor).take(MAX_PALETTE_COLORS).toList().ifEmpty { null }
+    colors.mapNotNull(ColorHex::decode).take(MAX_PALETTE_COLORS).toList().ifEmpty { null }
         ?.let(GlowPalette::Colors)
+
+/** A color as a palette stores it: 8-digit ARGB hex, e.g. `ff00bcd4`. */
+internal object ColorHex {
+    fun encode(argb: Int): String = "%08x".format(Locale.ROOT, argb)
+
+    /** The color [hex] encodes, or `null` when it isn't a hex number in the ARGB range. */
+    fun decode(hex: String): Int? = hex.toLongOrNull(16)?.takeIf { it in 0..0xFFFFFFFFL }?.toInt()
+}
 
 internal inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E = toEnumOrNull<E>() ?: default
 
@@ -90,6 +108,9 @@ private fun JSONObject.float(key: String, default: Float, range: ClosedFloatingP
 private object LookJson {
     private const val ID = "id"
     private const val NAME = "name"
+
+    /** The premade's name; absent before premades, and then the style's premade (see [Premade.of]). */
+    private const val BASED_ON = "basedOn"
     private const val STYLE = "style"
     private const val COLOR_MODE = "colorMode"
     private const val AUTO_COLOR_SOURCE = "autoColorSource"
@@ -109,6 +130,7 @@ private object LookJson {
     fun encode(look: Look): JSONObject = JSONObject()
         .put(ID, look.id)
         .put(NAME, look.name)
+        .put(BASED_ON, look.basedOn.name)
         .put(STYLE, look.style.name)
         .put(COLOR_MODE, look.colorMode.name)
         .put(AUTO_COLOR_SOURCE, look.autoColors.source.name)
@@ -125,10 +147,12 @@ private object LookJson {
     fun decode(obj: JSONObject): Look? {
         val id = obj.string(ID)?.takeIf { it.isNotEmpty() } ?: return null
         val name = obj.string(NAME)?.trim()?.takeIf(::isValidLookName) ?: return null
+        val style = obj.string(STYLE).toEnumOr(defaults.style)
         return Look(
             id = id,
             name = name,
-            style = obj.string(STYLE).toEnumOr(defaults.style),
+            basedOn = obj.string(BASED_ON).toEnumOrNull<Premade>() ?: Premade.of(style),
+            style = style,
             colorMode = obj.string(COLOR_MODE).toEnumOr(defaults.colorMode),
             autoColors = AutoColors(
                 source = obj.string(AUTO_COLOR_SOURCE).toEnumOr(defaults.autoColors.source),
@@ -214,28 +238,23 @@ private object ParticleJson {
 
 private object RuleJson {
     private const val LOOK = "look"
+
+    /** Only read, to migrate: a palette rule older versions wrote. */
     private const val PALETTE = "palette"
 
-    fun encode(rule: Rule): JSONObject = when (rule) {
-        is Rule.UseLook -> JSONObject().put(LOOK, rule.lookId)
-        is Rule.UsePalette -> JSONObject().put(PALETTE, PaletteJson.encode(rule.palette))
-    }
+    fun encode(rule: Rule): JSONObject = JSONObject().put(LOOK, rule.lookId)
 
-    /** The rule [obj] holds: a look by id, or else a palette; `null` when it holds neither. */
-    fun decode(obj: JSONObject): Rule? {
-        obj.string(LOOK)?.takeIf { it.isNotEmpty() }?.let { return Rule.UseLook(it) }
-        return obj.optJSONArray(PALETTE)?.let(PaletteJson::decode)?.let(Rule::UsePalette)
-    }
+    /** The look rule [obj] holds; `null` when it holds none. */
+    fun decodeLook(obj: JSONObject): Rule? = obj.string(LOOK)?.takeIf { it.isNotEmpty() }?.let(::Rule)
+
+    /** The palette of an older palette rule [obj]; `null` when it holds none. */
+    fun decodePalette(obj: JSONObject): GlowPalette.Colors? = obj.optJSONArray(PALETTE)?.let(PaletteJson::decode)
 }
 
-/** A palette is a JSON array of colors as 8-digit ARGB hex. */
+/** A palette is a JSON array of colors as [ColorHex]. */
 private object PaletteJson {
-    fun encode(palette: GlowPalette.Colors) =
-        JSONArray().apply { palette.argb.forEach { put("%08x".format(Locale.ROOT, it)) } }
+    fun encode(palette: GlowPalette.Colors) = JSONArray().apply { palette.argb.forEach { put(ColorHex.encode(it)) } }
 
     fun decode(array: JSONArray): GlowPalette.Colors? =
         decodePalette((0 until array.length()).asSequence().mapNotNull { array.opt(it) as? String })
-
-    /** The color [hex] encodes, or `null` when it isn't a hex number in the ARGB range. */
-    fun decodeColor(hex: String): Int? = hex.toLongOrNull(16)?.takeIf { it in 0..0xFFFFFFFFL }?.toInt()
 }

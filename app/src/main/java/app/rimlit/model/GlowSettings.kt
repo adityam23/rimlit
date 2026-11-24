@@ -79,8 +79,7 @@ sealed interface Resolution {
  * Persisted user configuration.
  *
  * How glows look lives in [looks]: notifications glow with the one named by [defaultLookId], unless their app's rule
- * in [appRules] picks another look or a palette of its own. The rest is global: how long glows hold, and when and
- * where they show.
+ * in [appRules] picks another look. The rest is global: how long glows hold, and when and where they show.
  * `blockedPackages` holds apps that never trigger edge lighting (empty = allow all).
  * Where glows show: [showWhenScreenOff] the lock-screen surface (the screen woken from off), [showOnLockScreen] an
  * overlay above a visible lock screen, [showWhenUnlocked] an overlay while unlocked.
@@ -133,22 +132,18 @@ data class GlowSettings(
         copy(looks = looks.map { if (it.id == id) edit(it) else it })
 
     /**
-     * [packageName]'s rule as it applies: `null`, the default look, when it has none or its rule names a look that no
-     * longer exists.
+     * The look [packageName]'s rule picks; `null`, the default look, when it has no rule or its rule names a look that
+     * no longer exists.
      */
-    fun ruleFor(packageName: String): Rule? =
-        appRules[packageName]?.takeUnless { it is Rule.UseLook && look(it.lookId) == null }
+    fun appLook(packageName: String): Look? = appRules[packageName]?.let { look(it.lookId) }
 
     /**
-     * The one place a notification's look and colors are chosen: [packageName]'s rule as it applies (see [ruleFor]),
-     * else the default look. A palette rule paints the default look; otherwise the look's own colors apply, and auto
-     * colors need [extracted] (see [Resolution.Extract]).
+     * The one place a notification's look and colors are chosen: [packageName]'s look (see [appLook]), else the
+     * default look. The look's own colors apply, and auto colors need [extracted] (see [Resolution.Extract]).
      */
     fun resolve(packageName: String, extracted: List<Int>? = null): Resolution {
-        val rule = ruleFor(packageName)
-        val look = (rule as? Rule.UseLook)?.let { look(it.lookId) } ?: defaultLook
-        val palette = (rule as? Rule.UsePalette)?.palette
-            ?: look.palette
+        val look = appLook(packageName) ?: defaultLook
+        val palette = look.palette
             ?: extracted?.let(GlowPalette::Colors)
             ?: return Resolution.Extract(look.autoColors)
         return Resolution.Ready(spec(look, palette, packageName))
