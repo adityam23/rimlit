@@ -19,16 +19,12 @@ import app.rimlit.data.LookFileResult.Failed
 import app.rimlit.data.LookFileResult.Imported
 import app.rimlit.data.LookFileResult.NoRoom
 import app.rimlit.data.LookFileResult.Shareable
-import app.rimlit.data.LookFiles
-import app.rimlit.data.LookLibrary
-import app.rimlit.data.ParticleImageStore
-import app.rimlit.data.SettingsRepository
 import app.rimlit.engine.GlowEvent
 import app.rimlit.engine.PreviewTarget
 import app.rimlit.engine.onScreenOverlay
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
-import app.rimlit.model.MAX_PARTICLE_IMAGES
+import app.rimlit.model.UiPrefs
 import app.rimlit.notify.GlowNotifications
 import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionKind
@@ -70,22 +66,29 @@ private fun imported(added: Int): LookFileResult = if (added == 0) NoRoom else I
 class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher = Dispatchers.IO) :
     AndroidViewModel(application) {
 
-    private val repository = SettingsRepository(application)
+    private val repository = application.settingsRepository
     private val appListRepository = AppListRepository(application)
-    private val particleImages = ParticleImageStore(application, ioDispatcher)
-    private val lookFiles = LookFiles(application, particleImages, ioDispatcher)
-    private val library = LookLibrary(repository, particleImages, lookFiles)
+    private val lookFiles = application.lookFiles
+    private val library = application.lookLibrary
 
     private val _pendingImport = MutableStateFlow<LookArchive?>(null)
 
     /** A look file read for import whose looks don't all fit, while the user picks which to add. */
     val pendingImport: StateFlow<LookArchive?> = _pendingImport.asStateFlow()
 
-    init {
-        viewModelScope.launch { library.deleteUnusedImagesOnChange() }
-    }
+    /** The UI's own preferences: defaults until they are read. */
+    val uiPrefs: StateFlow<UiPrefs> =
+        repository.uiPrefs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = UiPrefs())
 
-    val settings: StateFlow<GlowSettings> = repository.settings.stateIn(
+    /** The stored settings once read; `null` before, for what mustn't start from placeholders (the look editor). */
+    val storedSettings: StateFlow<GlowSettings?> = repository.settings.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null,
+    )
+
+    /** The settings, to show: defaults until they are read. */
+    val settings: StateFlow<GlowSettings> = storedSettings.map { it ?: GlowSettings() }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = GlowSettings(),
@@ -121,22 +124,26 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     /** Persists a settings change (atomic read-modify-write); the job completes once it is written. */
     fun update(transform: (GlowSettings) -> GlowSettings): Job = viewModelScope.launch { repository.update(transform) }
 
-    /**
-     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]) as particles of the look [lookId],
-     * after its own up to [MAX_PARTICLE_IMAGES]; [onDone] gets how many couldn't be added.
-     */
-    fun addParticleImages(lookId: String, uris: List<Uri>, onDone: (rejected: Int) -> Unit) {
-        viewModelScope.launch { onDone(uris.size - library.addParticleImages(lookId, uris)) }
-    }
+    /** Persists a change to the UI's own preferences (atomic read-modify-write), apart from the settings. */
+    fun updateUi(transform: (UiPrefs) -> UiPrefs): Job = viewModelScope.launch { repository.updateUi(transform) }
 
     /** Writes the looks [ids] (all or picked), with their images, to the document [uri]. */
     fun exportLooks(ids: Set<String>, uri: Uri, onDone: (LookFileResult) -> Unit) {
-        viewModelScope.launch { lookFileResult { Exported(library.export(ids, uri)) }?.let(onDone) }
+        viewModelScope.launch {
+            lookFileResult {
+                library.writing(ids) { looks ->
+                    lookFiles.export(looks, uri)
+                    Exported(looks.size)
+                }
+            }?.let(onDone)
+        }
     }
 
     /** Writes the looks [ids], with their images, to a file for the share sheet; [onDone] gets its URI. */
     fun shareLooks(ids: Set<String>, onDone: (LookFileResult) -> Unit) {
-        viewModelScope.launch { lookFileResult { Shareable(library.shareable(ids)) }?.let(onDone) }
+        viewModelScope.launch {
+            lookFileResult { library.writing(ids) { Shareable(lookFiles.shareable(it)) } }?.let(onDone)
+        }
     }
 
     /**

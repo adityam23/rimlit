@@ -53,6 +53,14 @@ class ParticlePictureTest {
     }
 
     @Test
+    fun theRoomForImagesIsWhatTheirOwnLeave() {
+        assertEquals(MAX_PARTICLE_IMAGES, null.imageRoom)
+        assertEquals(MAX_PARTICLE_IMAGES, ParticlePreset.SNOW.spec.imageRoom, "another picture draws none of them")
+        assertEquals(MAX_PARTICLE_IMAGES - 2, custom(ids.take(2)).imageRoom)
+        assertEquals(0, custom(ids.take(MAX_PARTICLE_IMAGES)).imageRoom)
+    }
+
+    @Test
     fun removingAnImageKeepsAtLeastOne() {
         val two = ParticleSpec(ParticlePicture.Custom(ids.take(2)), ParticleMotion.FALL)
         val one = two.withoutImage(ids[0])

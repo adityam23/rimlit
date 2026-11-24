@@ -40,6 +40,15 @@
             </intent-filter>
         </activity>
 
+        <!-- The look editor, its own window so only it shows the wallpaper (a translucent window). Handles rotation,
+             folding and night-mode changes in place: an image import or a save in flight then always returns to the
+             editor that started it. -->
+        <activity
+            android:name=".LookEditorActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboard|keyboardHidden|navigation"
+            android:exported="false"
+            android:theme="@style/Theme.App.LookEditor" />
+
         <!-- Full-screen-intent target: renders the glow over the lock screen. Handles rotation, folding and
              night-mode changes in place: being recreated would stop it, which ends the glow mid-hold. -->
         <activity

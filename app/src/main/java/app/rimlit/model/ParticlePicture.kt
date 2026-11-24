@@ -52,6 +52,10 @@ fun Look.withImageIds(ids: Map<String, String>): Look {
     return copy(particles = particles.copy(picture = ParticlePicture.Custom(own.map(ids::getValue))))
 }
 
+/** How many more images these particles can draw: [MAX_PARTICLE_IMAGES] less their own. */
+val ParticleSpec?.imageRoom: Int
+    get() = MAX_PARTICLE_IMAGES - ((this?.picture as? ParticlePicture.Custom)?.ids?.size ?: 0)
+
 /**
  * These particles drawing [added] images too: after the look's own images, without repeats, up to
  * [MAX_PARTICLE_IMAGES]. Particles with another picture (or none) switch to [added], in their own colours, keeping
@@ -68,6 +72,13 @@ fun ParticleSpec?.withImages(added: List<String>): ParticleSpec? {
 /** These particles drawing the app's icon, keeping their motion and tuning; falling, for no particles. */
 fun ParticleSpec?.withAppIcon(): ParticleSpec =
     this?.copy(picture = ParticlePicture.AppIcon) ?: ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.FALL)
+
+/** These particles drawing only those of their images [keep] names; no particles once none is left. */
+fun ParticleSpec.withOnlyImages(keep: Set<String>): ParticleSpec? {
+    val ids = (picture as? ParticlePicture.Custom)?.ids ?: return this
+    val left = ids.filter { it in keep }
+    return if (left.isEmpty()) null else copy(picture = ParticlePicture.Custom(left))
+}
 
 /** These particles without the image [id]; unchanged when it is their only one (a picture needs one). */
 fun ParticleSpec.withoutImage(id: String): ParticleSpec {

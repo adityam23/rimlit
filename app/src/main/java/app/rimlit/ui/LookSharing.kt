@@ -42,7 +42,7 @@ import app.rimlit.model.MAX_LOOKS
 import app.rimlit.ui.components.CheckboxCard
 
 /**
- * The look picker's export, share and import, from [rememberLookSharing]; [LookSharingDialogs] shows what they ask.
+ * The look gallery's export, share and import, from [rememberLookSharing]; [LookSharingDialogs] shows what they ask.
  * Export and share first ask which looks to send; import opens a look file and, when its looks don't all fit, asks
  * which to add ([pending]). A toast says how each ended.
  */
@@ -68,6 +68,9 @@ internal class LookSharing(
     fun share() {
         asking.value = Sending.SHARE
     }
+
+    /** Sends the look [id] alone to the share sheet, with no list to pick from. */
+    fun shareLook(id: String) = onSend(Sending.SHARE, setOf(id))
 
     /** Opens a look file to import, through the system file picker. */
     fun import() = onOpen()

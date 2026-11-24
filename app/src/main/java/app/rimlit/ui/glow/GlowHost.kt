@@ -23,12 +23,14 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Draws what the machine shows on [surface], and nothing while it shows nothing there. The machine owns the
  * timeline; this only animates towards each frame. Only a change of this surface's frame recomposes it, and it
- * stops collecting while its lifecycle is stopped.
+ * stops collecting while its lifecycle is stopped. It roots a surface's window, so it provides the device conditions.
  */
 @Composable
 fun GlowHost(state: StateFlow<GlowState?>, surface: Surface, modifier: Modifier = Modifier) {
     val frame by rememberSurfaceState(state, surface, FRAME)
-    frame?.let { GlowFrameHost(it, lockScreen = surface == Surface.LOCK_SCREEN, modifier) }
+    ProvideDeviceConditions {
+        frame?.let { GlowFrameHost(it, lockScreen = surface == Surface.LOCK_SCREEN, modifier) }
+    }
 }
 
 /**
@@ -71,7 +73,7 @@ private fun GlowFrameHost(frame: GlowFrame, lockScreen: Boolean, modifier: Modif
     val alpha by rememberFrameAlpha(frame)
     EdgeGlow(
         spec = frame.spec,
-        playback = frame.spec.playback(lockScreen, rememberDeviceConditions()),
+        playback = frame.spec.playback(lockScreen, LocalDeviceConditions.current),
         // Read in the draw phase: the fade redraws without recomposing.
         modifier = modifier.graphicsLayer { this.alpha = alpha },
     )

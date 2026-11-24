@@ -10,7 +10,9 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,12 +73,26 @@ fun GlowSpec.playback(lockScreen: Boolean, device: DeviceConditions): Playback {
     )
 }
 
+/** The device conditions every glow below [ProvideDeviceConditions] plays by. */
+val LocalDeviceConditions = compositionLocalOf<DeviceConditions> {
+    error("No device conditions: the composition root provides them with ProvideDeviceConditions")
+}
+
 /**
- * The device conditions, followed live: the Style screen stays open while the user flips battery saver or Remove
- * animations from Quick Settings.
+ * Provides [content] with the device conditions ([LocalDeviceConditions]), read once for the whole composition and
+ * followed live. Once per composition root: every window or activity that draws a glow.
  */
 @Composable
-fun rememberDeviceConditions(): DeviceConditions {
+fun ProvideDeviceConditions(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalDeviceConditions provides rememberDeviceConditions(), content = content)
+}
+
+/**
+ * The device conditions, followed live: a screen stays open while the user flips battery saver or Remove animations
+ * from Quick Settings.
+ */
+@Composable
+private fun rememberDeviceConditions(): DeviceConditions {
     val context = LocalContext.current
     var conditions by remember(context) { mutableStateOf(DeviceConditions.of(context)) }
     DisposableEffect(context) {

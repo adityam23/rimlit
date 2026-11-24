@@ -3,45 +3,33 @@ package app.rimlit.ui
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
 import app.rimlit.model.BatterySaver
-import app.rimlit.model.CustomCutout
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
-import app.rimlit.model.Look
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.glow.BATTERY_SAVER_FPS
-import app.rimlit.ui.glow.DisplayShape
 import kotlin.math.roundToInt
 
 /**
- * The Style screen's settings every look shares: the camera cutout's shape, corners, screen-off brightness (following
- * [look]'s until unlinked), duration and battery saver. [displayCornerDp] is the display's own corner radius;
- * [cutoutSeed] the detected cutout (`null` without one); [onDraggingScreenOff] reports the screen-off brightness
- * slider's drag.
+ * Behavior's settings every glow shares, whatever its look: how long it holds, its screen-off brightness, battery.
+ * [onDraggingScreenOff] says when the screen-off brightness slider starts and stops being dragged, to preview it.
  */
-internal fun LazyListScope.everyLookSection(
+internal fun LazyListScope.glowTimingSection(
     draft: GlowSettings,
-    look: Look,
-    displayCornerDp: Float,
-    cutoutSeed: CustomCutout?,
     editor: SettingsDraft,
     onDraggingScreenOff: (Boolean) -> Unit,
 ) {
-    item { SectionTitle(stringResource(R.string.every_look_section)) }
-    // The cutout's shape matters only where a ring is drawn around it: in any look that rings it.
-    if (cutoutSeed != null && draft.looks.any { it.region.ringsCutout }) cutoutItems(draft, cutoutSeed, editor)
-    cornerRadiusItems(draft, displayCornerDp, editor)
-    screenOffBrightnessItems(draft, look, editor, onDraggingScreenOff)
+    item { SectionTitle(stringResource(R.string.every_glow_section)) }
     item {
         SettingSlider(
             label = stringResource(R.string.duration_label),
@@ -52,55 +40,13 @@ internal fun LazyListScope.everyLookSection(
             onCommit = { v -> editor.persist { it.copy(durationMs = v.toLong()) } },
         )
     }
+    screenOffBrightnessItems(draft, editor, onDraggingScreenOff)
     batterySaverSection(draft, editor)
 }
 
-/** Where the corner slider starts when the user stops matching the display: the display's own radius, in dp. */
-@Composable
-internal fun rememberDisplayCornerDp(): Float {
-    val view = LocalView.current
-    val density = LocalDensity.current
-    return remember(view, density) {
-        with(density) { DisplayShape.of(view).cornerRadii.max().toDp().value }
-    }
-}
-
-/**
- * The screen-edge outline's corners: the display's own until the user unlinks them, then a custom radius
- * starting from the display's own, [displayCornerDp].
- */
-private fun LazyListScope.cornerRadiusItems(draft: GlowSettings, displayCornerDp: Float, editor: SettingsDraft) {
-    item {
-        SwitchCard(
-            title = stringResource(R.string.corner_match_title),
-            checked = draft.cornerRadiusDp == null,
-            onCheckedChange = { match ->
-                val custom = displayCornerDp.coerceIn(Ranges.cornerRadiusDp)
-                editor.commit { it.copy(cornerRadiusDp = if (match) null else custom) }
-            },
-            subtitle = stringResource(R.string.corner_match_desc),
-        )
-    }
-    val radius = draft.cornerRadiusDp ?: return
-    item {
-        SettingSlider(
-            label = stringResource(R.string.corner_radius_label),
-            value = radius,
-            range = Ranges.cornerRadiusDp,
-            valueText = { stringResource(R.string.value_dp, it.roundToInt()) },
-            onPreview = { v -> editor.preview { it.copy(cornerRadiusDp = v) } },
-            onCommit = { v -> editor.persist { it.copy(cornerRadiusDp = v) } },
-        )
-    }
-}
-
-/**
- * The lock-screen glow's own brightness: the same as on screen until the user unlinks it, then starting from
- * [look]'s. [onDragging] reports its slider's drag, so the live preview can show that brightness meanwhile.
- */
+/** The lock-screen glow's own brightness: each look's own until the user unlinks it, then starting from the default. */
 private fun LazyListScope.screenOffBrightnessItems(
     draft: GlowSettings,
-    look: Look,
     editor: SettingsDraft,
     onDragging: (Boolean) -> Unit,
 ) {
@@ -109,13 +55,16 @@ private fun LazyListScope.screenOffBrightnessItems(
             title = stringResource(R.string.screen_off_brightness_same_title),
             checked = draft.screenOffBrightness == null,
             onCheckedChange = { same ->
-                editor.commit { it.copy(screenOffBrightness = if (same) null else look.brightness) }
+                editor.commit { it.copy(screenOffBrightness = if (same) null else it.defaultLook.brightness) }
             },
             subtitle = stringResource(R.string.screen_off_brightness_same_desc),
         )
     }
     val screenOff = draft.screenOffBrightness ?: return
     item {
+        // The preview ends with the slider too, should it leave mid-drag (relinked, scrolled away): never left on.
+        val dragging by rememberUpdatedState(onDragging)
+        DisposableEffect(Unit) { onDispose { dragging(false) } }
         SettingSlider(
             label = stringResource(R.string.screen_off_brightness_label),
             value = screenOff,

@@ -28,3 +28,7 @@ Compose:
   ViewModelForwarding:
     # The nav host hands the shared MainViewModel to each screen; screens are the state-holder boundary.
     allowedForwarding: '.*Screen'
+  CompositionLocalAllowlist:
+    # The device conditions (battery saver, Remove animations) are read once per window and followed live by every
+    # glow in it, however deep: gallery tiles, previews, surfaces. A parameter would thread through every screen.
+    allowedCompositionLocals: 'LocalDeviceConditions'

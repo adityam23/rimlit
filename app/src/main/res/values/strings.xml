@@ -7,30 +7,37 @@
     <string name="master_toggle_title">Edge lighting</string>
     <string name="master_toggle_subtitle">Glow the screen edges when a notification arrives</string>
 
-    <string name="section_permissions">Permissions</string>
+    <string name="section_attention">Needs attention</string>
+    <string name="section_recommended_permissions">Recommended permissions</string>
+    <string name="attention_open_settings">Open settings</string>
+    <string name="attention_not_now">Not now</string>
 
+    <!-- Each permission: its title, a one-line reason (Home's row), and the whole explanation (the row's sheet). -->
     <string name="perm_notification_title">Notification access</string>
+    <string name="perm_notification_reason">To notice notifications as they arrive</string>
     <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps.</string>
     <string name="perm_overlay_title">Display over other apps</string>
+    <string name="perm_overlay_reason">To glow while the screen is on</string>
     <string name="perm_overlay_desc">Lets Rimlit glow while the screen is on.</string>
     <string name="perm_post_notifications_title">Notifications</string>
+    <string name="perm_post_notifications_reason">To wake the screen into the glow</string>
     <string name="perm_post_notifications_desc">Lets Rimlit post the silent notification that wakes the screen into the glow. Keep Rimlit\'s notifications and its \"Edge lighting\" category on, at high importance.</string>
     <string name="perm_fsi_title">Full-screen notifications</string>
+    <string name="perm_fsi_reason">To glow while the screen is off</string>
     <string name="perm_fsi_desc">Lets Rimlit wake the screen to glow while it is off. Android 14 and newer hide this behind a separate grant.</string>
     <string name="perm_accessibility_title">Accessibility glow</string>
+    <string name="perm_accessibility_reason">Glow above the lock screen, without Android\'s overlay notice</string>
     <string name="perm_accessibility_desc">Lets Rimlit glow above the lock screen too, and without Android\'s \"displaying over other apps\" notification. Turn on \"%1$s\" in Accessibility settings; on Android 13 and newer, sideloaded apps may first need \"Allow restricted settings\" from Rimlit\'s App info menu.</string>
     <string name="perm_battery_title">Unrestricted battery</string>
+    <string name="perm_battery_reason">So the glow isn\'t delayed</string>
     <string name="perm_battery_desc">Recommended so the glow is not delayed by battery optimization.</string>
 
-    <string name="status_granted">Granted</string>
     <string name="status_needed">Required</string>
     <string name="status_recommended">Recommended</string>
 
-    <string name="fallback_title">Android will show a notice</string>
-    <string name="fallback_service_off">On-screen glows are drawn over other apps, so Android shows \"Rimlit is displaying over other apps\" while one is up. Turn on \"%1$s\" in Accessibility settings to avoid it.</string>
+    <string name="attention_not_running_title">Accessibility glow isn\'t running</string>
+    <string name="attention_not_running_reason">Turn it off and on again</string>
     <string name="fallback_service_not_running">\"%1$s\" is on in Accessibility settings but isn\'t running, so on-screen glows are drawn over other apps and Android shows its notice. Turn it off and on again.</string>
-    <string name="no_overlay_title">On-screen glows can\'t show</string>
-    <string name="fallback_no_overlay">Rimlit needs \"%1$s\" or Display over other apps to glow while the screen is on. Turn on \"%1$s\" in Accessibility settings.</string>
     <string name="preview_hint_service_off">Android will show \"Rimlit is displaying over other apps\" until \"%1$s\" is turned on in Accessibility settings.</string>
     <string name="preview_hint_service_not_running">Android will show \"Rimlit is displaying over other apps\": \"%1$s\" is on but isn\'t running. Turn it off and on again in Accessibility settings.</string>
     <string name="preview_hint_no_overlay">This preview can\'t show until \"%1$s\" is turned on in Accessibility settings, or Display over other apps is allowed.</string>
@@ -44,19 +51,23 @@
     <string name="section_settings">Settings</string>
     <string name="nav_apps_title">Apps</string>
     <string name="nav_apps_subtitle">Choose which apps trigger edge lighting</string>
-    <string name="nav_style_title">Style</string>
-    <string name="nav_style_subtitle">Glow style, colors, and tuning</string>
     <string name="nav_behavior_title">Behavior</string>
-    <string name="nav_behavior_subtitle">Where it glows, and quiet hours</string>
+    <string name="nav_behavior_subtitle">Where and how long it glows, quiet hours, and this device\'s screen</string>
     <string name="back">Back</string>
+    <string name="looks_menu">Look files</string>
+
+    <!-- Behavior: the device's screen -->
+    <string name="device_section">This device</string>
+    <string name="nav_device_title">Screen fit</string>
+    <string name="nav_device_subtitle">The screen\'s corners and the camera cutout the glow follows</string>
+    <string name="every_glow_section">Every glow</string>
 
     <!-- Apps (blocklist) screen -->
     <string name="apps_search_hint">Search apps</string>
     <string name="apps_empty">No apps found</string>
     <string name="apps_hint">Switch off apps that should never glow. Tap the palette to give an app its own look.</string>
 
-    <!-- Style screen -->
-    <string name="style_section">Glow style</string>
+    <!-- Edge styles: each premade is named after its style -->
     <string name="style_basic_title">Basic</string>
     <string name="style_basic_desc">Crisp breathing edge</string>
     <string name="style_glow_title">Glow</string>
@@ -79,11 +90,14 @@
     <string name="style_boomerang_desc">A blade sweeping round the edge and back</string>
     <string name="style_none_title">None</string>
     <string name="style_none_desc">No edge, only the particles</string>
-    <string name="style_none_unavailable">Pick particles below to show them alone</string>
     <string name="particles_section">Particles</string>
     <string name="particles_none_title">None</string>
     <string name="particles_none_desc">Only the edge glows</string>
     <string name="particles_none_unavailable">A look with no edge needs particles</string>
+    <!-- A particle preset, named, whose tuning was changed. -->
+    <string name="particles_tweaked">%1$s · tweaked</string>
+    <string name="particles_only_title">Particles only</string>
+    <string name="particles_only_desc">No edge: only the particles show</string>
     <string name="particles_snow_title">Snow</string>
     <string name="particles_snow_desc">Snowflakes drifting down</string>
     <string name="particles_petals_title">Petals</string>
@@ -145,8 +159,6 @@
     <string name="auto_colors_count_label">Colors</string>
 
     <!-- Tuning -->
-    <string name="tuning_section">Tuning</string>
-    <string name="every_look_section">For every look</string>
     <string name="thickness_label">Thickness</string>
     <string name="glow_width_label">Glow width</string>
     <string name="speed_label">Speed</string>
@@ -188,24 +200,25 @@
     <string name="app_rule_look">Look: %1$s</string>
     <string name="save">Save</string>
 
-    <!-- Looks (Style screen) -->
+    <!-- Looks (Home's gallery) -->
     <string name="looks_section">Looks</string>
-    <string name="look_default_desc">Default: every app glows with it unless it has its own look</string>
-    <string name="look_unused_desc">No app uses this look yet</string>
-    <plurals name="look_used_desc">
-        <item quantity="one">Used by %1$d app</item>
-        <item quantity="other">Used by %1$d apps</item>
+    <string name="look_default">Default</string>
+    <string name="look_unused">Not used</string>
+    <plurals name="look_apps">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
     </plurals>
+    <!-- A look changed from the premade it started from, which is named. -->
+    <string name="look_custom_based_on">Custom · based on %1$s</string>
+    <string name="look_actions">Look options</string>
     <string name="look_new">New</string>
     <string name="look_duplicate">Duplicate</string>
     <string name="look_rename">Rename</string>
     <string name="look_delete">Delete</string>
-    <string name="look_new_title">New look</string>
-    <string name="look_duplicate_title">Duplicate look</string>
     <string name="look_rename_title">Rename look</string>
     <string name="look_name_label">Name</string>
-    <string name="look_new_name">Look %1$d</string>
     <string name="look_copy_name">%1$s copy</string>
+    <string name="premade_pick_title">Start from</string>
     <!-- The look an app's own colors from an older version become: the app's name. -->
     <string name="palette_look_name">%1$s colors</string>
     <!-- The look several apps' shared colors become: the first app's name, and how many others use it. -->
@@ -223,7 +236,48 @@
         <item quantity="other">You can keep up to %1$d looks</item>
     </plurals>
     <string name="look_delete_title">Delete %1$s?</string>
-    <string name="look_delete_desc">Apps that use it go back to the default look.</string>
+    <string name="look_delete_desc">No app uses it.</string>
+    <plurals name="look_delete_used_desc">
+        <item quantity="one">%1$d app uses this look. It will use the default look instead.</item>
+        <item quantity="other">%1$d apps use this look. They will use the default look instead.</item>
+    </plurals>
+
+    <!-- The look editor -->
+    <string name="editor_tab_base">Base</string>
+    <string name="editor_tab_color">Color</string>
+    <string name="editor_tab_particles">Particles</string>
+    <string name="editor_tab_tuning">Tuning</string>
+    <string name="editor_tab_apps">Apps</string>
+    <string name="editor_menu">More</string>
+    <string name="editor_send_test">Send test</string>
+    <string name="editor_screen_on">Showing the screen on. Switch to the screen off</string>
+    <string name="editor_screen_off">Showing the screen off. Switch to the screen on</string>
+    <!-- Why a save was refused, one per cause. -->
+    <string name="editor_save_look_limit">Couldn\'t save: you already have the most looks you can keep</string>
+    <string name="editor_save_name_taken">Couldn\'t save: another look already has this name</string>
+    <string name="editor_save_look_deleted">Couldn\'t save: this look was deleted</string>
+    <string name="editor_save_failed">Couldn\'t save the look</string>
+    <!-- Resets a tab, or a particle preset's tuning, to what it started from, which is named. -->
+    <string name="editor_reset_to">Reset to %1$s</string>
+    <string name="editor_tinker_title">Tinker</string>
+    <string name="editor_tinker_desc">Show every knob on this tab</string>
+    <string name="editor_premade_section">Based on</string>
+    <string name="editor_palette_section">Palette</string>
+    <string name="editor_default_title">Default for all apps</string>
+    <string name="editor_default_desc">Every app without a look of its own glows with this one</string>
+    <string name="editor_default_fixed_desc">This is the default look. To change it, make another look the default.</string>
+    <string name="editor_apps_section">Apps with this look</string>
+    <string name="editor_leave_title">Save your changes?</string>
+    <string name="editor_leave_desc">This look has changes that aren\'t saved.</string>
+    <string name="editor_keep_editing">Keep editing</string>
+    <string name="editor_discard">Discard</string>
+    <!-- Switching a customised look to the named premade. -->
+    <string name="editor_switch_title">Switch to %1$s?</string>
+    <!-- The premade named is the one the look's changes were made to. -->
+    <string name="editor_switch_desc">Your changes to %1$s will be lost.</string>
+    <string name="editor_switch">Switch</string>
+    <!-- The mark of a setting changed from where its look started. -->
+    <string name="changed_mark">Changed</string>
 
     <!-- Look files (Style screen) -->
     <string name="looks_export">Export</string>
@@ -261,7 +315,6 @@
     <string name="region_cutout_desc">Glow rings the front camera</string>
     <string name="region_both_title">Around camera cutout and screen edge</string>
     <string name="region_both_desc">Glow traces the screen border and rings the front camera</string>
-    <string name="region_cutout_unavailable">This device has no camera cutout</string>
     <string name="corner_match_title">Match display corners</string>
     <string name="corner_match_desc">Turn off to round the screen-edge glow\'s corners your own way</string>
     <string name="corner_radius_label">Corner radius</string>

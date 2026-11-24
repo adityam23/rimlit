@@ -57,52 +57,76 @@ enum class LookPart {
     TUNING,
 }
 
-/** The parts where this look differs from its premade; empty while it is the premade untouched. */
-fun Look.changedParts(): Set<LookPart> {
-    val premade = premadeLook()
-    return LookPart.entries.filterTo(mutableSetOf()) { part -> part.fields.any { it.differs(this, premade) } }
+/**
+ * A look's settings, the editor's controls, each in its [part] and defined once by its [field], so comparing and
+ * resetting can't disagree. Every value but the id, the name and the premade belongs to exactly one part.
+ */
+enum class LookControl(val part: LookPart, private val field: LookField<*>) {
+    STYLE(LookPart.BASE, LookField(Look::style) { copy(style = it) }),
+    REGION(LookPart.BASE, LookField(Look::region) { copy(region = it) }),
+    COLOR_MODE(LookPart.COLOUR, LookField(Look::colorMode) { copy(colorMode = it) }),
+    AUTO_SOURCE(
+        LookPart.COLOUR,
+        LookField({ it.autoColors.source }, shows = { it.colorMode == ColorMode.AUTO }) {
+            copy(autoColors = autoColors.copy(source = it))
+        },
+    ),
+    AUTO_COUNT(
+        LookPart.COLOUR,
+        LookField({ it.autoColors.count }, shows = { it.colorMode == ColorMode.AUTO }) {
+            copy(autoColors = autoColors.copy(count = it))
+        },
+    ),
+    CUSTOM_COLORS(
+        LookPart.COLOUR,
+        LookField(Look::customColors, shows = { it.colorMode == ColorMode.CUSTOM }) { copy(customColors = it) },
+    ),
+    PARTICLES(LookPart.PARTICLES, LookField(Look::particles) { copy(particles = it) }),
+    THICKNESS(LookPart.TUNING, LookField(Look::thicknessDp) { copy(thicknessDp = it) }),
+    GLOW_WIDTH(LookPart.TUNING, LookField(Look::glowWidthDp) { copy(glowWidthDp = it) }),
+    SPEED(LookPart.TUNING, LookField(Look::speed) { copy(speed = it) }),
+    BRIGHTNESS(LookPart.TUNING, LookField(Look::brightness) { copy(brightness = it) }),
+    ;
+
+    internal fun differs(look: Look, premade: Look): Boolean = field.differs(look, premade)
+
+    internal fun copied(to: Look, from: Look): Look = field.copied(to, from)
 }
+
+/** The settings where this look differs from its premade, the editor's marks; empty while it is untouched. */
+fun Look.changedControls(): Set<LookControl> {
+    val premade = premadeLook()
+    return LookControl.entries.filterTo(mutableSetOf()) { it.differs(this, premade) }
+}
+
+/** The parts where this look differs from its premade; empty while it is the premade untouched. */
+fun Look.changedParts(): Set<LookPart> = changedControls().mapTo(mutableSetOf()) { it.part }
 
 /** Whether this look differs from its premade anywhere. */
 val Look.isCustom: Boolean get() = changedParts().isNotEmpty()
 
-/** This look with [part] set back to its premade's. */
+/**
+ * This look with [part] set back to its premade's. A look with no edge whose particles go keeps showing something:
+ * its premade's edge comes back (see [showingSomething]).
+ */
 fun Look.reset(part: LookPart): Look {
     val premade = premadeLook()
-    return part.fields.fold(this) { look, field -> field.copied(to = look, from = premade) }
+    return LookControl.entries.filter { it.part == part }
+        .fold(this) { look, control -> control.copied(to = look, from = premade) }
+        .showingSomething()
 }
+
+/**
+ * This look, showing something: one with no edge ([GlowStyle.NONE]) needs particles, so without them its premade's
+ * edge comes back. Otherwise unchanged.
+ */
+fun Look.showingSomething(): Look =
+    if (style == GlowStyle.NONE && particles == null) copy(style = basedOn.style) else this
 
 /** This look replaced by [premade]'s values, keeping its id and name: everything it changed is lost. */
 fun Look.switchedTo(premade: Premade): Look = premade.look(id, name)
 
 private fun Look.premadeLook(): Look = basedOn.look(id, name)
-
-/**
- * The values of a look that make up this part, each once, so comparing and resetting it can't disagree. Every value
- * but the id, the name and the premade belongs to exactly one part.
- */
-private val LookPart.fields: List<LookField<*>>
-    get() = when (this) {
-        LookPart.BASE -> listOf(
-            LookField(Look::style) { copy(style = it) },
-            LookField(Look::region) { copy(region = it) },
-        )
-
-        LookPart.COLOUR -> listOf(
-            LookField(Look::colorMode) { copy(colorMode = it) },
-            LookField(Look::autoColors, shows = { it.colorMode == ColorMode.AUTO }) { copy(autoColors = it) },
-            LookField(Look::customColors, shows = { it.colorMode == ColorMode.CUSTOM }) { copy(customColors = it) },
-        )
-
-        LookPart.PARTICLES -> listOf(LookField(Look::particles) { copy(particles = it) })
-
-        LookPart.TUNING -> listOf(
-            LookField(Look::thicknessDp) { copy(thicknessDp = it) },
-            LookField(Look::glowWidthDp) { copy(glowWidthDp = it) },
-            LookField(Look::speed) { copy(speed = it) },
-            LookField(Look::brightness) { copy(brightness = it) },
-        )
-    }
 
 /**
  * One value of a look: [get] reads it and [set] writes it. It counts as changed only where it [shows], so colours a

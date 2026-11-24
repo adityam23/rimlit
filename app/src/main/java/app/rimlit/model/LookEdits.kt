@@ -1,24 +1,13 @@
 package app.rimlit.model
 
-import app.rimlit.model.GlowSettings.Ranges
 import java.util.UUID
 
-// The look library's edits on GlowSettings: naming, adding, renaming and deleting looks, and setting app rules. Each
+// The look library's edits on GlowSettings: adding, renaming and deleting looks (named as LookNames.kt allows), and
+// setting app rules. Each
 // returns the settings unchanged when the edit isn't allowed, so the settings' invariants always hold.
 
 /** Whether another look fits, at most [MAX_LOOKS]. */
 val GlowSettings.canAddLook: Boolean get() = looks.size < MAX_LOOKS
-
-/** Whether [name] is a valid look name (see [isValidLookName]) no look but [exceptId] uses. */
-fun GlowSettings.canName(name: String, exceptId: String? = null): Boolean =
-    isValidLookName(name) && looks.none { it.id != exceptId && lookNameKey(it.name) == lookNameKey(name) }
-
-/**
- * The first of [candidates] a new look can be named, or `null` when none of the first [MAX_LOOKS] + 1 can: with at
- * most [MAX_LOOKS] looks, that many distinct valid names always hold a free one.
- */
-fun GlowSettings.firstFreeName(candidates: Sequence<String>): String? =
-    candidates.take(MAX_LOOKS + 1).firstOrNull { canName(it) }
 
 /**
  * These settings with a copy of [from] added as [name], under [id]; unchanged when no look fits, the name can't be
@@ -43,7 +32,7 @@ fun GlowSettings.addImportedLooks(
  * [id]; `null` when it isn't added: no look fits, or the id is taken.
  */
 fun GlowSettings.addLookNumbered(from: Look, name: String, id: String): GlowSettings? =
-    firstFreeName(numberedNames(name))?.let { withLookAdded(from, it, id) }
+    numberedName(name)?.let { withLookAdded(from, it, id) }
 
 /** These settings with a copy of [from] added as [name] under [id]; `null` when it isn't allowed (see [addLook]). */
 private fun GlowSettings.withLookAdded(from: Look, name: String, id: String): GlowSettings? =
@@ -51,13 +40,6 @@ private fun GlowSettings.withLookAdded(from: Look, name: String, id: String): Gl
         null
     } else {
         copy(looks = looks + from.copy(id = id, name = name))
-    }
-
-/** [name] (a valid look name), then numbered from 2, "Work (2)", cut so the number always fits. */
-private fun numberedNames(name: String): Sequence<String> =
-    sequenceOf(name) + generateSequence(2) { it + 1 }.map { number ->
-        val suffix = " ($number)"
-        fitLookName(name, Ranges.lookNameLength.last - suffix.length) + suffix
     }
 
 /** These settings with the look [id] renamed [name]; unchanged when the name can't be used. */
