@@ -255,6 +255,9 @@
     <string name="looks_section">Looks</string>
     <string name="look_default">Default</string>
     <string name="look_unused">Not used</string>
+    <!-- The sheet listing the apps that have the named look as their own. -->
+    <string name="look_apps_title">Apps using %1$s</string>
+    <string name="look_apps_show">Show the apps</string>
     <plurals name="look_apps">
         <item quantity="one">%1$d app</item>
         <item quantity="other">%1$d apps</item>
@@ -318,6 +321,8 @@
     <string name="editor_default_desc">Every app without a look of its own glows with this one</string>
     <string name="editor_default_fixed_desc">This is the default look. To change it, make another look the default.</string>
     <string name="editor_apps_section">Apps with this look</string>
+    <!-- An app in a look's list that glows with another look of its own, which is named. -->
+    <string name="editor_app_uses">Uses %1$s</string>
     <string name="editor_leave_title">Save your changes?</string>
     <string name="editor_leave_desc">This look has changes that aren\'t saved.</string>
     <string name="editor_keep_editing">Keep editing</string>

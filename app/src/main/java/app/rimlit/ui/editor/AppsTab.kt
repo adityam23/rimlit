@@ -4,10 +4,13 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import app.rimlit.R
+import app.rimlit.model.ownLookInstead
 import app.rimlit.ui.AppRow
 import app.rimlit.ui.components.AppSearchField
 import app.rimlit.ui.components.SectionTitle
@@ -15,7 +18,8 @@ import app.rimlit.ui.components.SwitchCard
 
 /**
  * Where the look applies, saved with it: as the default look, and for the apps ticked, found by name. The default
- * look stays the default: another look takes it over by turning it on there.
+ * look stays the default: another look takes it over by turning it on there. An app with another look of its own
+ * names it instead of a tick (see [ownLookInstead]), so it's clear that app glows differently.
  */
 internal fun LazyListScope.appsTab(editor: LookEditorState) {
     val useFor = editor.applies
@@ -34,6 +38,22 @@ internal fun LazyListScope.appsTab(editor: LookEditorState) {
     item(key = "apps_title") { SectionTitle(stringResource(R.string.editor_apps_section)) }
     item(key = "search") { AppSearchField(editor.appQuery, onQueryChange = { editor.appQuery = it }) }
     items(editor.shownApps, key = { "app_${it.packageName}" }) { app ->
+        val other = editor.settings.ownLookInstead(app.packageName, editor.look.id, ticked = editor.tickedHere)
+        if (other != null) {
+            // It glows differently: its own look is changed from the Apps screen, so here it is only named.
+            AppRow(
+                app = app,
+                supporting = {
+                    Text(
+                        text = stringResource(R.string.editor_app_uses, other.name),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                trailing = {},
+            )
+            return@items
+        }
         val checked = app.packageName in useFor.apps
         AppRow(
             app = app,

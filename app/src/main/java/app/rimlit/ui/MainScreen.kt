@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.data.AppInfo
 import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.UiPrefs
@@ -38,6 +39,7 @@ import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.editor.EditorTarget
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Home: the master switch, anything that needs the user, the user's looks (open one to edit it, long press for more,
@@ -85,6 +87,7 @@ fun MainScreen(
             item {
                 HomeLooks(
                     settings = settings,
+                    apps = viewModel.apps,
                     onEdit = viewModel::update,
                     onShare = sharing::shareLook,
                     onOpenEditor = onOpenEditor,
@@ -110,17 +113,24 @@ fun MainScreen(
 
 /**
  * The look gallery and what its tiles ask: the editor on a look, on a copy of one, or on a new one from the premade
- * picked ([onOpenEditor]); a look's rename or delete ([onEdit] makes the settings edit each asks for); sharing it.
+ * picked ([onOpenEditor]); a look's rename or delete ([onEdit] makes the settings edit each asks for); sharing it;
+ * the apps using it, named from [apps].
  */
 @Composable
 private fun HomeLooks(
     settings: GlowSettings,
+    apps: StateFlow<List<AppInfo>>,
     onEdit: (SettingsEdit) -> Unit,
     onShare: (lookId: String) -> Unit,
     onOpenEditor: (EditorTarget) -> Unit,
 ) {
     var lookAction by rememberSaveable(stateSaver = LookAction.Saver) { mutableStateOf<LookAction?>(null) }
     var picking by rememberSaveable { mutableStateOf(false) }
+    var showingAppsOf by rememberSaveable { mutableStateOf<String?>(null) }
+    // Closed when the look is deleted meanwhile.
+    showingAppsOf?.let(settings::look)?.let { look ->
+        LookAppsSheet(settings, look, apps, onClose = { showingAppsOf = null })
+    }
     LookGallery(
         settings = settings,
         onOpen = { onOpenEditor(EditorTarget.Edit(it.id)) },
@@ -133,6 +143,7 @@ private fun HomeLooks(
             }
         },
         onNew = { picking = true },
+        onShowApps = { showingAppsOf = it.id },
     )
     if (picking) {
         PremadePickerDialog(
