@@ -66,7 +66,7 @@ private fun LazyListScope.sideChips(editor: LookEditorState) {
                     selected = lit,
                     onClick = { editor.edit(look.copy(sides = look.sides.withSide(side, lit = !lit))) },
                     label = { Text(stringResource(side.labelRes)) },
-                    enabled = !lit || look.sides.size > 1,
+                    enabled = look.sides.withSide(side, lit = !lit) != look.sides,
                 )
             }
         }
