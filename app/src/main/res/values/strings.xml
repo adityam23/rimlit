@@ -373,7 +373,7 @@
     <!-- Glow area -->
     <string name="region_section">Glow area</string>
     <string name="region_full_title">Around screen edge</string>
-    <string name="region_full_desc">Glow traces the whole screen border</string>
+    <string name="region_full_desc">Glow traces the screen border</string>
     <string name="region_cutout_title">Around camera cutout</string>
     <string name="region_cutout_desc">Glow rings the front camera</string>
     <string name="region_both_title">Around camera cutout and screen edge</string>
