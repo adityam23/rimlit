@@ -58,6 +58,16 @@ object GlowNotifications {
         return manager.areNotificationsEnabled() && importance >= high
     }
 
+    /**
+     * The test notification can be posted: notifications are allowed for Rimlit and the user hasn't turned its channel
+     * off. A channel not created yet counts, since it is created on.
+     */
+    fun canPostTest(context: Context): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val importance = manager.getNotificationChannel(TEST_CHANNEL_ID)?.importance
+        return manager.areNotificationsEnabled() && importance != NotificationManager.IMPORTANCE_NONE
+    }
+
     /** Rimlit's own test notification. The package must match too: another app could reuse the channel id. */
     fun isTest(context: Context, sbn: StatusBarNotification): Boolean =
         sbn.packageName == context.packageName && sbn.notification.channelId == TEST_CHANNEL_ID

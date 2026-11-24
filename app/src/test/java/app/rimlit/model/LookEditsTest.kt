@@ -3,6 +3,7 @@ package app.rimlit.model
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -143,6 +144,15 @@ class LookEditsTest {
     }
 
     @Test
+    fun aFreshNameIsCutAndNumberedPastEveryLookButTheOneBeingNamed() {
+        assertEquals("Night", settings.freshName("Night"))
+        assertEquals("work (2)", settings.freshName("work"), "taken, whatever its case")
+        assertEquals("work", settings.freshName("work", exceptId = "work"), "the look's own name stays free for it")
+        assertEquals("Work (2)", settings.freshName("Work", exceptId = DEFAULT_LOOK_ID), "another look's isn't")
+        assertEquals("x".repeat(30), settings.freshName("x".repeat(40)), "cut to fit")
+    }
+
+    @Test
     fun importedLooksAreAddedUnderNewIdsWithClashingNamesNumbered() {
         val ruled = settings.withAppRule(app, Rule("work"))
         val night = Look(id = "work", name = "Night", style = GlowStyle.BASIC)
@@ -177,5 +187,30 @@ class LookEditsTest {
         assertEquals(MAX_LOOKS, imported.looks.size)
         assertEquals((1..MAX_LOOKS - 2).map { "Imported $it" }, imported.looks.drop(2).map { it.name })
         assertEquals(full(), full().addImportedLooks(looks), "no room: unchanged")
+    }
+
+    @Test
+    fun theFirstLookPickedReplacesTheDefaultLookAndIsNamedAfterItsPremade() {
+        val custom = settings.updateLook(DEFAULT_LOOK_ID) { it.copy(speed = 2f, colorMode = ColorMode.RAINBOW) }
+        val picked = custom.defaultLookSwitchedTo(Premade.WAVE, "Wave")
+        assertEquals(Premade.WAVE.look(DEFAULT_LOOK_ID, "Wave"), picked.defaultLook, "every change lost, same id")
+        assertEquals(settings.looks.map { it.id }, picked.looks.map { it.id }, "one look replaced, none added")
+        assertEquals(work, picked.look("work"))
+        assertEquals("Work (2)", settings.defaultLookSwitchedTo(Premade.BLADE, "Work").defaultLook.name)
+        val named = settings.renameLook(DEFAULT_LOOK_ID, "Blade")
+        assertEquals("Blade", named.defaultLookSwitchedTo(Premade.BLADE, "Blade").defaultLook.name, "its own name")
+    }
+
+    @Test
+    fun aPremadeAddedAsTheDefaultLookKeepsTheOldOne() {
+        val custom = settings.updateLook(DEFAULT_LOOK_ID) { it.copy(speed = 2f) }
+        val added = assertNotNull(custom.defaultLookAdded(Premade.WAVE, "Wave", id = "wave"))
+        assertEquals(Premade.WAVE.look("wave", "Wave"), added.defaultLook, "a new look, the default")
+        assertEquals(custom.looks, added.looks.dropLast(1), "the old default and every other look as they were")
+        assertEquals("Work (2)", settings.defaultLookAdded(Premade.BLADE, "Work", id = "new")?.defaultLook?.name)
+        assertEquals("x".repeat(30), settings.defaultLookAdded(Premade.BLADE, "x".repeat(40))?.defaultLook?.name)
+        assertNull(full().defaultLookAdded(Premade.WAVE, "Wave"), "no room")
+        assertNull(settings.defaultLookAdded(Premade.WAVE, "Wave", id = "work"), "id taken")
+        assertNull(settings.defaultLookAdded(Premade.WAVE, "   "), "no look name")
     }
 }

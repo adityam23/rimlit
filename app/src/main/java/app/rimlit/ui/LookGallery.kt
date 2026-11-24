@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -29,13 +31,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.rimlit.R
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.Look
+import app.rimlit.model.appsUsing
 import app.rimlit.model.canAddLook
+import app.rimlit.model.looksDefaultFirst
 
 private val TileWidth = 96.dp
 
@@ -44,8 +51,9 @@ internal enum class TileAction { DUPLICATE, RENAME, SHARE, DELETE }
 
 /**
  * The user's looks as one row of tiles that scrolls sideways, each playing its edge while on screen, named and
- * badged, then "+ New" while another fits. A tap opens a look ([onOpen]), a long press offers [TileAction]s
- * ([onAction]); the default look can't be deleted.
+ * badged, the default look first and outlined, then "+ New" while another fits. A tap opens a look ([onOpen]), a long
+ * press offers [TileAction]s ([onAction]); the default look can't be deleted. A look's app count asks to show the
+ * apps using it ([onShowApps]).
  */
 @Composable
 internal fun LookGallery(
@@ -53,6 +61,7 @@ internal fun LookGallery(
     onOpen: (Look) -> Unit,
     onAction: (Look, TileAction) -> Unit,
     onNew: () -> Unit,
+    onShowApps: (Look) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyRow(
@@ -60,10 +69,35 @@ internal fun LookGallery(
         contentPadding = PaddingValues(horizontal = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(settings.looks, key = { it.id }) { look ->
-            LookTile(settings, look, onOpen = { onOpen(look) }, onAction = { onAction(look, it) })
+        items(settings.looksDefaultFirst, key = { it.id }) { look ->
+            LookTile(
+                settings = settings,
+                look = look,
+                onOpen = { onOpen(look) },
+                onAction = { onAction(look, it) },
+                onShowApps = { onShowApps(look) },
+            )
         }
         if (settings.canAddLook) item(key = "new") { NewLookTile(onNew) }
+    }
+}
+
+/** Marks the default look: a star and "Default", wherever looks are listed. */
+@Composable
+internal fun DefaultBadge(modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            Icons.Filled.Star,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(14.dp),
+        )
+        Text(
+            text = stringResource(R.string.look_default),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 2.dp),
+        )
     }
 }
 
@@ -115,9 +149,16 @@ private val SelectionGap = 4.dp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LookTile(settings: GlowSettings, look: Look, onOpen: () -> Unit, onAction: (TileAction) -> Unit) {
+private fun LookTile(
+    settings: GlowSettings,
+    look: Look,
+    onOpen: () -> Unit,
+    onAction: (TileAction) -> Unit,
+    onShowApps: () -> Unit,
+) {
     var menu by rememberSaveable { mutableStateOf(false) }
     val actionsLabel = stringResource(R.string.look_actions)
+    val isDefault = look.id == settings.defaultLookId
     Box {
         LookCard(
             settings = settings,
@@ -127,16 +168,12 @@ private fun LookTile(settings: GlowSettings, look: Look, onOpen: () -> Unit, onA
                 onLongClick = { menu = true },
                 onClick = onOpen,
             ),
+            selected = isDefault,
         ) {
-            Text(
-                text = settings.usage(look),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-            )
+            if (isDefault) DefaultBadge() else LookUsage(settings.appsUsing(look.id), onShowApps)
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            val canDelete = look.id != settings.defaultLookId
+            val canDelete = !isDefault
             for (action in TileAction.entries) {
                 DropdownMenuItem(
                     text = { Text(stringResource(action.labelRes)) },
@@ -153,6 +190,27 @@ private fun LookTile(settings: GlowSettings, look: Look, onOpen: () -> Unit, onA
             }
         }
     }
+}
+
+/** Who has a look other than the default as their own: "Not used", or "3 apps", which opens them ([onShowApps]). */
+@Composable
+private fun LookUsage(apps: Int, onShowApps: () -> Unit) {
+    val style = MaterialTheme.typography.labelSmall
+    if (apps == 0) {
+        Text(stringResource(R.string.look_unused), style = style, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    Text(
+        text = pluralStringResource(R.plurals.look_apps, apps, apps),
+        style = style.copy(textDecoration = TextDecoration.Underline),
+        color = MaterialTheme.colorScheme.primary,
+        maxLines = 1,
+        modifier = Modifier.clickable(
+            onClickLabel = stringResource(R.string.look_apps_show),
+            role = Role.Button,
+            onClick = onShowApps,
+        ),
+    )
 }
 
 @Composable

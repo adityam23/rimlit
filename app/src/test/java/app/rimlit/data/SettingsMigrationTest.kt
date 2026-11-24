@@ -261,6 +261,20 @@ class SettingsMigrationTest {
     }
 
     @Test
+    fun thePillsOffsetsReadBackTheSameAndClamped() {
+        val moved = GlowSettings(pillOffsetXDp = -24f, pillOffsetYDp = 40f)
+        assertEquals(moved, mutablePreferencesOf().apply { write(moved) }.read())
+
+        val absurd = mutablePreferencesOf().apply {
+            write(GlowSettings())
+            this[floatPreferencesKey("pill_offset_x_dp")] = 10_000f
+            this[floatPreferencesKey("pill_offset_y_dp")] = -10_000f
+        }.read()
+        assertEquals(GlowSettings.Ranges.pillOffsetDp.endInclusive, absurd.pillOffsetXDp)
+        assertEquals(GlowSettings.Ranges.pillOffsetDp.start, absurd.pillOffsetYDp)
+    }
+
+    @Test
     fun theChosenAppsReadBackTheSame() {
         val settings = GlowSettings(
             onlyChosenApps = true,

@@ -14,6 +14,27 @@ fun GlowSettings.useFor(id: String): UseFor =
 fun GlowSettings.appsUsing(id: String): Int = appRules.values.count { it == Rule(id) }
 
 /**
+ * The apps that have the look [id] as their own (as many as [appsUsing] counts), by package: in name order by
+ * [labels] (the names of the apps Rimlit lists, by package), then those it has no name for (no launcher icon, or gone)
+ * by package name.
+ */
+fun GlowSettings.appsUsingByName(id: String, labels: Map<String, String>): List<String> =
+    useFor(id).apps.sortedWith(compareBy({ it !in labels }, { (labels[it] ?: it).lowercase() }, { it }))
+
+/**
+ * The look [packageName] has as its own instead of the look [lookId], so it glows with that one and isn't ticked in
+ * [lookId]'s list; `null` when it has none of its own (a rule naming the default look is none), its own is [lookId],
+ * or [ticked] holds it: ticked for [lookId] already (a new look made for it takes it over when saved), so it keeps
+ * its tick.
+ */
+fun GlowSettings.ownLookInstead(packageName: String, lookId: String, ticked: Set<String>): Look? =
+    appLook(packageName)?.takeIf { it.id != lookId && it.id != defaultLookId && packageName !in ticked }
+
+/** The looks as they are listed: the default look first, then the others in the order they were made. */
+val GlowSettings.looksDefaultFirst: List<Look>
+    get() = listOf(defaultLook) + looks.filter { it.id != defaultLookId }
+
+/**
  * How many other apps have [packageName]'s own look as theirs too, so editing it changes them as well; 0 when it has
  * none of its own, or its rule names the default look.
  */

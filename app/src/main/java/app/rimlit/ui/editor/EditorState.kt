@@ -99,6 +99,13 @@ internal class LookEditorState(
     /** Where the user set the look to apply; `null` while unchanged (as saved, or nowhere for a new look). */
     private var useFor by mutableStateOf(useFor)
 
+    /**
+     * The apps ticked in this editor at some point: each keeps its tick to untick and tick again, though it has another
+     * look of its own (see [ownLookInstead]).
+     */
+    var tickedHere by mutableStateOf(useFor?.apps.orEmpty())
+        private set
+
     /** A save is in flight: another, or leaving, waits for it. */
     var saving by mutableStateOf(false)
         private set
@@ -124,6 +131,7 @@ internal class LookEditorState(
         get() = useFor ?: if (isNew) UseFor(isDefault = false, apps = emptySet()) else settings.useFor(look.id)
         set(value) {
             useFor = value
+            tickedHere += value.apps
         }
 
     val unsaved: Boolean
@@ -169,6 +177,7 @@ internal class LookEditorState(
         look = look.copy(id = UUID.randomUUID().toString(), name = settings.freshName(copyName))
         isNew = true
         useFor = null
+        tickedHere = emptySet()
     }
 
     /** Turns the open tab's "Tinker" on or off, remembered at once (it isn't part of the look). */
@@ -229,8 +238,8 @@ internal class LookEditorState(
                 val fields = saved as List<*>
                 val look = decodeLooks(fields[0] as String)?.singleOrNull() ?: return@Saver null
                 val editor = LookEditorState(sources, look, isNew = fields[1] as Boolean).apply {
-                    useFor = (fields[2] as List<*>?)?.let { applied ->
-                        UseFor(applied.first() as Boolean, applied.drop(1).map(Any?::toString).toSet())
+                    (fields[2] as List<*>?)?.let { applied ->
+                        applies = UseFor(applied.first() as Boolean, applied.drop(1).map(Any?::toString).toSet())
                     }
                     tab = EditorTab.entries[fields[3] as Int]
                     offScreen = fields[4] as Boolean

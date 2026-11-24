@@ -4,22 +4,20 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MobileOff
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -40,12 +38,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
-import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.QuietHours
 import app.rimlit.model.QuietScope
 import app.rimlit.ui.components.NavCard
-import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingCard
@@ -61,6 +57,7 @@ fun BehaviorScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit,
     onOpenDevice: () -> Unit,
+    onOpenSetup: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val saved by viewModel.settings.collectAsStateWithLifecycle()
@@ -78,30 +75,19 @@ fun BehaviorScreen(
     var draggingScreenOff by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        SubScreenScaffold(title = stringResource(R.string.nav_behavior_title), onBack = onBack) { innerPadding ->
-            SettingsList(innerPadding) {
-                whereSection(settings, lockScreenNeedsService = fallback != null, editor::commit)
-                glowTimingSection(settings, editor) { draggingScreenOff = it }
-                quietHoursSection(settings.quietHours) { edit ->
-                    editor.commit { it.copy(quietHours = edit(it.quietHours)) }
-                }
-                gesturesSection(settings, editor::commit)
-                deviceAndEditorSections(uiPrefs.alwaysTinker, onOpenDevice) { on ->
-                    viewModel.updateUi { it.copy(alwaysTinker = on) }
-                }
-                attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
-                item { SectionTitle(stringResource(R.string.preview_section)) }
-                item {
-                    PreviewButtons(
-                        onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, settings.previewSpec()) },
-                        onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, settings.previewSpec()) },
-                        fallback = fallback,
-                    )
-                }
-                item {
-                    OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.test_notification_button))
+        PillPosition(saved, viewModel::update) { pillItems ->
+            SubScreenScaffold(title = stringResource(R.string.nav_behavior_title), onBack = onBack) { innerPadding ->
+                SettingsList(innerPadding) {
+                    whereSection(settings, lockScreenNeedsService = fallback != null, editor::commit)
+                    glowTimingSection(settings, editor) { draggingScreenOff = it }
+                    quietHoursSection(settings.quietHours) { edit ->
+                        editor.commit { it.copy(quietHours = edit(it.quietHours)) }
                     }
+                    gesturesSection(settings, pillItems, editor::commit)
+                    deviceAndEditorSections(uiPrefs.alwaysTinker, onOpenDevice, onOpenSetup) { on ->
+                        viewModel.updateUi { it.copy(alwaysTinker = on) }
+                    }
+                    attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
                 }
             }
         }
@@ -114,10 +100,14 @@ fun BehaviorScreen(
     AttentionSheet(attention = opened, onOpenSettings = viewModel::openPermission, onNotNow = null) { opened = null }
 }
 
-/** Screen fit, opened on its own screen ([onOpenDevice]); then the look editor's "Always tinker". */
+/**
+ * The device: how the glow fits the screen ([onOpenDevice]) and the guided first launch again ([onOpenSetup]); then
+ * the look editor's "Always tinker".
+ */
 private fun LazyListScope.deviceAndEditorSections(
     alwaysTinker: Boolean,
     onOpenDevice: () -> Unit,
+    onOpenSetup: () -> Unit,
     onAlwaysTinker: (Boolean) -> Unit,
 ) {
     item { SectionTitle(stringResource(R.string.device_section)) }
@@ -127,6 +117,14 @@ private fun LazyListScope.deviceAndEditorSections(
             title = stringResource(R.string.nav_device_title),
             subtitle = stringResource(R.string.nav_device_subtitle),
             onClick = onOpenDevice,
+        )
+    }
+    item {
+        NavCard(
+            icon = Icons.Filled.RestartAlt,
+            title = stringResource(R.string.nav_setup_title),
+            subtitle = stringResource(R.string.nav_setup_subtitle),
+            onClick = onOpenSetup,
         )
     }
     item { SectionTitle(stringResource(R.string.look_editor_section)) }
@@ -215,18 +213,14 @@ private fun LazyListScope.quietHoursSection(quiet: QuietHours, update: ((QuietHo
     }
 }
 
-/** The app pill, and what touching the screen-off glow or the pill does. */
-private fun LazyListScope.gesturesSection(settings: GlowSettings, update: ((GlowSettings) -> GlowSettings) -> Unit) {
+/** The app pill ([pillItems]), and what touching the screen-off glow or the pill does. */
+private fun LazyListScope.gesturesSection(
+    settings: GlowSettings,
+    pillItems: LazyListScope.() -> Unit,
+    update: ((GlowSettings) -> GlowSettings) -> Unit,
+) {
     item { SectionTitle(stringResource(R.string.gestures_section)) }
-    item {
-        SwitchCard(
-            title = stringResource(R.string.show_pill_title),
-            checked = settings.showPill,
-            onCheckedChange = { show -> update { it.copy(showPill = show) } },
-            subtitle = stringResource(R.string.show_pill_desc),
-            leading = { SettingIcon(Icons.Filled.Apps) },
-        )
-    }
+    pillItems()
     item {
         SwitchCard(
             title = stringResource(R.string.open_on_double_tap_title),

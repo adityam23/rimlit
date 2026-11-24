@@ -9,20 +9,25 @@ fun GlowSettings.canName(name: String, exceptId: String? = null): Boolean =
     isValidLookName(name) && looks.none { it.id != exceptId && lookNameKey(it.name) == lookNameKey(name) }
 
 /**
- * The first of [candidates] a new look can be named, or `null` when none of the first [MAX_LOOKS] + 1 can: with at
- * most [MAX_LOOKS] looks, that many distinct valid names always hold a free one.
+ * The first of [candidates] a look can be named, no look but [exceptId] using it, or `null` when none of the first
+ * [MAX_LOOKS] + 1 can: with at most [MAX_LOOKS] looks, that many distinct valid names always hold a free one.
  */
-fun GlowSettings.firstFreeName(candidates: Sequence<String>): String? =
-    candidates.take(MAX_LOOKS + 1).firstOrNull { canName(it) }
-
-/** [name] (a valid look name) if no look uses it, else the first numbered one free, "Work (2)"; `null` if none is. */
-fun GlowSettings.numberedName(name: String): String? = firstFreeName(numberedNames(name))
+fun GlowSettings.firstFreeName(candidates: Sequence<String>, exceptId: String? = null): String? =
+    candidates.take(MAX_LOOKS + 1).firstOrNull { canName(it, exceptId) }
 
 /**
- * A new look's name from [base] ("Blade", "Work copy"): cut to fit, then numbered when taken, "Work copy (2)"; just cut
- * when no numbered one is free either (the look limit stops it being added then anyway).
+ * [name] (a valid look name) if no look but [exceptId] uses it, else the first numbered one free, "Work (2)"; `null` if
+ * none is.
  */
-fun GlowSettings.freshName(base: String): String = numberedOrAsIs(fitLookName(base))
+fun GlowSettings.numberedName(name: String, exceptId: String? = null): String? =
+    firstFreeName(numberedNames(name), exceptId)
+
+/**
+ * A look's name from [base] ("Blade", "Work copy"): cut to fit, then numbered when a look but [exceptId] (the look
+ * being renamed, if any) has it, "Work copy (2)"; just cut when no numbered one is free either (the look limit stops a
+ * new look being added then anyway).
+ */
+fun GlowSettings.freshName(base: String, exceptId: String? = null): String = numberedOrAsIs(fitLookName(base), exceptId)
 
 /**
  * [freshName] from an untrusted [base], such as an app's label: `null` when, cut to fit, it makes no look name at all
@@ -31,8 +36,9 @@ fun GlowSettings.freshName(base: String): String = numberedOrAsIs(fitLookName(ba
 fun GlowSettings.freshNameOrNull(base: String): String? =
     fitLookName(base).takeIf(::isValidLookName)?.let { numberedOrAsIs(it) }
 
-/** [fitted] numbered when taken, as it is when no numbered one is free either. */
-private fun GlowSettings.numberedOrAsIs(fitted: String): String = numberedName(fitted) ?: fitted
+/** [fitted] numbered when a look but [exceptId] has it, as it is when no numbered one is free either. */
+private fun GlowSettings.numberedOrAsIs(fitted: String, exceptId: String? = null): String =
+    numberedName(fitted, exceptId) ?: fitted
 
 /** [name] (a valid look name), then numbered from 2, "Work (2)", cut so the number always fits. */
 private fun numberedNames(name: String): Sequence<String> =

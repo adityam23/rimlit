@@ -103,6 +103,12 @@ data class GlowSettings(
     val openOnDoubleTap: Boolean = true,
     /** On-screen glows show a pill with the notifying app's icon and name, out of the camera cutout. */
     val showPill: Boolean = true,
+    /**
+     * How far the pill is moved from where it sits by itself, right and down, in dp; 0 for both is the automatic
+     * position. Kept on screen however far it is moved.
+     */
+    val pillOffsetXDp: Float = 0f,
+    val pillOffsetYDp: Float = 0f,
     /** Swiping the pill away also dismisses its notification in the shade; off, it only ends the glow. */
     val swipeClears: Boolean = false,
     val quietHours: QuietHours = QuietHours(),
@@ -175,6 +181,9 @@ data class GlowSettings(
     fun previewSpec(look: Look = defaultLook): GlowSpec =
         spec(look, look.palette ?: GlowPalette.Colors(PreviewAutoColors.take(look.autoColors.count)))
 
+    /** The spec previews of [premade] untouched render, as a look based on it plays before any change. */
+    fun previewSpec(premade: Premade): GlowSpec = previewSpec(premade.look(id = premade.name, name = premade.name))
+
     /**
      * The one spec builder: [look] painted with [palette], with these settings' global parts, for a notification from
      * [packageName] (`null` for a preview). The spec names the app only when its icon is the particle, so a glow's spec
@@ -206,6 +215,7 @@ data class GlowSettings(
         val cutoutSizeDp = 4f..80f
         val cutoutRadiusDp = 0f..40f
         val cutoutOffsetDp = -40f..40f
+        val pillOffsetDp = -200f..200f
         val speed = 0.25f..3f
         val brightness = 0.2f..1f
         val durationMs = 1_000L..10_000L

@@ -34,6 +34,7 @@ import app.rimlit.data.AppInfo
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.Look
 import app.rimlit.model.canAddLook
+import app.rimlit.model.looksDefaultFirst
 import app.rimlit.model.otherAppsSharingLook
 import app.rimlit.ui.components.LookLimitNote
 import app.rimlit.ui.editor.EditorTarget
@@ -97,8 +98,8 @@ internal fun AppLookSheet(
 }
 
 /**
- * Every look as a tile, [current] outlined and the default look labelled; a tap picks one ([onPick]). One choice of
- * many, so each tile is a radio button to accessibility services.
+ * Every look as a tile, the default look first and badged, [current] outlined; a tap picks one ([onPick]). One choice
+ * of many, so each tile is a radio button to accessibility services.
  */
 @Composable
 private fun LookTiles(settings: GlowSettings, current: Look, onPick: (Look) -> Unit, modifier: Modifier = Modifier) {
@@ -107,7 +108,7 @@ private fun LookTiles(settings: GlowSettings, current: Look, onPick: (Look) -> U
         contentPadding = PaddingValues(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(settings.looks, key = { it.id }) { look ->
+        items(settings.looksDefaultFirst, key = { it.id }) { look ->
             val selected = look.id == current.id
             LookCard(
                 settings = settings,
@@ -115,13 +116,7 @@ private fun LookTiles(settings: GlowSettings, current: Look, onPick: (Look) -> U
                 modifier = Modifier.selectable(selected = selected, role = Role.RadioButton) { onPick(look) },
                 selected = selected,
             ) {
-                if (look.id == settings.defaultLookId) {
-                    Text(
-                        stringResource(R.string.look_default),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                if (look.id == settings.defaultLookId) DefaultBadge()
             }
         }
     }

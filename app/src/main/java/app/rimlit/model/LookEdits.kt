@@ -42,6 +42,28 @@ private fun GlowSettings.withLookAdded(from: Look, name: String, id: String): Gl
         copy(looks = looks + from.copy(id = id, name = name))
     }
 
+/**
+ * These settings with the default look switched to [premade] (everything it changed is lost) and renamed [name], cut
+ * to fit and numbered when another look has it, "Blade (2)" ([freshName]): the first look picked in the guided first
+ * launch.
+ */
+fun GlowSettings.defaultLookSwitchedTo(premade: Premade, name: String): GlowSettings =
+    updateLook(defaultLookId) { it.switchedTo(premade).copy(name = freshName(name, exceptId = defaultLookId)) }
+
+/**
+ * These settings with [premade] added as a new look named [name], cut to fit and numbered when taken, "Blade (2)",
+ * under [id], and made the default look; the old default stays as it is. `null` when it isn't added (see
+ * [addLookNumbered]), or [name], cut, is no look name: the look picked when the guided first launch is run again.
+ */
+fun GlowSettings.defaultLookAdded(
+    premade: Premade,
+    name: String,
+    id: String = UUID.randomUUID().toString(),
+): GlowSettings? {
+    val fitted = fitLookName(name).takeIf(::isValidLookName) ?: return null
+    return addLookNumbered(premade.look(id, fitted), fitted, id)?.copy(defaultLookId = id)
+}
+
 /** These settings with the look [id] renamed [name]; unchanged when the name can't be used. */
 fun GlowSettings.renameLook(id: String, name: String): GlowSettings =
     if (canName(name, exceptId = id)) updateLook(id) { it.copy(name = name) } else this

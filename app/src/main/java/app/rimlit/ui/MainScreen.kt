@@ -25,20 +25,26 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.data.AppInfo
+import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.UiPrefs
 import app.rimlit.model.canAddLook
+import app.rimlit.permissions.OverlayFallback
 import app.rimlit.ui.components.LookLimitNote
 import app.rimlit.ui.components.NavCard
+import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.editor.EditorTarget
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Home: the master switch, anything that needs the user, the user's looks (open one to edit it, long press for more,
- * "+ New" to start one from a premade), then the app and behaviour settings.
+ * "+ New" to start one from a premade), the default look's previews and a test notification, then the app and
+ * behaviour settings.
  */
 @Composable
 fun MainScreen(
@@ -51,6 +57,8 @@ fun MainScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val fallback by viewModel.glowFallback.collectAsStateWithLifecycle()
+    // Previews show whether glowing is on or not, so their note follows the overlay alone.
+    val previewFallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
     val uiPrefs by viewModel.uiPrefs.collectAsStateWithLifecycle()
     val sharing = rememberLookSharing(viewModel)
     var opened by rememberSaveable(stateSaver = Attention.Saver) { mutableStateOf<Attention?>(null) }
@@ -79,12 +87,18 @@ fun MainScreen(
             item {
                 HomeLooks(
                     settings = settings,
+                    apps = viewModel.apps,
                     onEdit = viewModel::update,
                     onShare = sharing::shareLook,
                     onOpenEditor = onOpenEditor,
                 )
             }
             if (!settings.canAddLook) item { LookLimitNote() }
+            previewItems(
+                fallback = previewFallback,
+                onPreview = { target -> viewModel.preview(target, settings.previewSpec()) },
+                onSendTest = viewModel::sendTestNotification,
+            )
             settingsItems(onOpenApps, onOpenBehavior)
         }
     }
@@ -99,17 +113,24 @@ fun MainScreen(
 
 /**
  * The look gallery and what its tiles ask: the editor on a look, on a copy of one, or on a new one from the premade
- * picked ([onOpenEditor]); a look's rename or delete ([onEdit] makes the settings edit each asks for); sharing it.
+ * picked ([onOpenEditor]); a look's rename or delete ([onEdit] makes the settings edit each asks for); sharing it;
+ * the apps using it, named from [apps].
  */
 @Composable
 private fun HomeLooks(
     settings: GlowSettings,
+    apps: StateFlow<List<AppInfo>>,
     onEdit: (SettingsEdit) -> Unit,
     onShare: (lookId: String) -> Unit,
     onOpenEditor: (EditorTarget) -> Unit,
 ) {
     var lookAction by rememberSaveable(stateSaver = LookAction.Saver) { mutableStateOf<LookAction?>(null) }
     var picking by rememberSaveable { mutableStateOf(false) }
+    var showingAppsOf by rememberSaveable { mutableStateOf<String?>(null) }
+    // Closed when the look is deleted meanwhile.
+    showingAppsOf?.let(settings::look)?.let { look ->
+        LookAppsSheet(settings, look, apps, onClose = { showingAppsOf = null })
+    }
     LookGallery(
         settings = settings,
         onOpen = { onOpenEditor(EditorTarget.Edit(it.id)) },
@@ -122,6 +143,7 @@ private fun HomeLooks(
             }
         },
         onNew = { picking = true },
+        onShowApps = { showingAppsOf = it.id },
     )
     if (picking) {
         PremadePickerDialog(
@@ -146,6 +168,26 @@ private fun HomeLooks(
         },
         onDismiss = { lookAction = null },
     )
+}
+
+/**
+ * The default look's previews, on screen and on the lock screen ([onPreview]; [fallback] says why the on-screen one
+ * doesn't get the accessibility overlay), and a real test notification ([onSendTest]).
+ */
+private fun LazyListScope.previewItems(
+    fallback: OverlayFallback?,
+    onPreview: (PreviewTarget) -> Unit,
+    onSendTest: () -> Unit,
+) {
+    item { SectionTitle(stringResource(R.string.preview_section)) }
+    item {
+        PreviewButtons(
+            onPreviewOnScreen = { onPreview(PreviewTarget.ON_SCREEN) },
+            onPreviewLockScreen = { onPreview(PreviewTarget.LOCK_SCREEN) },
+            onSendTest = onSendTest,
+            fallback = fallback,
+        )
+    }
 }
 
 /** The settings beyond the looks: which apps glow, and how glows behave; then what Rimlit does. */

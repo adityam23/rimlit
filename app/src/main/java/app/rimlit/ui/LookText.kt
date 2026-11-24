@@ -2,14 +2,11 @@ package app.rimlit.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
-import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Look
 import app.rimlit.model.Premade
-import app.rimlit.model.appsUsing
 import app.rimlit.model.isCustom
 
 // How looks, their premades and their edge styles read, wherever they are shown.
@@ -26,19 +23,6 @@ internal fun lookKind(look: Look): String = if (look.isCustom) {
     stringResource(R.string.look_custom_based_on, look.basedOn.title())
 } else {
     look.basedOn.title()
-}
-
-/** Who glows with [look]: "Default", "3 apps", or "Not used". */
-@Composable
-@ReadOnlyComposable
-internal fun GlowSettings.usage(look: Look): String {
-    if (look.id == defaultLookId) return stringResource(R.string.look_default)
-    val apps = appsUsing(look.id)
-    return if (apps == 0) {
-        stringResource(R.string.look_unused)
-    } else {
-        pluralStringResource(R.plurals.look_apps, apps, apps)
-    }
 }
 
 internal val GlowStyle.titleRes

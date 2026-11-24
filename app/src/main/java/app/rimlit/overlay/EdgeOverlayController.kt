@@ -16,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.lifecycle.Lifecycle
@@ -32,11 +31,9 @@ import app.rimlit.engine.Surface
 import app.rimlit.engine.SurfaceInstance
 import app.rimlit.glowCoordinator
 import app.rimlit.ui.glow.BriefPillHost
-import app.rimlit.ui.glow.CutoutSide
 import app.rimlit.ui.glow.GlowHost
 import app.rimlit.ui.glow.PillMetrics
 import app.rimlit.ui.glow.PillPlacement
-import app.rimlit.ui.glow.displayCutout
 import app.rimlit.ui.glow.drawIntoCutout
 import app.rimlit.ui.glow.pillPlacement
 
@@ -100,8 +97,7 @@ class EdgeOverlayController(private val context: Context, private val surface: S
         size = WindowManager.LayoutParams.WRAP_CONTENT,
         flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
     ).apply {
-        val centred = placement != null && placement.x == null
-        gravity = Gravity.TOP or if (centred) Gravity.CENTER_HORIZONTAL else Gravity.LEFT
+        gravity = Gravity.TOP or if (placement?.centred == true) Gravity.CENTER_HORIZONTAL else Gravity.LEFT
         x = placement?.x ?: 0
         y = placement?.y ?: 0
     }
@@ -148,22 +144,9 @@ class EdgeOverlayController(private val context: Context, private val surface: S
             edge.view.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ -> place(view) }
         }
 
-        /**
-         * Moves the pill to where it belongs in [edgeView]'s window, if that changed: around the camera's real outline
-         * when it is on the top edge (some displays report a bounding rect from the edge down to the hole), or around
-         * the cutout the user drew by hand, as the glow's own ring does.
-         */
+        /** Moves the pill to where it belongs in [edgeView]'s window (see [pillPlacement]), if that changed. */
         private fun place(edgeView: View) {
-            val custom = coordinator.state.value?.settings?.customCutout
-            val density = context.resources.displayMetrics.density
-            val cutout = edgeView.displayCutout()
-                ?.let { detected ->
-                    val width = edgeView.width.toFloat()
-                    custom?.let { detected.redrawn(it, density, width, edgeView.height.toFloat()) } ?: detected
-                }
-                ?.takeIf { it.side == CutoutSide.TOP }?.bounds
-                ?.let { Rect(it.left, it.top, it.right, it.bottom) }
-            val next = pillPlacement(edgeView.width, cutout, metrics)
+            val next = edgeView.pillPlacement(coordinator.state.value?.settings, metrics)
             if (next == placement || window !== this) return
             placement = next
             runCatching { windowManager.updateViewLayout(pill.view, pillParams(next)) }

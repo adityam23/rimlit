@@ -1,13 +1,16 @@
 package app.rimlit.permissions
 
+import android.Manifest
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import app.rimlit.engine.Surface
 import app.rimlit.notify.GlowNotifications
@@ -38,6 +41,25 @@ enum class PermissionKind(val need: Need = Need.REQUIRED) {
 
 data class PermissionStatus(val kind: PermissionKind, val granted: Boolean)
 
+/** Whether [kind] is granted in these statuses. */
+fun List<PermissionStatus>.isGranted(kind: PermissionKind): Boolean = any { it.kind == kind && it.granted }
+
+/**
+ * Whether a real test notification can glow: Rimlit sees it with notification access, and may post it
+ * ([testPostable]: notifications allowed and the test channel not turned off, `GlowNotifications.canPostTest`).
+ */
+fun List<PermissionStatus>.canSendTest(testPostable: Boolean): Boolean =
+    isGranted(PermissionKind.NOTIFICATION_ACCESS) && testPostable
+
+/**
+ * How much glows depend on [kind], given the grants in these statuses: its own [PermissionKind.need], but Display over
+ * other apps is only the fallback while the accessibility glow is on, which draws on-screen glows itself.
+ */
+fun List<PermissionStatus>.needOf(kind: PermissionKind): Need {
+    val serviceOn = isGranted(PermissionKind.ACCESSIBILITY)
+    return if (kind == PermissionKind.OVERLAY && serviceOn) Need.RECOMMENDED else kind.need
+}
+
 /**
  * Why on-screen glows don't get the accessibility overlay. They fall back to the app overlay
  * (`TYPE_APPLICATION_OVERLAY`), which makes Android post its own "Rimlit is displaying over other apps" notification
@@ -59,14 +81,11 @@ enum class OverlayFallback {
  * [overlay] the engine draws them on ([app.rimlit.engine.onScreenOverlay]); `null` if they do, or if the engine
  * hasn't started ([overlay] `null`), so nothing is known yet.
  */
-fun overlayFallback(statuses: List<PermissionStatus>, overlay: Surface?): OverlayFallback? {
-    fun granted(kind: PermissionKind) = statuses.any { it.kind == kind && it.granted }
-    return when {
-        overlay != Surface.APP_OVERLAY -> null
-        !granted(PermissionKind.OVERLAY) -> OverlayFallback.NO_OVERLAY
-        granted(PermissionKind.ACCESSIBILITY) -> OverlayFallback.SERVICE_NOT_RUNNING
-        else -> OverlayFallback.SERVICE_OFF
-    }
+fun overlayFallback(statuses: List<PermissionStatus>, overlay: Surface?): OverlayFallback? = when {
+    overlay != Surface.APP_OVERLAY -> null
+    !statuses.isGranted(PermissionKind.OVERLAY) -> OverlayFallback.NO_OVERLAY
+    statuses.isGranted(PermissionKind.ACCESSIBILITY) -> OverlayFallback.SERVICE_NOT_RUNNING
+    else -> OverlayFallback.SERVICE_OFF
 }
 
 /** Whether the user has granted this. */
@@ -129,4 +148,18 @@ object Permissions {
     fun open(context: Context, kind: PermissionKind) {
         context.startActivity(kind.settingsIntent(context))
     }
+
+    /**
+     * Opens Rimlit's App info page, whose menu holds "Allow restricted settings": Android 13 and newer block
+     * notification access and accessibility for apps installed outside an app store until it is used.
+     */
+    fun openAppInfo(context: Context) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri())
+        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    /** Whether Android can still be asked, in its own dialog, to let Rimlit post notifications (Android 13+). */
+    fun canAskToPost(context: Context): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+        PackageManager.PERMISSION_GRANTED
 }

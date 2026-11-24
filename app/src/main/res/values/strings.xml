@@ -15,7 +15,7 @@
     <!-- Each permission: its title, a one-line reason (Home's row), and the whole explanation (the row's sheet). -->
     <string name="perm_notification_title">Notification access</string>
     <string name="perm_notification_reason">To notice notifications as they arrive</string>
-    <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps.</string>
+    <string name="perm_notification_desc">Lets Rimlit detect notifications from other apps. On Android 13 and newer, sideloaded apps may first need \"Allow restricted settings\" from Rimlit\'s App info menu.</string>
     <string name="perm_overlay_title">Display over other apps</string>
     <string name="perm_overlay_reason">To glow while the screen is on</string>
     <string name="perm_overlay_desc">Lets Rimlit glow while the screen is on.</string>
@@ -61,6 +61,41 @@
     <string name="nav_device_title">Screen fit</string>
     <string name="nav_device_subtitle">The screen\'s corners and the camera cutout the glow follows</string>
     <string name="every_glow_section">Every glow</string>
+    <string name="nav_setup_title">Run setup again</string>
+    <string name="nav_setup_subtitle">Permissions, screen fit and your first look, step by step</string>
+
+    <!-- The guided first launch -->
+    <string name="setup_progress">Setup progress</string>
+    <string name="setup_start">Get started</string>
+    <string name="setup_next">Next</string>
+    <string name="setup_finish">Finish</string>
+    <string name="setup_granted">Granted ✓</string>
+    <string name="setup_fallback">Fallback</string>
+    <string name="setup_welcome_pitch">The edges of your screen light up whenever an app posts a notification.</string>
+    <string name="setup_welcome_privacy">Rimlit works offline: it has no network permission, so nothing it sees leaves your phone.</string>
+    <string name="setup_access_title">Notice notifications</string>
+    <string name="setup_access_desc">Rimlit needs notification access to notice when an app posts a notification, and to take a glow\'s colours from it. This step can\'t be skipped: without it Rimlit can\'t glow.</string>
+    <string name="setup_restricted_title">How to allow restricted settings</string>
+    <string name="setup_restricted_desc">Greyed out, or \"Restricted setting\"? Android blocks this for apps installed from outside an app store. Tap here to open Rimlit\'s App info, choose \"Allow restricted settings\" from its ⋮ menu, then try again.</string>
+    <string name="setup_on_screen_title">Glow while the screen is on</string>
+    <string name="setup_on_screen_desc">Rimlit draws over other apps in one of two ways. The accessibility glow is recommended: it also glows above the lock screen, without Android\'s \"displaying over other apps\" notification, and it only draws: it can\'t read or control anything on your screen. Display over other apps is the fallback.</string>
+    <string name="setup_screen_off_title">Glow with the screen off</string>
+    <string name="setup_screen_off_desc">To glow while the screen is off, Rimlit posts a silent notification that wakes the screen into a black, always-on-display style glow. Allow notifications, then full-screen notifications.</string>
+    <string name="setup_battery_title">Glow on time</string>
+    <string name="setup_battery_desc">Battery optimisation can hold Rimlit back, so a glow arrives late. Letting it run unrestricted keeps glows on time.</string>
+    <string name="setup_fit_title">Fit your screen</string>
+    <string name="setup_fit_desc">The glow follows your screen\'s corners and its camera cutout. The outline round this screen shows where it runs: adjust it if it doesn\'t sit right.</string>
+    <string name="setup_pill_title">The app pill</string>
+    <string name="setup_pill_desc">On-screen glows show which app is notifying in a small pill at the top. Move it if it doesn\'t sit right: drag a slider to see where it goes.</string>
+    <string name="setup_look_title">Pick a first look</string>
+    <string name="setup_look_desc">Every notification glows with your default look. Pick a style to start from; you can change it, and make more looks, at any time.</string>
+    <string name="setup_look_keep">Keep \"%1$s\"</string>
+    <string name="setup_look_customise">Customise it when setup is done</string>
+    <string name="setup_test_title">Try it</string>
+    <string name="setup_test_desc">Send yourself a test notification to see the glow, then finish to turn edge lighting on.</string>
+    <string name="setup_test_preview">Preview the glow</string>
+    <string name="setup_test_preview_note">Without notifications allowed, or with Rimlit\'s test notifications turned off, this shows a preview instead of a real test notification.</string>
+    <string name="setup_test_window_note">Without a way to glow over other apps, this plays the glow here in Rimlit only. Real notifications won\'t glow until you allow one.</string>
 
     <!-- Behavior: the look editor -->
     <string name="look_editor_section">Look editor</string>
@@ -222,6 +257,9 @@
     <string name="looks_section">Looks</string>
     <string name="look_default">Default</string>
     <string name="look_unused">Not used</string>
+    <!-- The sheet listing the apps that have the named look as their own. -->
+    <string name="look_apps_title">Apps using %1$s</string>
+    <string name="look_apps_show">Show the apps</string>
     <plurals name="look_apps">
         <item quantity="one">%1$d app</item>
         <item quantity="other">%1$d apps</item>
@@ -285,6 +323,8 @@
     <string name="editor_default_desc">Every app without a look of its own glows with this one</string>
     <string name="editor_default_fixed_desc">This is the default look. To change it, make another look the default.</string>
     <string name="editor_apps_section">Apps with this look</string>
+    <!-- An app in a look's list that glows with another look of its own, which is named. -->
+    <string name="editor_app_uses">Uses %1$s</string>
     <string name="editor_leave_title">Save your changes?</string>
     <string name="editor_leave_desc">This look has changes that aren\'t saved.</string>
     <string name="editor_keep_editing">Keep editing</string>
@@ -379,6 +419,8 @@
     <string name="quiet_scope_screen_off_desc">The screen stays dark; glows still show while you use the phone</string>
     <string name="gestures_section">Pill and gestures</string>
     <string name="show_pill_title">Show app pill</string>
+    <string name="pill_horizontal_label">Horizontal position</string>
+    <string name="pill_vertical_label">Vertical position</string>
     <string name="show_pill_desc">On-screen glows show the app\'s icon and name in a pill around the camera. Swipe it up or sideways to dismiss the glow.</string>
     <string name="open_on_double_tap_title">Open on double tap</string>
     <string name="open_on_double_tap_desc">Double tap the screen-off glow or the pill to open its notification, unlocking first if the phone is locked. A single tap on the screen-off glow still ends it.</string>

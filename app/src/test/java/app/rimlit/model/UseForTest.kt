@@ -28,6 +28,34 @@ class UseForTest {
     }
 
     @Test
+    fun theAppsUsingALookAreListedByNameThenThoseWithoutOne() {
+        val labels = mapOf("a" to "zebra", "b" to "Apple", "x" to "Unused")
+        val more = settings.withAppRule("y", Rule("work")).withAppRule("d", Rule("work"))
+        assertEquals(listOf("b", "a", "d", "y"), more.appsUsingByName("work", labels), "named ones first, any case")
+        assertEquals(emptyList<String>(), settings.appsUsingByName("none", labels))
+    }
+
+    @Test
+    fun anAppWithAnotherLookOfItsOwnNamesItInsteadOfATick() {
+        assertEquals(work, settings.ownLookInstead("a", lookId = "night", ticked = emptySet()))
+        assertEquals(work, settings.ownLookInstead("a", lookId = DEFAULT_LOOK_ID, ticked = emptySet()), "default's too")
+        assertNull(settings.ownLookInstead("a", lookId = "work", ticked = emptySet()), "its own look ticks it")
+        assertNull(settings.ownLookInstead("a", lookId = "night", ticked = setOf("a")), "ticked here keeps its tick")
+        assertNull(settings.ownLookInstead("c", lookId = "work", ticked = emptySet()), "a rule naming the default")
+        assertNull(settings.ownLookInstead("e", lookId = "work", ticked = emptySet()), "no rule at all")
+        val gone = settings.copy(looks = listOf(Look()))
+        assertNull(gone.ownLookInstead("a", lookId = DEFAULT_LOOK_ID, ticked = emptySet()), "its look deleted")
+    }
+
+    @Test
+    fun looksListTheDefaultFirstThenInTheOrderMade() {
+        val night = Look(id = "night", name = "Night")
+        val looks = settings.copy(looks = listOf(Look(), work, night), defaultLookId = "work")
+        assertEquals(listOf("work", DEFAULT_LOOK_ID, "night"), looks.looksDefaultFirst.map { it.id })
+        assertEquals(listOf(DEFAULT_LOOK_ID, "work"), settings.looksDefaultFirst.map { it.id })
+    }
+
+    @Test
     fun savingReplacesTheLookAndItsAppsExactly() {
         val edited = work.copy(thicknessDp = 9f)
         val saved = saved(settings.savingLook(edited, UseFor(false, apps = setOf("b", "d")), isNew = false))
