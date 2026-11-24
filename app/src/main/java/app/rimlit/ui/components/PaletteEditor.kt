@@ -20,10 +20,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,10 +35,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import app.rimlit.R
 import app.rimlit.model.MAX_PALETTE_COLORS
+import app.rimlit.model.RgbHex
 import app.rimlit.model.hueOf
 import app.rimlit.model.vividColor
 
@@ -97,16 +103,45 @@ fun PaletteEditor(
                 row.forEach { argb -> Swatch(argb, selected = false, onClick = { commit(edited(argb)) }) }
             }
         }
-        Text(
-            stringResource(R.string.palette_hue),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.palette_hue),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            ColorCode(colors[slot], onChange = { commit(edited(it)) })
+        }
         CommitSlider(
             value = hueOf(colors[slot]),
             valueRange = 0f..359f,
             onPreview = { onPreview(edited(vividColor(it))) },
             onCommit = { onCommit(edited(vividColor(it))) },
+        )
+    }
+}
+
+/** [argb]'s `#RRGGBB` code as a button; tapping it opens a dialog to type another, which [onChange] receives. */
+@Composable
+private fun ColorCode(argb: Int, onChange: (Int) -> Unit) {
+    var editing by rememberSaveable { mutableStateOf(false) }
+    val editCode = stringResource(R.string.palette_hex_edit)
+    TextButton(onClick = { editing = true }, modifier = Modifier.semantics { contentDescription = editCode }) {
+        Text(RgbHex.format(argb))
+    }
+    if (editing) {
+        val invalid = stringResource(R.string.palette_hex_error)
+        TextFieldDialog(
+            title = stringResource(R.string.palette_hex_title),
+            label = stringResource(R.string.palette_hex_label),
+            initial = RgbHex.format(argb),
+            errorFor = { if (RgbHex.parse(it) == null) invalid else null },
+            onConfirm = {
+                RgbHex.parse(it)?.let(onChange)
+                editing = false
+            },
+            onDismiss = { editing = false },
+            confirmLabel = stringResource(R.string.palette_hex_apply),
         )
     }
 }

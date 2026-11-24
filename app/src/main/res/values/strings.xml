@@ -238,6 +238,11 @@
     <string name="palette_add">Add color</string>
     <string name="palette_remove">Remove selected color</string>
     <string name="palette_hue">Hue</string>
+    <string name="palette_hex_title">Color code</string>
+    <string name="palette_hex_label">Hex code</string>
+    <string name="palette_hex_error">Enter six hex digits, like #00BCD4</string>
+    <string name="palette_hex_apply">Apply</string>
+    <string name="palette_hex_edit">Edit color code</string>
 
     <!-- An app's look (the Apps screen's sheet) -->
     <string name="app_look_open">Choose the app\'s look</string>
