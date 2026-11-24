@@ -19,9 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -65,8 +63,8 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
     var customise by rememberSaveable { mutableStateOf(false) }
     // Set once Finish is tapped, so a second tap before leaving doesn't finish twice.
     var finished by rememberSaveable { mutableStateOf(false) }
-    // "Try it" taps played in Rimlit's window (TestPlay.IN_WINDOW).
-    var windowPlays by remember { mutableIntStateOf(0) }
+    // Plays "Try it" and each first look picked round the screen.
+    val player = rememberGlowPlayer(viewModel)
     val play = testPlay(statuses, testPostable, overlayFallback)
     val context = LocalContext.current
     val openGrant = rememberPermissionOpener(viewModel::openPermission, viewModel::refreshPermissions)
@@ -92,7 +90,13 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
             onFinish(settings.defaultLookId.takeIf { customise })
         }
     }
-    val onTest = { viewModel.tryIt(play, settings) { windowPlays++ } }
+    val onTest = { player.play(play, settings.previewSpec()) }
+    // A pick, or the same pick again, plays the look it picks: a preview, as it isn't the notifications' look yet.
+    val onPick = { premade: Premade? ->
+        picked = premade
+        val spec = if (premade == null) settings.previewSpec() else settings.previewSpec(premade)
+        player.play(previewPlay(statuses, overlayFallback), spec)
+    }
     val frame = @Composable { items: LazyListScope.() -> Unit ->
         SetupFrame(step, step.onward(statuses), goBack, onOnward, items)
     }
@@ -104,14 +108,14 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
 
             SetupStep.FIRST_LOOK -> frame {
                 val canPick = run.canPick(settings, addedId)
-                firstLookItems(settings, canPick, picked, { picked = it }, customise, { customise = it })
+                firstLookItems(settings, canPick, picked, onPick, customise, { customise = it })
             }
 
             SetupStep.TEST -> frame { testItems(play, onTest) }
 
             else -> frame { permissionItems(step, statuses, openGrant) { Permissions.openAppInfo(context) } }
         }
-        if (step == SetupStep.TEST) WindowTestGlow(settings, windowPlays)
+        WindowTestGlow(player, settings.durationMs)
     }
 }
 

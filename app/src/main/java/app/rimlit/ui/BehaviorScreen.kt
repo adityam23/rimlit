@@ -4,7 +4,6 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -20,7 +19,6 @@ import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -41,12 +39,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
-import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.QuietHours
 import app.rimlit.model.QuietScope
 import app.rimlit.ui.components.NavCard
-import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingCard
@@ -92,19 +88,6 @@ fun BehaviorScreen(
                     viewModel.updateUi { it.copy(alwaysTinker = on) }
                 }
                 attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
-                item { SectionTitle(stringResource(R.string.preview_section)) }
-                item {
-                    PreviewButtons(
-                        onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, settings.previewSpec()) },
-                        onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, settings.previewSpec()) },
-                        fallback = fallback,
-                    )
-                }
-                item {
-                    OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.test_notification_button))
-                    }
-                }
             }
         }
         if (draggingScreenOff) {

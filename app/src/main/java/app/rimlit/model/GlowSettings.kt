@@ -175,6 +175,9 @@ data class GlowSettings(
     fun previewSpec(look: Look = defaultLook): GlowSpec =
         spec(look, look.palette ?: GlowPalette.Colors(PreviewAutoColors.take(look.autoColors.count)))
 
+    /** The spec previews of [premade] untouched render, as a look based on it plays before any change. */
+    fun previewSpec(premade: Premade): GlowSpec = previewSpec(premade.look(id = premade.name, name = premade.name))
+
     /**
      * The one spec builder: [look] painted with [palette], with these settings' global parts, for a notification from
      * [packageName] (`null` for a preview). The spec names the app only when its icon is the particle, so a glow's spec

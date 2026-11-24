@@ -6,7 +6,7 @@ import app.rimlit.permissions.PermissionStatus
 import org.junit.Test
 import kotlin.test.assertEquals
 
-/** How "Try it" shows the glow: always somewhere the user sees it. */
+/** How setup shows a glow, "Try it" and a first look picked: always somewhere the user sees it. */
 class TestPlayTest {
 
     private fun statuses(vararg missing: PermissionKind) =
@@ -51,6 +51,40 @@ class TestPlayTest {
             testPlay(statuses(*noOverlay), true, overlayFallback = null),
             "the engine not started yet: neither granted, so nothing can draw",
         )
+    }
+
+    @Test
+    fun aPreviewIsNeverATestNotification() {
+        assertEquals(TestPlay.ON_SCREEN, previewPlay(statuses(), overlayFallback = null))
+        assertEquals(TestPlay.ON_SCREEN, previewPlay(statuses(PermissionKind.ACCESSIBILITY), OverlayFallback.SERVICE_OFF))
+        assertEquals(TestPlay.ON_SCREEN, previewPlay(statuses(), OverlayFallback.SERVICE_NOT_RUNNING))
+        assertEquals(
+            TestPlay.ON_SCREEN,
+            previewPlay(statuses(PermissionKind.NOTIFICATION_ACCESS), overlayFallback = null),
+            "a preview needs no notification access",
+        )
+    }
+
+    @Test
+    fun aPreviewInRimlitsWindowWhenNothingMayDrawOverOtherApps() {
+        val noOverlay = arrayOf(PermissionKind.ACCESSIBILITY, PermissionKind.OVERLAY)
+        assertEquals(TestPlay.IN_WINDOW, previewPlay(statuses(*noOverlay), overlayFallback = null))
+        assertEquals(TestPlay.IN_WINDOW, previewPlay(statuses(PermissionKind.OVERLAY), OverlayFallback.NO_OVERLAY))
+        assertEquals(TestPlay.IN_WINDOW, previewPlay(statuses(), OverlayFallback.NO_OVERLAY))
+    }
+
+    @Test
+    fun tryItIsThePreviewWhereverItIsNoTestNotification() {
+        val grants = PermissionKind.entries.map { statuses(it) } +
+            listOf(statuses(), statuses(PermissionKind.ACCESSIBILITY, PermissionKind.OVERLAY))
+        for (fallback in listOf(null) + OverlayFallback.entries) {
+            for (granted in grants) {
+                for (postable in listOf(true, false)) {
+                    val test = testPlay(granted, postable, fallback)
+                    if (test != TestPlay.NOTIFICATION) assertEquals(previewPlay(granted, fallback), test)
+                }
+            }
+        }
     }
 
     @Test

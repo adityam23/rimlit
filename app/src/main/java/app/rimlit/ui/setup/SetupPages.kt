@@ -69,8 +69,9 @@ internal fun LazyListScope.stepHeading(step: SetupStep) {
 }
 
 /**
- * The first look: keep the default look ([picked] `null`, as it starts) or pick a premade for it, each playing its
- * edge ([onPick]), or, when none [canPick], a note that no more looks fit; and whether to open it in the editor once
+ * The first look: keep the default look ([picked] `null`, as it starts) or pick a premade for it, each showing its
+ * edge, the picked one moving ([onPick] on every tap, the picked card's again too), or, when none [canPick], a note
+ * that no more looks fit; and whether to open it in the editor once
  * setup is done ([customise], [onCustomise]).
  */
 internal fun LazyListScope.firstLookItems(

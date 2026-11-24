@@ -305,13 +305,15 @@ fun SettingSlider(
 }
 
 /**
- * The two full-size previews: the on-screen overlay and the lock-screen glow. [fallback]: why the on-screen one
- * doesn't get the accessibility overlay, so a note says what the user will see instead.
+ * The two full-size previews, the on-screen overlay and the lock-screen glow, then a real test notification
+ * ([onSendTest]). [fallback]: why the on-screen one doesn't get the accessibility overlay, so a note says what the user
+ * will see instead.
  */
 @Composable
 fun PreviewButtons(
     onPreviewOnScreen: () -> Unit,
     onPreviewLockScreen: () -> Unit,
+    onSendTest: () -> Unit,
     modifier: Modifier = Modifier,
     fallback: OverlayFallback? = null,
 ) {
@@ -328,6 +330,9 @@ fun PreviewButtons(
         }
         OutlinedButton(onClick = onPreviewLockScreen, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.preview_locked))
+        }
+        OutlinedButton(onClick = onSendTest, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.test_notification_button))
         }
     }
 }

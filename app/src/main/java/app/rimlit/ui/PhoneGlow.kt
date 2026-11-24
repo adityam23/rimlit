@@ -58,7 +58,6 @@ internal fun PremadeGlow(
     width: Dp = 64.dp,
     moving: Boolean = true,
 ) {
-    val untouched = premade.look(id = premade.name, name = premade.name)
-    val spec = remember(premade, settings) { settings.previewSpec(untouched) }
+    val spec = remember(premade, settings) { settings.previewSpec(premade) }
     PhoneGlow(spec, modifier, width, moving)
 }

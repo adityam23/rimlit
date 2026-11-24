@@ -25,11 +25,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.engine.PreviewTarget
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.UiPrefs
 import app.rimlit.model.canAddLook
+import app.rimlit.permissions.OverlayFallback
 import app.rimlit.ui.components.LookLimitNote
 import app.rimlit.ui.components.NavCard
+import app.rimlit.ui.components.PreviewButtons
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
@@ -38,7 +41,8 @@ import app.rimlit.ui.editor.EditorTarget
 
 /**
  * Home: the master switch, anything that needs the user, the user's looks (open one to edit it, long press for more,
- * "+ New" to start one from a premade), then the app and behaviour settings.
+ * "+ New" to start one from a premade), the default look's previews and a test notification, then the app and
+ * behaviour settings.
  */
 @Composable
 fun MainScreen(
@@ -51,6 +55,8 @@ fun MainScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val fallback by viewModel.glowFallback.collectAsStateWithLifecycle()
+    // Previews show whether glowing is on or not, so their note follows the overlay alone.
+    val previewFallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
     val uiPrefs by viewModel.uiPrefs.collectAsStateWithLifecycle()
     val sharing = rememberLookSharing(viewModel)
     var opened by rememberSaveable(stateSaver = Attention.Saver) { mutableStateOf<Attention?>(null) }
@@ -85,6 +91,11 @@ fun MainScreen(
                 )
             }
             if (!settings.canAddLook) item { LookLimitNote() }
+            previewItems(
+                fallback = previewFallback,
+                onPreview = { target -> viewModel.preview(target, settings.previewSpec()) },
+                onSendTest = viewModel::sendTestNotification,
+            )
             settingsItems(onOpenApps, onOpenBehavior)
         }
     }
@@ -146,6 +157,26 @@ private fun HomeLooks(
         },
         onDismiss = { lookAction = null },
     )
+}
+
+/**
+ * The default look's previews, on screen and on the lock screen ([onPreview]; [fallback] says why the on-screen one
+ * doesn't get the accessibility overlay), and a real test notification ([onSendTest]).
+ */
+private fun LazyListScope.previewItems(
+    fallback: OverlayFallback?,
+    onPreview: (PreviewTarget) -> Unit,
+    onSendTest: () -> Unit,
+) {
+    item { SectionTitle(stringResource(R.string.preview_section)) }
+    item {
+        PreviewButtons(
+            onPreviewOnScreen = { onPreview(PreviewTarget.ON_SCREEN) },
+            onPreviewLockScreen = { onPreview(PreviewTarget.LOCK_SCREEN) },
+            onSendTest = onSendTest,
+            fallback = fallback,
+        )
+    }
 }
 
 /** The settings beyond the looks: which apps glow, and how glows behave; then what Rimlit does. */
