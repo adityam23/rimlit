@@ -4,31 +4,27 @@ import android.net.Uri
 import android.util.Log
 import app.rimlit.model.Look
 import app.rimlit.model.MAX_LOOKS
-import app.rimlit.model.MAX_PARTICLE_IMAGES
 import app.rimlit.model.UseFor
 import app.rimlit.model.addImportedLooks
 import app.rimlit.model.particleImageIds
 import app.rimlit.model.savingLook
-import app.rimlit.model.showingSomething
 import app.rimlit.model.withImageIds
 import app.rimlit.model.withOnlyImages
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.IOException
 
 /**
  * The saved looks with the particle image files they draw, kept consistent: every change that adds image files runs
- * under one lock, saves the looks that draw them, then deletes the files no look draws, so a clean-up never deletes
- * an image a look is about to reference, and a failed change leaves no file behind.
+ * under one lock with the clean-up, so it never deletes an image a look is about to draw, and a failed import leaves
+ * no file behind. One per process, owned by `RimlitApp`, so every screen shares its lock.
  */
-class LookLibrary(
-    private val repository: SettingsRepository,
-    private val images: ParticleImageStore,
-    private val files: LookFiles,
-) {
+class LookLibrary(private val repository: SettingsRepository, private val images: ParticleImageFiles) {
     private val lock = Mutex()
 
     /**
@@ -42,62 +38,70 @@ class LookLibrary(
     }
 
     /**
-     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]), up to [MAX_PARTICLE_IMAGES], for a
-     * look being edited; their ids. Those that didn't import are left out. Until a saved look draws them, the clean-up
-     * keeps them through their grace ([UNUSED_IMAGE_GRACE_MS]), so nothing needs to hold on to them meanwhile.
+     * Imports the picked images at [uris] (untrusted, see [ParticleImageStore]) for a look being edited, as many as
+     * the look has [room] for; their ids. Those past the room, and those that didn't import, are left out. Until a
+     * saved look draws them, the clean-up keeps them through their grace ([UNUSED_IMAGE_GRACE_MS]), so nothing needs
+     * to hold on to them meanwhile.
      */
-    suspend fun importDraftImages(uris: List<Uri>): List<String> = lock.withLock {
-        uris.take(MAX_PARTICLE_IMAGES).mapNotNull { images.import(it) }
+    suspend fun importDraftImages(uris: List<Uri>, room: Int): List<String> = lock.withLock {
+        uris.take(room.coerceAtLeast(0)).mapNotNull { images.import(it) }
     }
 
     /**
-     * Saves the edited [look] as [useFor] says (see [savingLook]); whether it was saved: not when no look fits any
-     * more, or its name is taken. Images that are gone meanwhile (a draft restored after their grace ran out) are left
-     * out of it.
+     * Saves the edited [look], [isNew] or not, as [useFor] says (see [savingLook]); whether it was saved: not when its
+     * name is taken, a new one doesn't fit, or the saved one is gone. Images that are gone meanwhile (a draft restored
+     * after their grace ran out) are left out of it.
      */
-    suspend fun saveLook(look: Look, useFor: UseFor): Boolean = lock.withLock {
+    suspend fun saveLook(look: Look, useFor: UseFor, isNew: Boolean): Boolean = lock.withLock {
         val stored = listOf(look).particleImageIds.filter { images.has(it) }.toSet()
-        val kept = look.copy(particles = look.particles?.withOnlyImages(stored)).showingSomething()
-        repository.update { it.savingLook(kept, useFor) }.look(kept.id) == kept
+        val kept = look.copy(particles = look.particles?.withOnlyImages(stored))
+        var saved = false
+        repository.update { settings -> settings.savingLook(kept, useFor, isNew)?.also { saved = true } ?: settings }
+        saved
     }
 
-    /** Writes the saved looks [ids], with their images, to the document [uri]; how many. */
-    suspend fun export(ids: Set<String>, uri: Uri): Int = lock.withLock {
-        looks(ids).also { files.export(it, uri) }.size
+    /**
+     * [write]'s result for the saved looks [ids], in the library's order, under the lock: no clean-up deletes an image
+     * they draw meanwhile, so the look file it writes from them is whole.
+     */
+    suspend fun <T> writing(ids: Set<String>, write: suspend (List<Look>) -> T): T = lock.withLock {
+        write(repository.settings.first().looks.filter { it.id in ids })
     }
-
-    /** Writes the saved looks [ids], with their images, to a file for the share sheet; its URI. */
-    suspend fun shareable(ids: Set<String>): Uri = lock.withLock { files.shareable(looks(ids)) }
 
     /** How many more looks fit. */
     suspend fun room(): Int = MAX_LOOKS - repository.settings.first().looks.size
 
     /**
      * Adds [looks] from [archive], as many as fit: their images are imported first, through the particle image
-     * pipeline, then the looks drawing them in one settings write. On any failure no look is added, and the images
-     * no look draws are deleted. How many were added.
+     * pipeline, then the looks drawing them in one settings write; how many were added. The images this call imported
+     * that no added look draws are deleted at once, whatever their grace: those of the looks that didn't fit, and all
+     * of them when it fails before the write.
      *
      * @throws LookArchiveException when one of the images doesn't decode.
+     * @throws IOException when the settings can't be written.
      */
     suspend fun add(archive: LookArchive, looks: List<Look>): Int = lock.withLock {
-        try {
+        val imported = mutableListOf<String>()
+        var added = 0
+        val written = try {
             val ids = looks.particleImageIds.associateWith { id ->
-                images.import(archive.images.getValue(id))
+                val imageId = images.import(archive.images.getValue(id))
                     ?: throw LookArchiveException(LookArchiveException.Problem.INVALID, "An image didn't decode")
+                imageId.also { imported += it }
             }
-            var added = 0
             repository.update { settings ->
                 settings.addImportedLooks(looks.map { it.withImageIds(ids) })
                     .also { added = it.looks.size - settings.looks.size }
             }
-            added
-        } finally {
-            deleteUnusedImages()
+        } catch (e: IOException) {
+            // Nothing was written. A cancelled call deletes nothing: its write may have landed, so its images are left
+            // to the clean-up, which goes by what is stored once their grace is over.
+            withContext(NonCancellable) { images.delete(imported) }
+            throw e
         }
+        images.delete(imported - written.particleImageIds)
+        added
     }
-
-    /** The saved looks [ids], in the library's order. */
-    private suspend fun looks(ids: Set<String>) = repository.settings.first().looks.filter { it.id in ids }
 
     /**
      * Deletes the image files no look draws, unless the settings can't be read: nothing is deleted then, and the

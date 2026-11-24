@@ -36,28 +36,24 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import app.rimlit.MainViewModel
+import app.rimlit.LookDrafts
 import app.rimlit.R
-import app.rimlit.data.ParticleImageStore
+import app.rimlit.lookDrafts
 import app.rimlit.model.Look
-import app.rimlit.model.MAX_PARTICLE_IMAGES
-import app.rimlit.model.ParticlePicture
+import app.rimlit.model.imageRoom
+import app.rimlit.particleImages
 
 /**
- * Picks images to add to the edited [look]'s particles, as many as still fit, and has [viewModel] import them for the
- * draft; [onAdd] gets their ids, to draw. A toast says how many couldn't be added.
+ * Picks images to add to the edited [look]'s particles, as many as still fit, and has the drafts import them for it
+ * (see [LookDrafts]); [onAdd] gets their ids, to draw. A toast says how many couldn't be added.
  */
 @Composable
-internal fun rememberAddParticleImages(
-    viewModel: MainViewModel,
-    look: Look,
-    onAdd: (List<String>) -> Unit,
-): () -> Unit {
-    // The application's: the import may outlive this screen.
+internal fun rememberAddParticleImages(look: Look, onAdd: (List<String>) -> Unit): () -> Unit {
+    // The application's, as the toast may come after this screen is gone: the import runs in the process's scope.
     val context = LocalContext.current.applicationContext
-    val own = (look.particles?.picture as? ParticlePicture.Custom)?.ids?.size ?: 0
-    return rememberParticleImagePicker(MAX_PARTICLE_IMAGES - own) { uris ->
-        viewModel.drafts.importImages(uris) { ids, rejected ->
+    val room = look.particles.imageRoom
+    return rememberParticleImagePicker(room) { uris ->
+        context.lookDrafts.importImages(uris, room) { ids, rejected ->
             if (ids.isNotEmpty()) onAdd(ids)
             if (rejected == 0) return@importImages
             val text = context.resources.getQuantityString(R.plurals.particle_images_rejected, rejected, rejected)
@@ -96,8 +92,7 @@ internal fun ParticleImagesCard(
     onAdd: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val store = remember(context) { ParticleImageStore(context) }
+    val store = LocalContext.current.particleImages
     ElevatedCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(

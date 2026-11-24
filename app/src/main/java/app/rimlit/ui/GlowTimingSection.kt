@@ -17,8 +17,15 @@ import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.glow.BATTERY_SAVER_FPS
 import kotlin.math.roundToInt
 
-/** Behavior's settings every glow shares, whatever its look: how long it holds, its screen-off brightness, battery. */
-internal fun LazyListScope.glowTimingSection(draft: GlowSettings, editor: SettingsDraft) {
+/**
+ * Behavior's settings every glow shares, whatever its look: how long it holds, its screen-off brightness, battery.
+ * [onDraggingScreenOff] says when the screen-off brightness slider starts and stops being dragged, to preview it.
+ */
+internal fun LazyListScope.glowTimingSection(
+    draft: GlowSettings,
+    editor: SettingsDraft,
+    onDraggingScreenOff: (Boolean) -> Unit,
+) {
     item { SectionTitle(stringResource(R.string.every_glow_section)) }
     item {
         SettingSlider(
@@ -30,12 +37,16 @@ internal fun LazyListScope.glowTimingSection(draft: GlowSettings, editor: Settin
             onCommit = { v -> editor.persist { it.copy(durationMs = v.toLong()) } },
         )
     }
-    screenOffBrightnessItems(draft, editor)
+    screenOffBrightnessItems(draft, editor, onDraggingScreenOff)
     batterySaverSection(draft, editor)
 }
 
 /** The lock-screen glow's own brightness: each look's own until the user unlinks it, then starting from the default. */
-private fun LazyListScope.screenOffBrightnessItems(draft: GlowSettings, editor: SettingsDraft) {
+private fun LazyListScope.screenOffBrightnessItems(
+    draft: GlowSettings,
+    editor: SettingsDraft,
+    onDragging: (Boolean) -> Unit,
+) {
     item {
         SwitchCard(
             title = stringResource(R.string.screen_off_brightness_same_title),
@@ -53,8 +64,14 @@ private fun LazyListScope.screenOffBrightnessItems(draft: GlowSettings, editor: 
             value = screenOff,
             range = Ranges.brightness,
             valueText = { stringResource(R.string.value_percent, (it * 100).roundToInt()) },
-            onPreview = { v -> editor.preview { it.copy(screenOffBrightness = v) } },
-            onCommit = { v -> editor.persist { it.copy(screenOffBrightness = v) } },
+            onPreview = { v ->
+                onDragging(true)
+                editor.preview { it.copy(screenOffBrightness = v) }
+            },
+            onCommit = { v ->
+                onDragging(false)
+                editor.persist { it.copy(screenOffBrightness = v) }
+            },
         )
     }
 }

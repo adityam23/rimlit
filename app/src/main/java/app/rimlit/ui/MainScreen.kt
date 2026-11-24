@@ -28,6 +28,7 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.MAX_LOOKS
+import app.rimlit.model.UiPrefs
 import app.rimlit.model.canAddLook
 import app.rimlit.ui.components.NavCard
 import app.rimlit.ui.components.SectionTitle
@@ -51,11 +52,12 @@ fun MainScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val fallback by viewModel.glowFallback.collectAsStateWithLifecycle()
+    val uiPrefs by viewModel.uiPrefs.collectAsStateWithLifecycle()
     val sharing = rememberLookSharing(viewModel)
     var opened by rememberSaveable(stateSaver = Attention.Saver) { mutableStateOf<Attention?>(null) }
     // A recommended permission put off shows in Behavior instead.
     val attentions = attentions(permissions, fallback)
-        .filterNot { it.dismissible && it.kind.name in settings.dismissedPermissions }
+        .filterNot { it.dismissible && it.kind.name in uiPrefs.dismissedPermissions }
 
     SubScreenScaffold(
         title = stringResource(R.string.app_name),
@@ -91,7 +93,7 @@ fun MainScreen(
     AttentionSheet(
         attention = opened,
         onOpenSettings = viewModel::openPermission,
-        onNotNow = { put -> viewModel.update { it.putOff(put.kind.name) } },
+        onNotNow = { put -> viewModel.updateUi { it.putOff(put.kind.name) } },
         onClose = { opened = null },
     )
 }
@@ -178,8 +180,8 @@ private fun LazyListScope.settingsItems(onOpenApps: () -> Unit, onOpenBehavior: 
     }
 }
 
-/** These settings with the recommended permission [name] put off: it shows in Behavior instead of on Home. */
-private fun GlowSettings.putOff(name: String) = copy(dismissedPermissions = dismissedPermissions + name)
+/** These preferences with the recommended permission [name] put off: it shows in Behavior instead of on Home. */
+private fun UiPrefs.putOff(name: String) = copy(dismissedPermissions = dismissedPermissions + name)
 
 /** That no more looks fit: [MAX_LOOKS] at most. */
 @Composable

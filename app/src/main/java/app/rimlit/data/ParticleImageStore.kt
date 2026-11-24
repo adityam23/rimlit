@@ -49,12 +49,12 @@ private const val EXTENSION = ".png"
  * byte cap, rejected from its header when its size is absurd, decoded straight to a [PARTICLE_IMAGE_PX] square (its
  * first frame, when animated) and re-encoded as PNG, so neither the original, its name nor its metadata is kept.
  */
-class ParticleImageStore(context: Context, private val io: CoroutineDispatcher = Dispatchers.IO) {
+class ParticleImageStore(context: Context, private val io: CoroutineDispatcher = Dispatchers.IO) : ParticleImageFiles {
     private val resolver = context.contentResolver
     private val dir = File(context.filesDir, "particles")
 
     /** Imports the image at [uri]; its id, or `null` when it can't be read, is too large, or doesn't decode. */
-    suspend fun import(uri: Uri): String? = withContext(io) {
+    override suspend fun import(uri: Uri): String? = withContext(io) {
         try {
             val bytes = resolver.openInputStream(uri)?.use { it.readCapped(MAX_IMPORT_BYTES) }
                 ?: throw IOException("Unreadable, or past $MAX_IMPORT_BYTES bytes")
@@ -72,7 +72,7 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
      * Imports the image [bytes] (untrusted: from a shared look file) as a picked image is imported, but only if it is
      * what an export writes (see [isExportedImage]); its id, or `null` when it isn't, or doesn't decode.
      */
-    suspend fun import(bytes: ByteArray): String? = withContext(io) {
+    override suspend fun import(bytes: ByteArray): String? = withContext(io) {
         try {
             save(decodeSquare(ByteBuffer.wrap(bytes), exported = true))
         } catch (e: IOException) {
@@ -86,7 +86,7 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
         ?.takeIf { it.width == PARTICLE_IMAGE_PX && it.height == PARTICLE_IMAGE_PX }
 
     /** Whether the image [id] is stored (and one of ours). */
-    suspend fun has(id: String): Boolean = withContext(io) { storedFile(id) != null }
+    override suspend fun has(id: String): Boolean = withContext(io) { storedFile(id) != null }
 
     /** The stored image [id]'s PNG bytes, to share; `null` when there is none (or it isn't one of ours). */
     suspend fun read(id: String): ByteArray? = withContext(io) { storedFile(id)?.readBytes() }
@@ -97,11 +97,19 @@ class ParticleImageStore(context: Context, private val io: CoroutineDispatcher =
         return File(dir, id + EXTENSION).takeIf { it.isFile && it.length() <= MAX_STORED_BYTES }
     }
 
+    /** Deletes the stored images [ids] at once, whatever their grace. Only for [LookLibrary]'s failed imports. */
+    override suspend fun delete(ids: Collection<String>) = withContext(io) {
+        for (id in ids.filter(::isValidParticleImageId)) {
+            val file = File(dir, id + EXTENSION)
+            if (file.exists() && !file.delete()) Log.w(TAG, "Couldn't delete an imported particle image")
+        }
+    }
+
     /**
      * Deletes every stored file but the images [keep] names, once past its grace ([UNUSED_IMAGE_GRACE_MS]). Only for
      * [deleteUnusedParticleImages].
      */
-    suspend fun retainOnly(keep: Set<String>) = withContext(io) {
+    override suspend fun retainOnly(keep: Set<String>) = withContext(io) {
         val files = dir.listFiles() ?: return@withContext
         val modified = files.associate { it.name to it.lastModified() }
         for (name in unreferencedFiles(modified, keep, System.currentTimeMillis())) {

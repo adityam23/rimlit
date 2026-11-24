@@ -11,7 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
-import app.rimlit.data.matching
 import app.rimlit.ui.components.CheckboxCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SwitchCard
@@ -45,7 +44,7 @@ internal fun LazyListScope.appsTab(editor: LookEditorState) {
             singleLine = true,
         )
     }
-    items(editor.apps.matching(editor.appQuery), key = { "app_${it.packageName}" }) { app ->
+    items(editor.shownApps, key = { "app_${it.packageName}" }) { app ->
         CheckboxCard(
             title = app.label,
             checked = app.packageName in useFor.apps,

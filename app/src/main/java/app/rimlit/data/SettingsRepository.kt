@@ -22,11 +22,12 @@ import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
 import app.rimlit.model.Look
-import app.rimlit.model.LookPart
 import app.rimlit.model.Premade
 import app.rimlit.model.QuietHours
+import app.rimlit.model.UiPrefs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
@@ -81,12 +82,6 @@ private object Keys {
     val CUTOUT_OFFSET_Y_DP = floatPreferencesKey("cutout_offset_y_dp")
     val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
 
-    /** The editor's tabs set to tinker, by [app.rimlit.model.LookPart] name. */
-    val TINKERING = stringSetPreferencesKey("tinkering")
-
-    /** The recommended permissions put off, by name. */
-    val DISMISSED_PERMISSIONS = stringSetPreferencesKey("dismissed_permissions")
-
     /** One toggle for both locked places; read only to migrate into [SHOW_WHEN_SCREEN_OFF], [SHOW_ON_LOCK_SCREEN]. */
     val LEGACY_SHOW_WHEN_LOCKED = booleanPreferencesKey("show_when_locked")
 
@@ -114,25 +109,36 @@ private object Keys {
     }
 }
 
-/** Single source of truth for user settings, backed by Preferences DataStore. */
+/**
+ * Single source of truth for user settings, backed by Preferences DataStore: the [GlowSettings] and, apart from them
+ * in the same store, the [UiPrefs]. Each has its own flow and its own atomic update, so writing one never wakes the
+ * other's readers.
+ */
 class SettingsRepository internal constructor(private val store: DataStore<Preferences>) {
 
     constructor(context: Context) : this(context.dataStore)
 
     /**
-     * The stored settings, to show and to glow by. On the first I/O error it emits defaults, then keeps retrying with
-     * backoff, so the stored settings come back once a read succeeds instead of the defaults lasting until the
-     * process restarts. Those defaults are not what is stored: anything destructive reads [stored] instead.
+     * The stored preferences. On the first I/O error it emits empty ones (the defaults), then keeps retrying with
+     * backoff, so what is stored comes back once a read succeeds instead of the defaults lasting until the process
+     * restarts.
      */
-    val settings: Flow<GlowSettings> = store.data
-        .retryWhen { e, attempt ->
-            if (e !is IOException) return@retryWhen false
-            Log.w(TAG, "Couldn't read settings; retrying", e)
-            if (attempt == 0L) emit(emptyPreferences())
-            delay(READ_RETRY_MS shl attempt.coerceAtMost(MAX_RETRY_DOUBLINGS).toInt())
-            true
-        }
-        .map { it.toSettings() }
+    private val data: Flow<Preferences> = store.data.retryWhen { e, attempt ->
+        if (e !is IOException) return@retryWhen false
+        Log.w(TAG, "Couldn't read settings; retrying", e)
+        if (attempt == 0L) emit(emptyPreferences())
+        delay(READ_RETRY_MS shl attempt.coerceAtMost(MAX_RETRY_DOUBLINGS).toInt())
+        true
+    }
+
+    /**
+     * The stored settings, to show and to glow by, each change once. Defaults after a failed read (see [data]) are
+     * not what is stored: anything destructive reads [stored] instead.
+     */
+    val settings: Flow<GlowSettings> = data.map { it.toSettings() }.distinctUntilChanged()
+
+    /** The stored UI preferences, each change once; defaults after a failed read (see [data]). */
+    val uiPrefs: Flow<UiPrefs> = data.map { it.toUiPrefs() }.distinctUntilChanged()
 
     /**
      * The settings as they are stored now, never a fallback: what to delete by.
@@ -145,6 +151,13 @@ class SettingsRepository internal constructor(private val store: DataStore<Prefe
     suspend fun update(transform: (GlowSettings) -> GlowSettings): GlowSettings {
         lateinit var written: GlowSettings
         store.edit { prefs -> written = transform(prefs.toSettings()).also(prefs::write) }
+        return written
+    }
+
+    /** Atomically read-modify-writes the UI preferences; the preferences written. */
+    suspend fun updateUi(transform: (UiPrefs) -> UiPrefs): UiPrefs {
+        lateinit var written: UiPrefs
+        store.edit { prefs -> written = transform(prefs.toUiPrefs()).also { prefs.write(it) } }
         return written
     }
 }
@@ -206,9 +219,6 @@ internal fun Preferences.toSettings(): GlowSettings {
         cornerRadiusDp = clampedOrNull(Keys.CORNER_RADIUS_DP, defaults.cornerRadiusDp, Ranges.cornerRadiusDp),
         customCutout = customCutout(),
         blockedPackages = valueOr(Keys.BLOCKED_PACKAGES, defaults.blockedPackages),
-        tinkering = this[Keys.TINKERING]?.mapNotNullTo(mutableSetOf()) { it.toEnumOrNull<LookPart>() }
-            ?: defaults.tinkering,
-        dismissedPermissions = valueOr(Keys.DISMISSED_PERMISSIONS, defaults.dismissedPermissions),
     )
 }
 
@@ -317,8 +327,6 @@ internal fun MutablePreferences.write(settings: GlowSettings) {
     setOrRemove(Keys.CUTOUT_OFFSET_X_DP, cutout?.offsetXDp)
     setOrRemove(Keys.CUTOUT_OFFSET_Y_DP, cutout?.offsetYDp)
     this[Keys.BLOCKED_PACKAGES] = settings.blockedPackages
-    this[Keys.TINKERING] = settings.tinkering.mapTo(mutableSetOf()) { it.name }
-    this[Keys.DISMISSED_PERMISSIONS] = settings.dismissedPermissions
     remove(Keys.LEGACY_SHOW_WHEN_LOCKED)
     Keys.PreLooks.all.forEach { remove(it) }
 }

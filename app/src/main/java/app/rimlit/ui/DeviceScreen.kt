@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -23,9 +22,6 @@ import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
 import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.glow.DisplayShape
-import app.rimlit.ui.glow.EdgeGlow
-import app.rimlit.ui.glow.playback
-import app.rimlit.ui.glow.rememberDeviceConditions
 import kotlin.math.roundToInt
 
 /**
@@ -36,8 +32,7 @@ import kotlin.math.roundToInt
 @Composable
 fun DeviceScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val saved by viewModel.settings.collectAsStateWithLifecycle()
-    val editor = remember { SettingsDraft(saved, viewModel::update) }
-    LaunchedEffect(saved) { editor.follow(saved) }
+    val editor = rememberSettingsDraft(saved, viewModel::update)
     val draft = editor.value
     val displayCornerDp = rememberDisplayCornerDp()
     val cutoutSeed = rememberCutoutSeed()
@@ -54,14 +49,7 @@ fun DeviceScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifie
                 if (cutoutSeed != null) cutoutItems(draft, cutoutSeed, editor)
             }
         }
-        // Above the screen, at its real edge: it takes no touches, so the settings under it stay usable.
-        EdgeGlow(
-            spec = spec,
-            playback = spec.playback(lockScreen = false, rememberDeviceConditions()),
-            preview = true,
-            scaled = false,
-            modifier = Modifier.fillMaxSize(),
-        )
+        ScreenGlow(spec, lockScreen = false)
     }
 }
 

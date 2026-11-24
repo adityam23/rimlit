@@ -13,18 +13,20 @@ fun GlowSettings.useFor(id: String): UseFor =
 fun GlowSettings.appsUsing(id: String): Int = appRules.values.count { it == Rule(id) }
 
 /**
- * These settings with [look] saved, replacing the look with its id or added as a new one, applied as [useFor] says:
+ * These settings with [edited] saved, replacing the look with its id or added as a new one, applied as [useFor] says:
  * exactly its apps have it as their own, and it becomes the default look when [UseFor.isDefault]. The default look
  * stays the default whatever [useFor] says, since one look always is: another takes it over. A look saved always shows
- * something (see [showingSomething]). Unchanged when the look is new and no look fits, or its name is taken.
+ * something (see [showingSomething]). A look [isNew] is added; any other replaces the saved one. `null` when it can't
+ * be saved: its name is taken, a new one doesn't fit, or the one it replaces is gone (deleted meanwhile).
  */
-fun GlowSettings.savingLook(edited: Look, useFor: UseFor): GlowSettings {
+fun GlowSettings.savingLook(edited: Look, useFor: UseFor, isNew: Boolean): GlowSettings? {
     val look = edited.showingSomething()
+    val exists = this.look(look.id) != null
     val saved = when {
-        !canName(look.name, exceptId = look.id) -> return this
-        this.look(look.id) != null -> updateLook(look.id) { look }
-        canAddLook -> copy(looks = looks + look)
-        else -> return this
+        !canName(look.name, exceptId = look.id) -> return null
+        isNew -> if (!exists && canAddLook) copy(looks = looks + look) else return null
+        exists -> updateLook(look.id) { look }
+        else -> return null
     }
     val rule = Rule(look.id)
     return saved.copy(

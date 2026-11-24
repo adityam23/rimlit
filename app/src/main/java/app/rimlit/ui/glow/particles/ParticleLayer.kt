@@ -9,8 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
-import app.rimlit.data.ParticleImageStore
 import app.rimlit.model.GlowSpec
+import app.rimlit.particleImages
 import app.rimlit.ui.glow.BuildCache
 import app.rimlit.ui.glow.Playback
 import kotlin.math.roundToInt
@@ -29,7 +29,7 @@ internal fun rememberParticleLayer(): ParticleLayer {
  */
 internal class ParticleLayer(context: Context) {
     private val seed = Random.nextInt()
-    private val store = ParticleImageStore(context)
+    private val store = context.particleImages
     private val pictures = BuildCache<PictureKey, List<Drawable>> { loadPicture(context, store, it) }
     private val sprites = BuildCache<SpriteKey, ParticleSprites> { ParticleSprites(pictures.get(it.picture), it) }
 

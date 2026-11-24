@@ -1,7 +1,10 @@
 package app.rimlit.ui
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.Look
@@ -45,4 +48,12 @@ internal class SettingsDraft(initial: GlowSettings, private val save: (SettingsE
     fun follow(saved: GlowSettings) {
         if (writes == 0 && !dragging) value = saved
     }
+}
+
+/** A screen's draft of the [saved] settings, following them as [SettingsDraft.follow] allows, written by [save]. */
+@Composable
+internal fun rememberSettingsDraft(saved: GlowSettings, save: (SettingsEdit) -> Job): SettingsDraft {
+    val draft = remember { SettingsDraft(saved, save) }
+    LaunchedEffect(saved) { draft.follow(saved) }
+    return draft
 }

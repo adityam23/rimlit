@@ -45,7 +45,7 @@ import app.rimlit.ui.title
 internal fun EditorTopBar(editor: LookEditorState, onBack: () -> Unit, onSave: () -> Unit, onSendTest: () -> Unit) {
     val name = editor.look.name
     val offScreen = editor.offScreen
-    val canSave = editor.unsaved && !editor.saving
+    val canSave = editor.canSave
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
@@ -114,7 +114,7 @@ private fun EditorMenu(editor: LookEditorState, onSendTest: () -> Unit) {
     }
 }
 
-/** Leaving with unsaved changes: save them ([canSave]: there is room for a new look), discard them, or stay. */
+/** Leaving with unsaved changes: save them (while [canSave], see [LookEditorState.canSave]), discard them, or stay. */
 @Composable
 internal fun LeaveDialog(canSave: Boolean, onSave: () -> Unit, onDiscard: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(

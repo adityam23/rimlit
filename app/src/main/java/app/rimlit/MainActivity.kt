@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import app.rimlit.ui.AppNavHost
+import app.rimlit.ui.glow.ProvideDeviceConditions
 import app.rimlit.ui.theme.AppTheme
 
 class MainActivity : ComponentActivity() {
@@ -28,7 +29,7 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             AppTheme {
-                AppNavHost(viewModel = viewModel)
+                ProvideDeviceConditions { AppNavHost(viewModel = viewModel) }
             }
         }
     }

@@ -10,23 +10,30 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.rimlit.LookDrafts
 import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.data.AppInfo
 import app.rimlit.data.decodeLooks
 import app.rimlit.data.encodeLooks
+import app.rimlit.data.matching
 import app.rimlit.data.toEnumOrNull
 import app.rimlit.engine.PreviewTarget
+import app.rimlit.lookDrafts
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSpec
 import app.rimlit.model.Look
 import app.rimlit.model.LookControl
 import app.rimlit.model.LookPart
 import app.rimlit.model.Premade
+import app.rimlit.model.UiPrefs
 import app.rimlit.model.UseFor
+import app.rimlit.model.canAddLook
 import app.rimlit.model.changedControls
+import app.rimlit.model.changedParts
 import app.rimlit.model.freshName
 import app.rimlit.model.showingSomething
 import app.rimlit.model.switchedTo
@@ -56,18 +63,25 @@ internal sealed interface EditorDialog {
 }
 
 /**
+ * What the editor reads and writes through: [preview] (plays a spec on a real surface), [updateUi] (the UI's
+ * preferences), the process's [drafts] (saving), and the screen's collected [settings], [uiPrefs] and [apps].
+ */
+internal class EditorSources(
+    val preview: (PreviewTarget, GlowSpec) -> Unit,
+    val updateUi: ((UiPrefs) -> UiPrefs) -> Unit,
+    val drafts: LookDrafts,
+    val settings: State<GlowSettings>,
+    val uiPrefs: State<UiPrefs>,
+    val apps: State<List<AppInfo>>,
+)
+
+/**
  * The look editor's state, and what it does: the draft [look], where it applies ([applies]), the open tab and dialog.
  * Nothing is written until [save]. Images imported for the draft need no holding on to: the clean-up keeps them
  * through their grace. Kept across process death by [rememberLookEditorState]. Main thread only.
  */
 @Stable
-internal class LookEditorState(
-    private val viewModel: MainViewModel,
-    private val settingsState: State<GlowSettings>,
-    private val appsState: State<List<AppInfo>>,
-    look: Look,
-    isNew: Boolean,
-) {
+internal class LookEditorState(private val sources: EditorSources, look: Look, isNew: Boolean) {
     var look by mutableStateOf(look)
         private set
 
@@ -87,14 +101,16 @@ internal class LookEditorState(
     var dialog by mutableStateOf<EditorDialog?>(null)
     var appQuery by mutableStateOf("")
 
-    val settings: GlowSettings get() = settingsState.value
-    val apps: List<AppInfo> get() = appsState.value
+    val settings: GlowSettings get() = sources.settings.value
+
+    /** The apps the Apps tab lists: those [appQuery] matches, worked out once per query or app list. */
+    val shownApps: List<AppInfo> by derivedStateOf { sources.apps.value.matching(appQuery) }
 
     /** The settings where the draft differs from its premade, worked out once per edit for every tab to mark. */
     val changed: Set<LookControl> by derivedStateOf { this.look.changedControls() }
 
-    /** The parts [changed] falls in: the tabs with a dot. */
-    val changedParts: Set<LookPart> get() = changed.mapTo(mutableSetOf()) { it.part }
+    /** The parts the draft differs from its premade in: the tabs with a dot. */
+    val changedParts: Set<LookPart> by derivedStateOf { this.look.changedParts() }
 
     /** Where the look applies once saved. */
     var applies: UseFor
@@ -106,8 +122,12 @@ internal class LookEditorState(
     val unsaved: Boolean
         get() = isNew || look != settings.look(look.id) || applies != settings.useFor(look.id)
 
+    /** Whether saving is offered: there is something to save, no save is in flight, and a new look still fits. */
+    val canSave: Boolean
+        get() = unsaved && !saving && (!isNew || settings.canAddLook)
+
     /** The open tab shows every control: its "Tinker" is on. */
-    val tinkering: Boolean get() = tab.part in settings.tinkering
+    val tinkering: Boolean get() = tab.part in sources.uiPrefs.value.tinkering
 
     /** Sets the draft to [look], always showing something (see [showingSomething]): as it will be saved. */
     fun edit(look: Look) {
@@ -144,12 +164,12 @@ internal class LookEditorState(
     /** Turns the open tab's "Tinker" on or off, remembered at once (it isn't part of the look). */
     fun tinker(on: Boolean) {
         val part = tab.part ?: return
-        viewModel.update { it.copy(tinkering = if (on) it.tinkering + part else it.tinkering - part) }
+        sources.updateUi { it.copy(tinkering = if (on) it.tinkering + part else it.tinkering - part) }
     }
 
     /** Plays [spec], the draft as this device draws it, on the real surface the editor shows: on screen, or off. */
     fun sendTest(spec: GlowSpec) {
-        viewModel.preview(if (offScreen) PreviewTarget.LOCK_SCREEN else PreviewTarget.ON_SCREEN, spec)
+        sources.preview(if (offScreen) PreviewTarget.LOCK_SCREEN else PreviewTarget.ON_SCREEN, spec)
     }
 
     /**
@@ -160,7 +180,7 @@ internal class LookEditorState(
         if (saving) return
         dialog = null
         saving = true
-        viewModel.drafts.save(look, applies) { saved ->
+        sources.drafts.save(look, applies, isNew) { saved ->
             saving = false
             onDone(saved)
         }
@@ -181,11 +201,7 @@ internal class LookEditorState(
 
     companion object {
         /** Keeps the draft as the settings store a look, decoded as tolerantly, so a restored draft is always valid. */
-        fun saver(
-            viewModel: MainViewModel,
-            settings: State<GlowSettings>,
-            apps: State<List<AppInfo>>,
-        ): Saver<Held, Any> = Saver(
+        fun saver(sources: EditorSources): Saver<Held, Any> = Saver(
             save = { held ->
                 held.editor?.run {
                     arrayListOf(
@@ -202,7 +218,7 @@ internal class LookEditorState(
             restore = { saved ->
                 val fields = saved as List<*>
                 val look = decodeLooks(fields[0] as String)?.singleOrNull() ?: return@Saver null
-                val editor = LookEditorState(viewModel, settings, apps, look, isNew = fields[1] as Boolean).apply {
+                val editor = LookEditorState(sources, look, isNew = fields[1] as Boolean).apply {
                     useFor = (fields[2] as List<*>?)?.let { applied ->
                         UseFor(applied.first() as Boolean, applied.drop(1).map(Any?::toString).toSet())
                     }
@@ -219,14 +235,8 @@ internal class LookEditorState(
          * The state for [target], from the loaded [settings]: the saved look, a copy of it, or a new look from a
          * premade, each new one named as [names] say and numbered when taken. Holding `null` when that look is gone.
          */
-        fun held(
-            viewModel: MainViewModel,
-            settings: State<GlowSettings>,
-            apps: State<List<AppInfo>>,
-            target: EditorTarget,
-            names: EditorNames,
-        ): Held {
-            val saved = settings.value
+        fun held(sources: EditorSources, target: EditorTarget, names: EditorNames): Held {
+            val saved = sources.settings.value
             val look = when (target) {
                 is EditorTarget.Edit -> saved.look(target.lookId)
 
@@ -239,7 +249,7 @@ internal class LookEditorState(
                 }
             }
             return Held(
-                look?.let { LookEditorState(viewModel, settings, apps, it, isNew = target !is EditorTarget.Edit) },
+                look?.let { LookEditorState(sources, it, isNew = target !is EditorTarget.Edit) },
             )
         }
 
@@ -272,15 +282,20 @@ internal class EditorNames(val premade: (Premade) -> String, val copy: (String) 
 internal fun rememberLookEditorState(viewModel: MainViewModel, target: EditorTarget): LookEditorState? {
     val stored = viewModel.storedSettings.collectAsStateWithLifecycle()
     val settings = remember(stored) { derivedStateOf { stored.value ?: GlowSettings() } }
+    val uiPrefs = viewModel.uiPrefs.collectAsStateWithLifecycle()
     val apps = viewModel.apps.collectAsStateWithLifecycle()
+    val drafts = LocalContext.current.lookDrafts
     val resources = LocalResources.current
-    val saver = remember(viewModel) { LookEditorState.saver(viewModel, settings, apps) }
+    val sources = remember(viewModel) {
+        EditorSources(viewModel::preview, { viewModel.updateUi(it) }, drafts, settings, uiPrefs, apps)
+    }
+    val saver = remember(sources) { LookEditorState.saver(sources) }
     return rememberSaveable(saver = saver) {
         val names = EditorNames(
             premade = { resources.getString(it.style.titleRes) },
             copy = { resources.getString(R.string.look_copy_name, it) },
         )
-        LookEditorState.held(viewModel, settings, apps, target, names)
+        LookEditorState.held(sources, target, names)
     }.editor
 }
 

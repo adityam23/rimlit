@@ -4,17 +4,31 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import java.io.IOException
 
-/** A settings store holding [stored] in memory, whose reads fail while [failing], as a disk error would make them. */
-internal class FakeStore(var stored: Preferences = emptyPreferences()) : DataStore<Preferences> {
+/**
+ * A settings store holding its preferences in memory, emitting each change as DataStore does (a write that changes
+ * nothing emits nothing), whose reads and writes fail while [failing], as a disk error would make them.
+ */
+internal class FakeStore(stored: Preferences = emptyPreferences()) : DataStore<Preferences> {
     var failing = false
 
-    override val data: Flow<Preferences> = flow { emit(read()) }
+    private val stored = MutableStateFlow(stored)
 
-    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
-        transform(read()).also { stored = it }
+    override val data: Flow<Preferences> = flow {
+        check()
+        emitAll(this@FakeStore.stored)
+    }
 
-    private fun read(): Preferences = if (failing) throw IOException("Disk error") else stored
+    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences {
+        check()
+        return transform(stored.value).also { stored.value = it }
+    }
+
+    private fun check() {
+        if (failing) throw IOException("Disk error")
+    }
 }

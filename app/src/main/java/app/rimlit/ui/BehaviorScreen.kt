@@ -1,6 +1,8 @@
 package app.rimlit.ui
 
 import android.text.format.DateFormat
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -22,7 +24,6 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,51 +63,52 @@ fun BehaviorScreen(
     val saved by viewModel.settings.collectAsStateWithLifecycle()
     val fallback by viewModel.overlayFallback.collectAsStateWithLifecycle()
     // Sliders render from the draft while dragged; each finished edit is written once.
-    val editor = remember { SettingsDraft(saved, viewModel::update) }
-    LaunchedEffect(saved) { editor.follow(saved) }
+    val editor = rememberSettingsDraft(saved, viewModel::update)
     val settings = editor.value
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val uiPrefs by viewModel.uiPrefs.collectAsStateWithLifecycle()
     var opened by rememberSaveable(stateSaver = Attention.Saver) { mutableStateOf<Attention?>(null) }
     // The recommended permissions put off on Home, while still missing.
     val putOff = attentions(permissions, fallback = null)
-        .filter { it.dismissible && it.kind.name in settings.dismissedPermissions }
+        .filter { it.dismissible && it.kind.name in uiPrefs.dismissedPermissions }
+    // While the screen-off brightness slider is dragged, the default look glows as the lock screen would show it.
+    var draggingScreenOff by remember { mutableStateOf(false) }
 
-    SubScreenScaffold(
-        title = stringResource(R.string.nav_behavior_title),
-        onBack = onBack,
-        modifier = modifier,
-    ) { innerPadding ->
-        SettingsList(innerPadding) {
-            whereSection(settings, lockScreenNeedsService = fallback != null, editor::commit)
-            glowTimingSection(settings, editor)
-            quietHoursSection(settings.quietHours) { edit ->
-                editor.commit { it.copy(quietHours = edit(it.quietHours)) }
-            }
-            gesturesSection(settings, editor::commit)
-            item { SectionTitle(stringResource(R.string.device_section)) }
-            item {
-                NavCard(
-                    icon = Icons.Filled.Smartphone,
-                    title = stringResource(R.string.nav_device_title),
-                    subtitle = stringResource(R.string.nav_device_subtitle),
-                    onClick = onOpenDevice,
-                )
-            }
-            attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
-            item { SectionTitle(stringResource(R.string.preview_section)) }
-            item {
-                PreviewButtons(
-                    onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, settings.previewSpec()) },
-                    onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, settings.previewSpec()) },
-                    fallback = fallback,
-                )
-            }
-            item {
-                OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.test_notification_button))
+    Box(modifier = modifier.fillMaxSize()) {
+        SubScreenScaffold(title = stringResource(R.string.nav_behavior_title), onBack = onBack) { innerPadding ->
+            SettingsList(innerPadding) {
+                whereSection(settings, lockScreenNeedsService = fallback != null, editor::commit)
+                glowTimingSection(settings, editor) { draggingScreenOff = it }
+                quietHoursSection(settings.quietHours) { edit ->
+                    editor.commit { it.copy(quietHours = edit(it.quietHours)) }
+                }
+                gesturesSection(settings, editor::commit)
+                item { SectionTitle(stringResource(R.string.device_section)) }
+                item {
+                    NavCard(
+                        icon = Icons.Filled.Smartphone,
+                        title = stringResource(R.string.nav_device_title),
+                        subtitle = stringResource(R.string.nav_device_subtitle),
+                        onClick = onOpenDevice,
+                    )
+                }
+                attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
+                item { SectionTitle(stringResource(R.string.preview_section)) }
+                item {
+                    PreviewButtons(
+                        onPreviewOnScreen = { viewModel.preview(PreviewTarget.ON_SCREEN, settings.previewSpec()) },
+                        onPreviewLockScreen = { viewModel.preview(PreviewTarget.LOCK_SCREEN, settings.previewSpec()) },
+                        fallback = fallback,
+                    )
+                }
+                item {
+                    OutlinedButton(onClick = viewModel::sendTestNotification, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.test_notification_button))
+                    }
                 }
             }
         }
+        if (draggingScreenOff) ScreenGlow(settings.previewSpec(), lockScreen = true)
     }
     AttentionSheet(attention = opened, onOpenSettings = viewModel::openPermission, onNotNow = null) { opened = null }
 }

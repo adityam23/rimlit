@@ -52,6 +52,10 @@ fun Look.withImageIds(ids: Map<String, String>): Look {
     return copy(particles = particles.copy(picture = ParticlePicture.Custom(own.map(ids::getValue))))
 }
 
+/** How many more images these particles can draw: [MAX_PARTICLE_IMAGES] less their own. */
+val ParticleSpec?.imageRoom: Int
+    get() = MAX_PARTICLE_IMAGES - ((this?.picture as? ParticlePicture.Custom)?.ids?.size ?: 0)
+
 /**
  * These particles drawing [added] images too: after the look's own images, without repeats, up to
  * [MAX_PARTICLE_IMAGES]. Particles with another picture (or none) switch to [added], in their own colours, keeping

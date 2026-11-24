@@ -18,8 +18,8 @@ import app.rimlit.model.GlowSpec
 import app.rimlit.model.GlowStyle
 import app.rimlit.model.Premade
 import app.rimlit.ui.glow.EdgeGlow
+import app.rimlit.ui.glow.LocalDeviceConditions
 import app.rimlit.ui.glow.playback
-import app.rimlit.ui.glow.rememberDeviceConditions
 
 /** A phone's height for its width, near enough to every screen for a small preview. */
 private const val PHONE_ASPECT = 2f
@@ -42,7 +42,7 @@ internal fun PhoneGlow(spec: GlowSpec, modifier: Modifier = Modifier, width: Dp 
     ) {
         EdgeGlow(
             spec = shown,
-            playback = shown.playback(lockScreen = false, rememberDeviceConditions()).copy(still = !moving),
+            playback = shown.playback(lockScreen = false, LocalDeviceConditions.current).copy(still = !moving),
             preview = true,
             modifier = Modifier.fillMaxSize(),
         )

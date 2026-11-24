@@ -20,6 +20,7 @@ import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticlePreset
 import app.rimlit.model.ParticleSpec
 import app.rimlit.model.ParticleTint
+import app.rimlit.model.imageRoom
 import app.rimlit.model.resetToPreset
 import app.rimlit.model.tweaks
 import app.rimlit.model.withAppIcon
@@ -123,7 +124,7 @@ private fun LazyListScope.ownPictureItems(editor: LookEditorState, onAddImages: 
             ParticleImagesCard(
                 ids = picture.ids,
                 onRemove = { id -> editor.edit(look.copy(particles = particles.withoutImage(id))) },
-                onAdd = onAddImages.takeIf { picture.ids.size < MAX_PARTICLE_IMAGES },
+                onAdd = onAddImages.takeIf { particles.imageRoom > 0 },
             )
         }
     }

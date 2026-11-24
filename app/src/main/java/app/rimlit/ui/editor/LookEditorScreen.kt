@@ -34,11 +34,8 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSpec
-import app.rimlit.model.canAddLook
 import app.rimlit.ui.LookNameDialog
-import app.rimlit.ui.glow.EdgeGlow
-import app.rimlit.ui.glow.playback
-import app.rimlit.ui.glow.rememberDeviceConditions
+import app.rimlit.ui.ScreenGlow
 import app.rimlit.ui.rememberAddParticleImages
 import app.rimlit.ui.rememberCutoutSeed
 
@@ -75,7 +72,7 @@ fun LookEditorScreen(
     // What this device will really show: without a cutout, the renderer falls back to the full edge.
     val spec = editor.settings.previewSpec(editor.look)
         .let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
-    val addImages = rememberAddParticleImages(viewModel, editor.look, editor::addImages)
+    val addImages = rememberAddParticleImages(editor.look, editor::addImages)
     val save = {
         editor.save { saved ->
             if (saved) close() else Toast.makeText(context, R.string.editor_save_failed, Toast.LENGTH_SHORT).show()
@@ -89,13 +86,7 @@ fun LookEditorScreen(
             .fillMaxSize()
             .background(if (editor.offScreen) Color.Black else Color.Black.copy(alpha = WALLPAPER_DIM)),
     ) {
-        EdgeGlow(
-            spec = spec,
-            playback = spec.playback(lockScreen = editor.offScreen, rememberDeviceConditions()),
-            preview = true,
-            scaled = false,
-            modifier = Modifier.fillMaxSize(),
-        )
+        ScreenGlow(spec, lockScreen = editor.offScreen)
         EditorSheet(editor, spec, hasCutout, onBack = leave, onSave = save, onAddImages = addImages)
     }
     EditorDialogs(editor, onSave = save, onLeave = close)
@@ -158,7 +149,7 @@ private fun EditorDialogs(editor: LookEditorState, onSave: () -> Unit, onLeave: 
         null -> Unit
 
         EditorDialog.Leave -> LeaveDialog(
-            canSave = !editor.isNew || editor.settings.canAddLook,
+            canSave = editor.canSave,
             onSave = onSave,
             onDiscard = { editor.discard(onLeave) },
             onDismiss = { editor.dialog = null },

@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import app.rimlit.ui.editor.EditorTarget
 import app.rimlit.ui.editor.LookEditorScreen
+import app.rimlit.ui.glow.ProvideDeviceConditions
 import app.rimlit.ui.theme.AppTheme
 
 /**
@@ -31,7 +32,9 @@ class LookEditorActivity : ComponentActivity() {
         val target = EditorTarget.from(intent) ?: return finish()
         setContent {
             AppTheme {
-                LookEditorScreen(viewModel = viewModel, target = target, onClose = ::finish)
+                ProvideDeviceConditions {
+                    LookEditorScreen(viewModel = viewModel, target = target, onClose = ::finish)
+                }
             }
         }
     }
