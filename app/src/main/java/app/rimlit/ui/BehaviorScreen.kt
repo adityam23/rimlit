@@ -86,24 +86,8 @@ fun BehaviorScreen(
                     editor.commit { it.copy(quietHours = edit(it.quietHours)) }
                 }
                 gesturesSection(settings, editor::commit)
-                item { SectionTitle(stringResource(R.string.device_section)) }
-                item {
-                    NavCard(
-                        icon = Icons.Filled.Smartphone,
-                        title = stringResource(R.string.nav_device_title),
-                        subtitle = stringResource(R.string.nav_device_subtitle),
-                        onClick = onOpenDevice,
-                    )
-                }
-                item { SectionTitle(stringResource(R.string.look_editor_section)) }
-                item {
-                    SwitchCard(
-                        title = stringResource(R.string.always_tinker_title),
-                        checked = uiPrefs.alwaysTinker,
-                        onCheckedChange = { on -> viewModel.updateUi { it.copy(alwaysTinker = on) } },
-                        subtitle = stringResource(R.string.always_tinker_desc),
-                        leading = { SettingIcon(Icons.Filled.Tune) },
-                    )
+                deviceAndEditorSections(uiPrefs.alwaysTinker, onOpenDevice) { on ->
+                    viewModel.updateUi { it.copy(alwaysTinker = on) }
                 }
                 attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
                 item { SectionTitle(stringResource(R.string.preview_section)) }
@@ -128,6 +112,33 @@ fun BehaviorScreen(
         }
     }
     AttentionSheet(attention = opened, onOpenSettings = viewModel::openPermission, onNotNow = null) { opened = null }
+}
+
+/** Screen fit, opened on its own screen ([onOpenDevice]); then the look editor's "Always tinker". */
+private fun LazyListScope.deviceAndEditorSections(
+    alwaysTinker: Boolean,
+    onOpenDevice: () -> Unit,
+    onAlwaysTinker: (Boolean) -> Unit,
+) {
+    item { SectionTitle(stringResource(R.string.device_section)) }
+    item {
+        NavCard(
+            icon = Icons.Filled.Smartphone,
+            title = stringResource(R.string.nav_device_title),
+            subtitle = stringResource(R.string.nav_device_subtitle),
+            onClick = onOpenDevice,
+        )
+    }
+    item { SectionTitle(stringResource(R.string.look_editor_section)) }
+    item {
+        SwitchCard(
+            title = stringResource(R.string.always_tinker_title),
+            checked = alwaysTinker,
+            onCheckedChange = onAlwaysTinker,
+            subtitle = stringResource(R.string.always_tinker_desc),
+            leading = { SettingIcon(Icons.Filled.Tune) },
+        )
+    }
 }
 
 /**

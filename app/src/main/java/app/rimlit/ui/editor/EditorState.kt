@@ -35,9 +35,8 @@ import app.rimlit.model.UseFor
 import app.rimlit.model.canAddLook
 import app.rimlit.model.changedControls
 import app.rimlit.model.changedParts
-import app.rimlit.model.fitLookName
 import app.rimlit.model.freshName
-import app.rimlit.model.isValidLookName
+import app.rimlit.model.freshNameOrNull
 import app.rimlit.model.showingSomething
 import app.rimlit.model.switchedTo
 import app.rimlit.model.useFor
@@ -258,8 +257,8 @@ internal class LookEditorState(
 
                 is EditorTarget.New -> target.premade.let { premade ->
                     // An app's label is untrusted: one that makes no look name ("   ") gives way to the premade's.
-                    val name = target.app?.label?.takeIf { isValidLookName(fitLookName(it)) } ?: names.premade(premade)
-                    premade.look(id = UUID.randomUUID().toString(), name = saved.freshName(name))
+                    val name = target.app?.label?.let(saved::freshNameOrNull) ?: saved.freshName(names.premade(premade))
+                    premade.look(id = UUID.randomUUID().toString(), name = name)
                 }
             }
             val useFor = (target as? EditorTarget.New)?.app?.let {

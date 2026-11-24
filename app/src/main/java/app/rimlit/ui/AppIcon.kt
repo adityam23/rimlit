@@ -15,25 +15,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.rimlit.appIcons
 import app.rimlit.data.AppIcons
 import app.rimlit.data.AppInfo
 
-/** The size an app's icon is drawn at, and loaded for ([AppIcons]). */
-internal const val APP_ICON_DP = 40
+/** The size an app's icon is drawn at, and loaded for at the screen's density. */
+private val IconSize = 40.dp
 
 /**
- * [app]'s own icon, loaded off the main thread by [icons]; nothing while it loads, and a letter in a colour circle
- * when it has none that loads.
+ * [app]'s own icon, loaded off the main thread by the process's [AppIcons]; nothing while it loads, and a letter in a
+ * colour circle when it has none that loads.
  */
 @Composable
-internal fun AppIcon(icons: AppIcons, app: AppInfo, modifier: Modifier = Modifier) {
-    val loaded by produceState(icons.cached(app.packageName), icons, app.packageName) {
-        value = icons.load(app.packageName)
+internal fun AppIcon(app: AppInfo, modifier: Modifier = Modifier) {
+    val icons = LocalContext.current.appIcons
+    val sizePx = with(LocalDensity.current) { IconSize.roundToPx() }
+    val loaded by produceState(icons.cached(app.packageName, sizePx), icons, app.packageName, sizePx) {
+        value = icons.load(app.packageName, sizePx)
     }
     val icon = remember(loaded) { loaded?.icon?.asImageBitmap() }
-    val sized = modifier.size(APP_ICON_DP.dp)
+    val sized = modifier.size(IconSize)
     when {
         icon != null -> Image(icon, contentDescription = null, modifier = sized)
         loaded != null -> LetterAvatar(app, sized)

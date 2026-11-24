@@ -18,7 +18,8 @@ fun AppSearchField(query: String, onQueryChange: (String) -> Unit, modifier: Mod
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier.fillMaxWidth(),
-        placeholder = { Text(stringResource(R.string.apps_search_hint)) },
+        // A label, not a placeholder: it stays in sight, floating, once something is typed.
+        label = { Text(stringResource(R.string.apps_search_hint)) },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         singleLine = true,
     )

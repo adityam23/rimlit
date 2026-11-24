@@ -210,6 +210,11 @@
     <!-- An app with no look of its own: the default look, named. -->
     <string name="app_look_default">Default (%1$s)</string>
     <string name="app_look_edit">Edit %1$s</string>
+    <!-- Under "Edit <look>": other apps glow with the same look, so editing it changes them too. -->
+    <plurals name="app_look_shared">
+        <item quantity="one">Also used by %1$d other app</item>
+        <item quantity="other">Also used by %1$d other apps</item>
+    </plurals>
     <string name="app_look_new">New look for %1$s</string>
     <string name="save">Save</string>
 

@@ -2,10 +2,14 @@ package app.rimlit.ui.editor
 
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import app.rimlit.R
+import app.rimlit.ui.AppRow
 import app.rimlit.ui.components.AppSearchField
-import app.rimlit.ui.components.CheckboxCard
 import app.rimlit.ui.components.SectionTitle
 import app.rimlit.ui.components.SwitchCard
 
@@ -30,13 +34,16 @@ internal fun LazyListScope.appsTab(editor: LookEditorState) {
     item(key = "apps_title") { SectionTitle(stringResource(R.string.editor_apps_section)) }
     item(key = "search") { AppSearchField(editor.appQuery, onQueryChange = { editor.appQuery = it }) }
     items(editor.shownApps, key = { "app_${it.packageName}" }) { app ->
-        CheckboxCard(
-            title = app.label,
-            checked = app.packageName in useFor.apps,
-            onCheckedChange = { use ->
+        val checked = app.packageName in useFor.apps
+        AppRow(
+            app = app,
+            modifier = Modifier.toggleable(value = checked, role = Role.Checkbox) { use ->
                 val apps = if (use) useFor.apps + app.packageName else useFor.apps - app.packageName
                 editor.applies = useFor.copy(apps = apps)
             },
-        )
+        ) {
+            // Display only: the row handles the toggle.
+            Checkbox(checked = checked, onCheckedChange = null)
+        }
     }
 }

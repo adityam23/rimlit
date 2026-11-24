@@ -149,4 +149,19 @@ class GlowSettingsTest {
         assertFailsWith<IllegalArgumentException>("too many") { GlowPalette.Colors(List(MAX_PALETTE_COLORS + 1) { 0 }) }
         GlowPalette.Colors(List(MAX_PALETTE_COLORS) { 0 })
     }
+
+    @Test
+    fun switchingAnAppSetsOnlyItsOwnSwitchInTheCurrentMode() {
+        val mail = "com.example.mail"
+        val lists = settings.copy(blockedPackages = setOf(mail), allowedPackages = setOf(mail))
+        val off = lists.withAppSwitched(app, on = false)
+        assertEquals(setOf(mail, app), off.blockedPackages)
+        assertEquals(off, off.withAppSwitched(app, on = false), "a set, not a toggle: a repeated write is the same")
+        assertEquals(lists.allowedPackages, off.allowedPackages, "the other mode's list untouched")
+        val chosen = lists.copy(onlyChosenApps = true)
+        val on = chosen.withAppSwitched(app, on = true)
+        assertEquals(setOf(mail, app), on.allowedPackages)
+        assertEquals(chosen.blockedPackages, on.blockedPackages, "the other mode's list untouched")
+        assertEquals(setOf(app), on.withAppSwitched(mail, on = false).allowedPackages)
+    }
 }

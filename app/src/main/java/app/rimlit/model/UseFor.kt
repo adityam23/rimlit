@@ -13,6 +13,15 @@ fun GlowSettings.useFor(id: String): UseFor =
 /** How many apps have the look [id] as their own: those that go back to the default look if it is deleted. */
 fun GlowSettings.appsUsing(id: String): Int = appRules.values.count { it == Rule(id) }
 
+/**
+ * How many other apps have [packageName]'s own look as theirs too, so editing it changes them as well; 0 when it has
+ * none of its own, or its rule names the default look.
+ */
+fun GlowSettings.otherAppsSharingLook(packageName: String): Int {
+    val look = appLook(packageName)?.takeIf { it.id != defaultLookId } ?: return 0
+    return appsUsing(look.id) - 1
+}
+
 /** What saving a look the editor made comes to: the settings with it [Saved], or why it was [Refused]. */
 sealed interface LookSave {
     data class Saved(val settings: GlowSettings) : LookSave

@@ -28,29 +28,32 @@ fun PackageManager.appIcon(packageName: String, sizePx: Int): Bitmap? = try {
 }
 
 /**
- * Apps' icons at one small [sizePx], for lists: loaded on [ioDispatcher], and the last [MAX_CACHED] kept in memory
- * so scrolling back draws them at once. An app with no icon that loads is remembered as none until it falls out.
+ * Apps' icons for lists, each at the pixel size its caller draws it at: loaded on [ioDispatcher], and the most recent
+ * kept in memory, up to [MAX_CACHED_BYTES] of bitmaps, so scrolling back draws them at once. An app with no icon that
+ * loads is remembered as none until it falls out.
  */
-class AppIcons(
-    private val packageManager: PackageManager,
-    private val sizePx: Int,
-    private val ioDispatcher: CoroutineDispatcher,
-) {
-    private val cache = LruCache<String, Loaded>(MAX_CACHED)
-
-    /** [packageName]'s icon if already loaded: `null` while not yet, [Loaded.icon] `null` for none. */
-    fun cached(packageName: String): Loaded? = cache[packageName]
-
-    /** [packageName]'s icon, loaded once and then [cached]. */
-    suspend fun load(packageName: String): Loaded = cached(packageName) ?: withContext(ioDispatcher) {
-        Loaded(packageManager.appIcon(packageName, sizePx)).also { cache.put(packageName, it) }
+class AppIcons(private val packageManager: PackageManager, private val ioDispatcher: CoroutineDispatcher) {
+    private val cache = object : LruCache<Key, Loaded>(MAX_CACHED_BYTES) {
+        // "No icon" costs a byte, so even those are bounded.
+        override fun sizeOf(key: Key, value: Loaded): Int = value.icon?.allocationByteCount ?: 1
     }
+
+    /** [packageName]'s icon at [sizePx] if already loaded: `null` while not yet, [Loaded.icon] `null` for none. */
+    fun cached(packageName: String, sizePx: Int): Loaded? = cache[Key(packageName, sizePx)]
+
+    /** [packageName]'s icon as a [sizePx] square, loaded once and then [cached]. */
+    suspend fun load(packageName: String, sizePx: Int): Loaded =
+        cached(packageName, sizePx) ?: withContext(ioDispatcher) {
+            Loaded(packageManager.appIcon(packageName, sizePx)).also { cache.put(Key(packageName, sizePx), it) }
+        }
 
     /** A load's result, so "no icon" is cached as well as an icon. */
     class Loaded(val icon: Bitmap?)
 
+    private data class Key(val packageName: String, val sizePx: Int)
+
     private companion object {
-        /** About two screens of rows each way: small icons, a few MB at most. */
-        const val MAX_CACHED = 200
+        /** About two screens of rows each way even at the densest screens' 160 px icons (100 KB each). */
+        const val MAX_CACHED_BYTES = 8 * 1024 * 1024
     }
 }

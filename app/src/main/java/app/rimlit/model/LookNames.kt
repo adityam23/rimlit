@@ -22,10 +22,17 @@ fun GlowSettings.numberedName(name: String): String? = firstFreeName(numberedNam
  * A new look's name from [base] ("Blade", "Work copy"): cut to fit, then numbered when taken, "Work copy (2)"; just cut
  * when no numbered one is free either (the look limit stops it being added then anyway).
  */
-fun GlowSettings.freshName(base: String): String {
-    val fitted = fitLookName(base)
-    return numberedName(fitted) ?: fitted
-}
+fun GlowSettings.freshName(base: String): String = numberedOrAsIs(fitLookName(base))
+
+/**
+ * [freshName] from an untrusted [base], such as an app's label: `null` when, cut to fit, it makes no look name at all
+ * ("   ").
+ */
+fun GlowSettings.freshNameOrNull(base: String): String? =
+    fitLookName(base).takeIf(::isValidLookName)?.let { numberedOrAsIs(it) }
+
+/** [fitted] numbered when taken, as it is when no numbered one is free either. */
+private fun GlowSettings.numberedOrAsIs(fitted: String): String = numberedName(fitted) ?: fitted
 
 /** [name] (a valid look name), then numbered from 2, "Work (2)", cut so the number always fits. */
 private fun numberedNames(name: String): Sequence<String> =
