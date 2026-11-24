@@ -4,6 +4,7 @@ import android.net.Uri
 import app.rimlit.data.LookLibrary
 import app.rimlit.data.ParticleImageStore
 import app.rimlit.model.Look
+import app.rimlit.model.LookSave
 import app.rimlit.model.UseFor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -27,8 +28,8 @@ class LookDrafts internal constructor(private val library: LookLibrary, private 
         }
     }
 
-    /** Saves [look], [isNew] or not, applied as [useFor] says; [onDone] says whether it was saved. */
-    fun save(look: Look, useFor: UseFor, isNew: Boolean, onDone: (saved: Boolean) -> Unit) {
+    /** Saves [look], [isNew] or not, applied as [useFor] says; [onDone] gets what it came to: saved, or why not. */
+    fun save(look: Look, useFor: UseFor, isNew: Boolean, onDone: (LookSave) -> Unit) {
         scope.launch { onDone(library.saveLook(look, useFor, isNew)) }
     }
 }

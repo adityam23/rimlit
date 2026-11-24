@@ -3,10 +3,12 @@ package app.rimlit.data
 import android.net.Uri
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.Look
+import app.rimlit.model.LookSave
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.ParticleMotion
 import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticleSpec
+import app.rimlit.model.UseFor
 import app.rimlit.model.newParticleImageId
 import app.rimlit.model.particleImageIds
 import kotlinx.coroutines.runBlocking
@@ -14,8 +16,12 @@ import org.junit.Test
 import java.io.IOException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 
-/** An import adds what fits, and deletes at once every image it imported that no added look draws. */
+/**
+ * An import adds what fits, and deletes at once every image it imported that no added look draws; a save says what it
+ * came to, and writes nothing when refused.
+ */
 class LookLibraryTest {
 
     /** Image files in memory: bytes [BAD] don't decode; nothing is past its grace, so a clean-up deletes nothing. */
@@ -85,6 +91,18 @@ class LookLibraryTest {
         assertEquals(0, library.room())
         assertEquals(0, library.add(archive(), looks), "the library is full")
         assertEquals(added.particles.particleImageIds + earlier, images.stored, "an import that adds none keeps none")
+    }
+
+    @Test
+    fun aSaveSaysWhyItWasRefusedAndWritesNothingThen() = runBlocking {
+        val gone = library.saveLook(drawing("x", "X", earlier), UseFor(isDefault = false, apps = setOf("a")), false)
+        assertEquals(LookSave.Refused.LOOK_DELETED, gone)
+        assertEquals(GlowSettings(), repository.stored(), "nothing written")
+        val saved = library.saveLook(drawing("x", "X", earlier, imageA), UseFor(false, setOf("a")), isNew = true)
+        assertIs<LookSave.Saved>(saved)
+        val look = repository.stored().look("x")
+        assertEquals(setOf(earlier), look?.particles.particleImageIds, "an image that is gone is left out")
+        assertEquals(LookSave.Refused.NAME_TAKEN, library.saveLook(Look(id = "y", name = "x"), UseFor(false, emptySet()), true))
     }
 
     private val ParticleSpec?.particleImageIds: Set<String>

@@ -34,6 +34,7 @@ import app.rimlit.MainViewModel
 import app.rimlit.R
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSpec
+import app.rimlit.model.LookSave
 import app.rimlit.ui.LookNameDialog
 import app.rimlit.ui.ScreenGlow
 import app.rimlit.ui.rememberAddParticleImages
@@ -74,8 +75,11 @@ fun LookEditorScreen(
         .let { if (hasCutout) it else it.copy(region = EdgeRegion.FULL_SCREEN) }
     val addImages = rememberAddParticleImages(editor.look, editor::addImages)
     val save = {
-        editor.save { saved ->
-            if (saved) close() else Toast.makeText(context, R.string.editor_save_failed, Toast.LENGTH_SHORT).show()
+        editor.save { result ->
+            when (result) {
+                is LookSave.Saved -> close()
+                is LookSave.Refused -> Toast.makeText(context, result.messageRes, Toast.LENGTH_SHORT).show()
+            }
         }
     }
     val leave = { editor.leave(close) }
@@ -172,6 +176,14 @@ private fun EditorDialogs(editor: LookEditorState, onSave: () -> Unit, onLeave: 
         )
     }
 }
+
+private val LookSave.Refused.messageRes
+    get() = when (this) {
+        LookSave.Refused.LOOK_LIMIT -> R.string.editor_save_look_limit
+        LookSave.Refused.NAME_TAKEN -> R.string.editor_save_name_taken
+        LookSave.Refused.LOOK_DELETED -> R.string.editor_save_look_deleted
+        LookSave.Refused.ID_TAKEN -> R.string.editor_save_failed
+    }
 
 private val EditorTab.labelRes
     get() = when (this) {

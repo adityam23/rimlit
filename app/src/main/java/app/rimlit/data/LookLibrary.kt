@@ -3,6 +3,7 @@ package app.rimlit.data
 import android.net.Uri
 import android.util.Log
 import app.rimlit.model.Look
+import app.rimlit.model.LookSave
 import app.rimlit.model.MAX_LOOKS
 import app.rimlit.model.UseFor
 import app.rimlit.model.addImportedLooks
@@ -48,16 +49,19 @@ class LookLibrary(private val repository: SettingsRepository, private val images
     }
 
     /**
-     * Saves the edited [look], [isNew] or not, as [useFor] says (see [savingLook]); whether it was saved: not when its
-     * name is taken, a new one doesn't fit, or the saved one is gone. Images that are gone meanwhile (a draft restored
-     * after their grace ran out) are left out of it.
+     * Saves the edited [look], [isNew] or not, as [useFor] says (see [savingLook]); what it came to: saved, or why it
+     * was refused, nothing written then. Images that are gone meanwhile (a draft restored after their grace ran out)
+     * are left out of it.
      */
-    suspend fun saveLook(look: Look, useFor: UseFor, isNew: Boolean): Boolean = lock.withLock {
+    suspend fun saveLook(look: Look, useFor: UseFor, isNew: Boolean): LookSave = lock.withLock {
         val stored = listOf(look).particleImageIds.filter { images.has(it) }.toSet()
         val kept = look.copy(particles = look.particles?.withOnlyImages(stored))
-        var saved = false
-        repository.update { settings -> settings.savingLook(kept, useFor, isNew)?.also { saved = true } ?: settings }
-        saved
+        lateinit var result: LookSave
+        repository.update { settings ->
+            result = settings.savingLook(kept, useFor, isNew)
+            (result as? LookSave.Saved)?.settings ?: settings
+        }
+        result
     }
 
     /**

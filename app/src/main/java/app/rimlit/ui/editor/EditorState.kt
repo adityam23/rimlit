@@ -28,6 +28,7 @@ import app.rimlit.model.GlowSpec
 import app.rimlit.model.Look
 import app.rimlit.model.LookControl
 import app.rimlit.model.LookPart
+import app.rimlit.model.LookSave
 import app.rimlit.model.Premade
 import app.rimlit.model.UiPrefs
 import app.rimlit.model.UseFor
@@ -173,16 +174,16 @@ internal class LookEditorState(private val sources: EditorSources, look: Look, i
     }
 
     /**
-     * Saves the draft and where it applies; [onDone] says whether it was saved. One at a time: a save asked for while
-     * another is in flight is ignored, so the editor is never left twice.
+     * Saves the draft and where it applies; [onDone] gets what it came to: saved, or why not. One at a time: a save
+     * asked for while another is in flight is ignored, so the editor is never left twice.
      */
-    fun save(onDone: (saved: Boolean) -> Unit) {
+    fun save(onDone: (LookSave) -> Unit) {
         if (saving) return
         dialog = null
         saving = true
-        sources.drafts.save(look, applies, isNew) { saved ->
+        sources.drafts.save(look, applies, isNew) { result ->
             saving = false
-            onDone(saved)
+            onDone(result)
         }
     }
 

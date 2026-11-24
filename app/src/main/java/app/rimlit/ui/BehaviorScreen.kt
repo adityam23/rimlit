@@ -1,6 +1,7 @@
 package app.rimlit.ui
 
 import android.text.format.DateFormat
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -71,7 +73,7 @@ fun BehaviorScreen(
     // The recommended permissions put off on Home, while still missing.
     val putOff = attentions(permissions, fallback = null)
         .filter { it.dismissible && it.kind.name in uiPrefs.dismissedPermissions }
-    // While the screen-off brightness slider is dragged, the default look glows as the lock screen would show it.
+    // While the screen-off brightness slider is dragged, the default look glows on black, as the lock screen shows it.
     var draggingScreenOff by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -108,7 +110,11 @@ fun BehaviorScreen(
                 }
             }
         }
-        if (draggingScreenOff) ScreenGlow(settings.previewSpec(), lockScreen = true)
+        if (draggingScreenOff) {
+            Box(Modifier.fillMaxSize().background(Color.Black)) {
+                ScreenGlow(settings.previewSpec(), lockScreen = true)
+            }
+        }
     }
     AttentionSheet(attention = opened, onOpenSettings = viewModel::openPermission, onNotNow = null) { opened = null }
 }

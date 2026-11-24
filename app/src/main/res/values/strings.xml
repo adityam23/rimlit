@@ -252,7 +252,11 @@
     <string name="editor_send_test">Send test</string>
     <string name="editor_screen_on">Showing the screen on. Switch to the screen off</string>
     <string name="editor_screen_off">Showing the screen off. Switch to the screen on</string>
-    <string name="editor_save_failed">Couldn\'t save: the look limit is reached, its name is taken, or it was deleted</string>
+    <!-- Why a save was refused, one per cause. -->
+    <string name="editor_save_look_limit">Couldn\'t save: you already have the most looks you can keep</string>
+    <string name="editor_save_name_taken">Couldn\'t save: another look already has this name</string>
+    <string name="editor_save_look_deleted">Couldn\'t save: this look was deleted</string>
+    <string name="editor_save_failed">Couldn\'t save the look</string>
     <!-- Resets a tab, or a particle preset's tuning, to what it started from, which is named. -->
     <string name="editor_reset_to">Reset to %1$s</string>
     <string name="editor_tinker_title">Tinker</string>

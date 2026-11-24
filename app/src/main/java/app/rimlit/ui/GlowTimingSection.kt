@@ -3,7 +3,10 @@ package app.rimlit.ui
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.rimlit.R
@@ -59,6 +62,9 @@ private fun LazyListScope.screenOffBrightnessItems(
     }
     val screenOff = draft.screenOffBrightness ?: return
     item {
+        // The preview ends with the slider too, should it leave mid-drag (relinked, scrolled away): never left on.
+        val dragging by rememberUpdatedState(onDragging)
+        DisposableEffect(Unit) { onDispose { dragging(false) } }
         SettingSlider(
             label = stringResource(R.string.screen_off_brightness_label),
             value = screenOff,

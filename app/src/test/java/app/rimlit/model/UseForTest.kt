@@ -2,8 +2,7 @@ package app.rimlit.model
 
 import org.junit.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
+import kotlin.test.assertIs
 
 /** Saving an edited look with where it applies: its apps exactly, and the default look always one of them. */
 class UseForTest {
@@ -13,6 +12,11 @@ class UseForTest {
         looks = listOf(Look(), work),
         appRules = mapOf("a" to Rule("work"), "b" to Rule("work"), "c" to Rule(DEFAULT_LOOK_ID)),
     )
+    private val full = GlowSettings(looks = listOf(Look()) + (2..MAX_LOOKS).map { Look(id = "$it", name = "Look $it") })
+    private val nowhere = UseFor(isDefault = false, apps = emptySet())
+
+    /** The settings [save] saved, failing when it was refused. */
+    private fun saved(save: LookSave): GlowSettings = assertIs<LookSave.Saved>(save).settings
 
     @Test
     fun aLookAppliesAsTheDefaultAndToItsOwnApps() {
@@ -25,7 +29,7 @@ class UseForTest {
     @Test
     fun savingReplacesTheLookAndItsAppsExactly() {
         val edited = work.copy(thicknessDp = 9f)
-        val saved = assertNotNull(settings.savingLook(edited, UseFor(false, apps = setOf("b", "d")), isNew = false))
+        val saved = saved(settings.savingLook(edited, UseFor(false, apps = setOf("b", "d")), isNew = false))
         assertEquals(edited, saved.look("work"))
         assertEquals(
             mapOf("b" to Rule("work"), "c" to Rule(DEFAULT_LOOK_ID), "d" to Rule("work")),
@@ -37,37 +41,56 @@ class UseForTest {
 
     @Test
     fun anAppTickedForAnotherLookMovesToIt() {
-        val saved = settings.savingLook(work, UseFor(isDefault = false, apps = setOf("a", "b", "c")), isNew = false)
-        assertEquals(Rule("work"), saved?.appRules?.get("c"))
+        val saved = saved(settings.savingLook(work, UseFor(isDefault = false, apps = setOf("a", "b", "c")), false))
+        assertEquals(Rule("work"), saved.appRules["c"])
     }
 
     @Test
     fun aLookTakesTheDefaultButTheDefaultIsNeverLeftWithout() {
-        val made = settings.savingLook(work, UseFor(isDefault = true, apps = emptySet()), isNew = false)
-        assertEquals("work", made?.defaultLookId)
-        val stays = settings.savingLook(Look(), UseFor(isDefault = false, apps = emptySet()), isNew = false)
-        assertEquals(DEFAULT_LOOK_ID, stays?.defaultLookId, "one look is always the default")
+        val made = saved(settings.savingLook(work, UseFor(isDefault = true, apps = emptySet()), isNew = false))
+        assertEquals("work", made.defaultLookId)
+        val stays = saved(settings.savingLook(Look(), nowhere, isNew = false))
+        assertEquals(DEFAULT_LOOK_ID, stays.defaultLookId, "one look is always the default")
     }
 
     @Test
     fun aNewLookIsAddedWhileItFitsAndItsNameIsFree() {
         val night = Look(id = "night", name = "Night")
-        val added = assertNotNull(settings.savingLook(night, UseFor(false, apps = setOf("e")), isNew = true))
+        val added = saved(settings.savingLook(night, UseFor(false, apps = setOf("e")), isNew = true))
         assertEquals(night, added.look("night"))
         assertEquals(Rule("night"), added.appRules["e"])
-        assertNull(settings.savingLook(night.copy(name = "work"), UseFor(false, emptySet()), isNew = true), "name taken")
-        val full = GlowSettings(looks = listOf(Look()) + (2..MAX_LOOKS).map { Look(id = "$it", name = "Look $it") })
-        assertNull(full.savingLook(night, UseFor(false, emptySet()), isNew = true), "no room")
-        assertNull(settings.savingLook(work, UseFor(false, emptySet()), isNew = true), "its id is taken: never twice")
+    }
+
+    @Test
+    fun eachRefusalSaysItsOwnCause() {
+        val night = Look(id = "night", name = "Night")
+        assertEquals(LookSave.Refused.NAME_TAKEN, settings.savingLook(night.copy(name = "work"), nowhere, isNew = true))
+        assertEquals(
+            LookSave.Refused.NAME_TAKEN,
+            settings.savingLook(work.copy(name = "DEFAULT"), nowhere, isNew = false),
+            "renamed as another look, matched ignoring case",
+        )
+        assertEquals(LookSave.Refused.LOOK_LIMIT, full.savingLook(night, nowhere, isNew = true))
+        assertEquals(
+            LookSave.Refused.LOOK_LIMIT,
+            full.savingLook(night.copy(name = "Look 2"), nowhere, isNew = true),
+            "no room comes first: a new name can't help",
+        )
+        assertEquals(LookSave.Refused.ID_TAKEN, settings.savingLook(work, nowhere, isNew = true), "never twice")
     }
 
     @Test
     fun aSavedLookThatIsGoneIsNotSavedAgain() {
         val deleted = settings.copy(looks = listOf(Look()), appRules = emptyMap())
-        assertNull(deleted.savingLook(work, UseFor(false, setOf("a")), isNew = false), "deleted meanwhile: not re-added")
-        val full = GlowSettings(looks = listOf(Look()) + (2..MAX_LOOKS).map { Look(id = "$it", name = "Look $it") })
+        assertEquals(LookSave.Refused.LOOK_DELETED, deleted.savingLook(work, UseFor(false, setOf("a")), isNew = false))
+        val renamedOver = deleted.copy(looks = listOf(Look(), Look(id = "other", name = "Work")))
+        assertEquals(
+            LookSave.Refused.LOOK_DELETED,
+            renamedOver.savingLook(work, nowhere, isNew = false),
+            "gone comes first, even when another look has its name now",
+        )
         val edited = full.looks.last().copy(thicknessDp = 9f)
-        assertEquals(edited, full.savingLook(edited, UseFor(false, emptySet()), isNew = false)?.look(edited.id), "full")
+        assertEquals(edited, saved(full.savingLook(edited, nowhere, isNew = false)).look(edited.id), "full")
     }
 
     @Test
@@ -81,7 +104,7 @@ class UseForTest {
     @Test
     fun aLookSavedAlwaysShowsSomething() {
         val nothing = work.copy(style = GlowStyle.NONE, particles = null)
-        val saved = settings.savingLook(nothing, UseFor(isDefault = false, apps = emptySet()), isNew = false)
-        assertEquals(work.basedOn.style, saved?.look("work")?.style, "no edge and no particles: the edge comes back")
+        val saved = saved(settings.savingLook(nothing, nowhere, isNew = false))
+        assertEquals(work.basedOn.style, saved.look("work")?.style, "no edge and no particles: the edge comes back")
     }
 }
