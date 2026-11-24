@@ -14,19 +14,21 @@ Rimlit lights up the edges of your screen when a notification arrives: the edge 
 <li>Particles across the screen while it glows: snow, petals, rain, hearts, bubbles, confetti, stars, sparks, your own pictures, or the notifying app's icon.</li>
 <li>Colors picked from the app's icon or the notification's picture, a color of your own, a gradient, or a flowing rainbow.</li>
 <li>Thickness, glow width, speed, brightness and duration, with a live preview as you drag.</li>
-<li>Save up to twenty named looks, give any app its own look, and export looks to share them.</li>
+<li>Start from a premade for each style and edit it full screen, glowing round your screen's real edge over your wallpaper; your changes are marked and can be reset.</li>
+<li>Save up to twenty named looks, make one the default, give any app its own look, and export or share looks as files.</li>
 <li>A pill with the app's icon and name can grow out of the camera cutout.</li>
 </ul>
 
 <b>How it behaves</b>
 <ul>
 <li>Honors Do Not Disturb, skips silent and low-priority notifications, and never covers incoming-call or alarm screens.</li>
-<li>Choose separately whether it glows with the screen off, on the lock screen and while you use the phone. Set quiet hours. Exclude any app.</li>
+<li>Choose separately whether it glows with the screen off, on the lock screen and while you use the phone. Set quiet hours. Switch any app off, or let only the apps you choose glow.</li>
 <li>Double tap the glow to open the notification; a single tap or a swipe dismisses it.</li>
 <li>With Remove animations turned on, the glow holds still. With battery saver, it draws at most 30 frames a second.</li>
 </ul>
 
 <b>Permissions</b>
+A guided setup asks for each in turn, checks the glow fits your screen, and lets you pick a first look and try it. Only notification access is required.
 <ul>
 <li>Notification access: to notice when a notification arrives. Rimlit only looks at which app posted it and its colors; nothing is stored or sent anywhere.</li>
 <li>Display over other apps: to draw the glow while you use the phone.</li>

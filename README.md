@@ -13,22 +13,22 @@ Rimlit lights up the edges of your screen when a notification arrives — Samsun
 - **Particles:** snow, petals, rain, hearts, bubbles, confetti, stars or sparks across the screen while it glows, in the glow's colors or their own, with their size, speed, amount and spin to tune. Or use up to five of your own pictures, or the icon of the app that notified. Show them with any style, or on their own with no edge at all.
 - **Your colors:** one to three colors picked automatically from the notifying app's icon (or from the notification's picture, such as the sender's photo), a single custom color, a gradient of up to five colors, or a flowing rainbow.
 - **Tune it:** thickness, glow width, speed, brightness (with its own setting for the screen-off glow if you like) and duration, with a live preview that updates as you drag.
-- **Looks:** save up to twenty named looks, each with its own style, colors, glow area, tuning and particles, and give any app a look of its own. Duration, corners, the camera cutout's shape, screen-off brightness and battery saver are shared by every look.
+- **Looks:** start from a premade, one for each style, and save up to twenty named looks, each with its own style, colors, glow area, tuning and particles. A look is edited full screen, glowing round your screen's real edge over your wallpaper; whatever you change from its premade is marked, and can be reset one part at a time. Make any look the default for every app, or give an app a look of its own, from the look's Apps tab or from the app's side. Duration, corners, the camera cutout's shape, screen-off brightness and battery saver are shared by every look.
 - **Share looks:** export all your looks, or the ones you pick, with their pictures, to a `.rimlit` file, or send it straight to someone through the share sheet. Importing one adds its looks to yours (a name you already use gets a number), and if they don't all fit you pick which to keep; your own looks and app choices are never replaced. Only looks are shared: no app list, quiet hours or device settings.
 - **Easy on you and the battery:** with Remove animations turned on, the glow holds still instead of pulsing or racing; with battery saver (the system's, or always) it draws at most 30 frames a second.
 - **Fits your screen:** follows your display's real rounded corners, and can ring the camera cutout instead of the whole edge, or as well as it.
-- **When it glows:** choose separately whether it glows with the screen off, above the lock screen, and while you use the phone, and set daily quiet hours (for every glow, or only the one that wakes the screen). Turning edge lighting off, or excluding an app, also ends a glow that is showing.
+- **When it glows:** choose separately whether it glows with the screen off, above the lock screen, and while you use the phone, and set daily quiet hours (for every glow, or only the one that wakes the screen). Turning edge lighting off, or switching an app off, also ends a glow that is showing.
 - **Double tap to open:** double tap the screen-off glow to unlock and open the notification, just as tapping it in the shade would; a single tap still dismisses the glow. It can be turned off.
 - **App pill:** while you use the phone, the glow comes with a small pill showing the app's icon and name (never the message), grown out of the camera like an island. Double tap it to open the notification (above the lock screen, after you unlock), or swipe it up or sideways to dismiss the glow, and optionally the notification too. Above a locked screen, a notification you hide from the lock screen glows without its pill and can't be cleared, so nothing there says which app it came from. The pill can be turned off.
-- **Respectful:** honors Do Not Disturb, skips silent and low-priority notifications, and never covers incoming-call or alarm screens. Any app can be excluded.
+- **Respectful:** honors Do Not Disturb, skips silent and low-priority notifications, and never covers incoming-call or alarm screens. Every app glows except those you switch off, or, if you prefer, only the apps you choose.
 
 ## Install
 
 Rimlit needs Android 10 or newer. Download the latest APK from [Releases](https://github.com/adityam23/rimlit/releases) and open it on your phone (you may need to allow installs from your browser or file manager).
 
-Open Rimlit, turn on **Edge lighting**, and grant the permissions listed on the home screen:
+Open Rimlit and follow its setup, which walks you through the permissions below one step at a time, then checks the glow fits your screen, lets you pick a first look and try it, and turns **Edge lighting** on when you finish. Only notification access is required; anything you skip is listed on the home screen under **Needs attention**, and setup can be run again from Behavior.
 
-- **Notification access** — to notice when notifications arrive. Rimlit only looks at which app posted it and its colors; nothing is stored or sent anywhere.
+- **Notification access** — to notice when notifications arrive. Rimlit only looks at which app posted it and its colors; nothing is stored or sent anywhere. On Android 13 and newer you may first need to tap **Allow restricted settings** in Rimlit's App info menu.
 - **Display over other apps** — to draw the glow while you use the phone.
 - **Notifications** — Rimlit wakes the screen with a silent notification of its own, so keep its notifications and its "Edge lighting" category on.
 - **Full-screen notifications** — to wake the screen and show the glow when it is off.
@@ -41,7 +41,7 @@ Without the accessibility glow, Rimlit draws on-screen glows with **Display over
 
 ## Privacy
 
-Rimlit has no internet permission at all, so it cannot send anything off your device. There are no analytics, ads or accounts. Settings stay on the phone and are excluded from cloud backups. Pictures you pick for particles come through the system photo picker (no storage permission), and Rimlit keeps only a small re-drawn copy of each, without the original file, its name or its metadata, deleted once no look uses it.
+Rimlit has no internet permission at all, so it cannot send anything off your device. There are no analytics, ads or accounts. Settings stay on the phone and are excluded from cloud backups. Pictures you pick for particles come through the system photo picker (no storage permission), and Rimlit keeps only a small re-drawn copy of each, without the original file, its name or its metadata, deleted once no look uses it and it is at least a day old.
 
 ## Build from source
 
