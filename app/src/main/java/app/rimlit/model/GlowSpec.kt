@@ -26,7 +26,7 @@ data class GlowSpec(
     val palette: GlowPalette,
     val region: EdgeRegion,
     /** The screen edge's sides that glow (see [Look.sides]); all of them when the region doesn't trace the edge. */
-    val sides: Set<ScreenSide>,
+    val sides: Set<ScreenSide> = ALL_SIDES,
     /** Corner radius of the screen-edge outline; `null` follows the display's corners. */
     val cornerRadiusDp: Float?,
     /** The camera cutout the ring hugs; `null` follows the display's. */

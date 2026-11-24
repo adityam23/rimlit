@@ -5,11 +5,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
-import app.rimlit.model.ALL_SIDES
+import app.rimlit.model.ColorMode
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowStyle
+import app.rimlit.model.Look
 import app.rimlit.ui.glow.EdgeGlow
 import app.rimlit.ui.glow.Playback
 
@@ -22,16 +23,17 @@ private const val GUIDE_THICKNESS_DP = 1f
  */
 @Composable
 internal fun FitGuide(settings: GlowSettings, region: EdgeRegion, modifier: Modifier = Modifier) {
-    val spec = settings.previewSpec().copy(
+    val outline = MaterialTheme.colorScheme.outline.toArgb()
+    val guide = Look(
         style = GlowStyle.BASIC,
-        palette = GlowPalette.Colors(listOf(MaterialTheme.colorScheme.outline.toArgb())),
+        colorMode = ColorMode.CUSTOM,
+        customColors = GlowPalette.Colors(listOf(outline)),
         region = region,
-        // The whole edge, whichever sides the default look lights.
-        sides = ALL_SIDES,
         thicknessDp = GUIDE_THICKNESS_DP,
         glowWidthDp = 0f,
         particles = null,
     )
+    val spec = settings.previewSpec(guide)
     EdgeGlow(
         spec = spec,
         playback = Playback(brightness = 1f, still = true, maxFps = null, particleShare = 0f),
