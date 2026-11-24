@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
+import app.rimlit.model.ALL_SIDES
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowPalette
 import app.rimlit.model.GlowSettings
@@ -25,6 +26,8 @@ internal fun FitGuide(settings: GlowSettings, region: EdgeRegion, modifier: Modi
         style = GlowStyle.BASIC,
         palette = GlowPalette.Colors(listOf(MaterialTheme.colorScheme.outline.toArgb())),
         region = region,
+        // The whole edge, whichever sides the default look lights.
+        sides = ALL_SIDES,
         thicknessDp = GUIDE_THICKNESS_DP,
         glowWidthDp = 0f,
         particles = null,

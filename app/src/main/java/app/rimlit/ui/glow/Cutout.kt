@@ -8,19 +8,17 @@ import android.graphics.RectF
 import android.os.Build
 import android.view.View
 import app.rimlit.model.CustomCutout
+import app.rimlit.model.ScreenSide
 import kotlin.math.min
 
 /** Largest distance, in pixels, between a cutout's outline and the polygon it is stored as. */
 private const val FLATTEN_ERROR_PX = 0.5f
 
-/** The screen edge a camera cutout is on. */
-internal enum class CutoutSide { TOP, LEFT, RIGHT, BOTTOM }
-
 /**
  * A camera cutout in window pixels: the [side] it is on and its [outline], a closed polygon of x, y pairs. Unlike a
  * [Path], a polygon compares by value, so a layout built for a cutout is reused until the cutout really changes.
  */
-internal class Cutout(val side: CutoutSide, val outline: FloatArray) {
+internal class Cutout(val side: ScreenSide, val outline: FloatArray) {
     init {
         require(outline.size >= MIN_POLYGON_FLOATS && outline.size % 2 == 0) { "A cutout outline needs 3+ points" }
     }
@@ -70,10 +68,10 @@ internal class Cutout(val side: CutoutSide, val outline: FloatArray) {
 internal fun View.displayCutout(): Cutout? {
     val cutout = rootWindowInsets?.displayCutout ?: return null
     val (side, rect) = listOf(
-        CutoutSide.TOP to cutout.boundingRectTop,
-        CutoutSide.LEFT to cutout.boundingRectLeft,
-        CutoutSide.RIGHT to cutout.boundingRectRight,
-        CutoutSide.BOTTOM to cutout.boundingRectBottom,
+        ScreenSide.TOP to cutout.boundingRectTop,
+        ScreenSide.LEFT to cutout.boundingRectLeft,
+        ScreenSide.RIGHT to cutout.boundingRectRight,
+        ScreenSide.BOTTOM to cutout.boundingRectBottom,
     ).firstOrNull { !it.second.isEmpty } ?: return null
     val bounds = RectF(rect)
     val outline = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -163,17 +161,17 @@ internal fun CustomCutout.frame(centreX: Float, centreY: Float, pxPerDp: Float):
 }
 
 /** Maps the edge's frame (x along it as seen in portrait, y away from it) into a [width] × [height] window. */
-private fun CutoutSide.edgeToWindow(width: Float, height: Float) = Matrix().apply {
+private fun ScreenSide.edgeToWindow(width: Float, height: Float) = Matrix().apply {
     setValues(
         when (this@edgeToWindow) {
-            CutoutSide.TOP -> floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
+            ScreenSide.TOP -> floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)
 
             // Turned a quarter anticlockwise: portrait's left end of the edge is at the bottom.
-            CutoutSide.LEFT -> floatArrayOf(0f, 1f, 0f, -1f, 0f, height, 0f, 0f, 1f)
+            ScreenSide.LEFT -> floatArrayOf(0f, 1f, 0f, -1f, 0f, height, 0f, 0f, 1f)
 
-            CutoutSide.RIGHT -> floatArrayOf(0f, -1f, width, 1f, 0f, 0f, 0f, 0f, 1f)
+            ScreenSide.RIGHT -> floatArrayOf(0f, -1f, width, 1f, 0f, 0f, 0f, 0f, 1f)
 
-            CutoutSide.BOTTOM -> floatArrayOf(-1f, 0f, width, 0f, -1f, height, 0f, 0f, 1f)
+            ScreenSide.BOTTOM -> floatArrayOf(-1f, 0f, width, 0f, -1f, height, 0f, 0f, 1f)
         },
     )
 }

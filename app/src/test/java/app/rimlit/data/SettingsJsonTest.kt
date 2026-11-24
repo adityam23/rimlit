@@ -1,5 +1,6 @@
 package app.rimlit.data
 
+import app.rimlit.model.ALL_SIDES
 import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
@@ -19,6 +20,7 @@ import app.rimlit.model.ParticleSpec
 import app.rimlit.model.ParticleTint
 import app.rimlit.model.Premade
 import app.rimlit.model.Rule
+import app.rimlit.model.ScreenSide
 import app.rimlit.model.newParticleImageId
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -41,6 +43,7 @@ class SettingsJsonTest {
             autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 3),
             customColors = GlowPalette.Colors(listOf(red, 0x8000FF00.toInt(), 0)),
             region = EdgeRegion.CUTOUT_AND_EDGE,
+            sides = setOf(ScreenSide.LEFT, ScreenSide.BOTTOM),
             thicknessDp = 7.5f,
             glowWidthDp = 0.1f,
             speed = 2.25f,
@@ -63,6 +66,7 @@ class SettingsJsonTest {
             particles = ParticleSpec(ParticlePicture.Custom(listOf(imageA, imageB)), ParticleMotion.RISE),
         ),
         Look(id = "icon", name = "Icon", particles = ParticleSpec(ParticlePicture.AppIcon, ParticleMotion.DRIFT)),
+        Look(id = "top", name = "Top", sides = setOf(ScreenSide.TOP)),
     )
 
     /** One look with [fields] after its id and name, decoded. */
@@ -126,6 +130,20 @@ class SettingsJsonTest {
         val missing = decodeLooks("""[{"id":"x","name":"X"}]""")!!.single()
         assertEquals(Look(id = "x", name = "X"), missing, "missing fields take the defaults")
         assertNull(missing.particles, "looks saved before particles have none")
+    }
+
+    @Test
+    fun sidesDecodeTolerantlyAndNeverToNone() {
+        assertEquals(ALL_SIDES, decodeOne("").sides, "looks saved before sides glow all round")
+        assertEquals(ALL_SIDES, decodeOne(""","sides":[]""").sides, "none: all")
+        assertEquals(ALL_SIDES, decodeOne(""","sides":["MIDDLE",3,null]""").sides, "none known: all")
+        assertEquals(ALL_SIDES, decodeOne(""","sides":"TOP"""").sides, "not an array: all")
+        assertEquals(
+            setOf(ScreenSide.TOP, ScreenSide.RIGHT),
+            decodeOne(""","sides":["TOP","MIDDLE","RIGHT","TOP",7]""").sides,
+            "unknown names dropped, repeats once",
+        )
+        assertEquals(ALL_SIDES, decodeOne(""","sides":["BOTTOM","LEFT","TOP","RIGHT"]""").sides)
     }
 
     @Test

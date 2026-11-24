@@ -67,6 +67,7 @@ fun EdgeGlow(
                     height = size.height,
                     shape = shape,
                     region = spec.region,
+                    sides = spec.sides,
                     thicknessPx = spec.thicknessDp.dp.toPx(),
                     cutoutGapPx = 4.dp.toPx(),
                     glowPx = spec.glowWidthDp.dp.toPx(),

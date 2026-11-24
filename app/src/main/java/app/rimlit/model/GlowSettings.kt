@@ -193,6 +193,7 @@ data class GlowSettings(
         style = look.style,
         palette = palette,
         region = look.region,
+        sides = if (look.region.tracesEdge) look.sides else ALL_SIDES,
         cornerRadiusDp = cornerRadiusDp,
         customCutout = customCutout,
         thicknessDp = look.thicknessDp,

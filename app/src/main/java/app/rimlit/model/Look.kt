@@ -12,10 +12,10 @@ const val DEFAULT_LOOK_NAME = "Default"
 const val MAX_LOOKS = 20
 
 /**
- * A named, saved bundle of how a glow looks: its style, colours, region, tuning and particles, started from a
- * [Premade] and holding all its own values (a copy, not the changes). Notifications glow
- * with the default look unless their app's [Rule] picks another (see [GlowSettings.resolve]); how long and where
- * glows show stays global in [GlowSettings].
+ * A named, saved bundle of how a glow looks: its style, colours, region and sides, tuning and particles, started from
+ * a [Premade] and holding all its own values (a copy, not the changes). Notifications glow with the default look
+ * unless their app's [Rule] picks another (see [GlowSettings.resolve]); how long and where glows show stays global in
+ * [GlowSettings].
  */
 data class Look(
     val id: String = DEFAULT_LOOK_ID,
@@ -28,6 +28,8 @@ data class Look(
     /** The palette [ColorMode.CUSTOM] paints with. */
     val customColors: GlowPalette.Colors = GlowPalette.Colors(listOf(DEFAULT_GLOW_ARGB)),
     val region: EdgeRegion = EdgeRegion.FULL_SCREEN,
+    /** The sides of the screen edge that glow, at least one; they apply only where [region] traces the edge. */
+    val sides: Set<ScreenSide> = ALL_SIDES,
     val thicknessDp: Float = 4f,
     val glowWidthDp: Float = 24f,
     val speed: Float = 1f,
@@ -38,6 +40,7 @@ data class Look(
     init {
         require(id.isNotEmpty()) { "A look needs an id" }
         require(isValidLookName(name)) { "Invalid look name" }
+        require(sides.isNotEmpty()) { "A look glows on at least one side" }
     }
 
     /** The colors [colorMode] fixes; `null` for [ColorMode.AUTO], which are extracted per notification. */

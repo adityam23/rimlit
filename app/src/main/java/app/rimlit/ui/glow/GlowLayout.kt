@@ -1,6 +1,11 @@
 package app.rimlit.ui.glow
 
 import app.rimlit.model.EdgeRegion
+import app.rimlit.model.ScreenSide
+import kotlin.math.max
+
+/** A side's fade toward an unlit neighbour is at least this many line thicknesses long, however narrow its halo. */
+private const val MIN_TAPER_THICKNESSES = 8f
 
 /**
  * Everything the outlines and their halos depend on. Colors, style, speed, brightness and duration don't change them,
@@ -12,6 +17,8 @@ internal data class GlowLayoutKey(
     val shape: DisplayShape,
     /** Which outlines to draw; one that rings the cutout draws the screen edge instead when [shape] has none. */
     val region: EdgeRegion,
+    /** The sides of the screen-edge outline its drawing shows on (see [GlowOutline.sideMask]). */
+    val sides: Set<ScreenSide>,
     val thicknessPx: Float,
     val cutoutGapPx: Float,
     /** Glow width: the halo's blur radius. */
@@ -37,13 +44,29 @@ internal class GlowOutline(val geometry: GlowGeometry, val key: GlowLayoutKey) {
      */
     val opensInward: Boolean get() = geometry.shape.opensInward
 
+    /** The halo's line: twice the glow's thickness, so the halo rises from beneath the whole stroke. */
+    private val haloStrokePx: Float get() = key.thicknessPx * 2f
+
     val bloom: BloomMask? by lazy(LazyThreadSafetyMode.NONE) {
         // A zero-radius blur is invalid.
         if (key.glowPx > 0f) {
-            BloomMask(geometry, key.width, key.height, strokePx = key.thicknessPx * 2f, blurPx = key.glowPx)
+            BloomMask(geometry, key.width, key.height, strokePx = haloStrokePx, blurPx = key.glowPx)
         } else {
             null
         }
+    }
+
+    /**
+     * What keeps this outline's drawing, halo and all, to the lit [GlowLayoutKey.sides]: `null` when every side is lit,
+     * and for the cutout ring, which sides don't touch. A side fades out toward an unlit one over its halo's reach, so
+     * the halo's end is as soft as its edges, and at least [MIN_TAPER_THICKNESSES] lines, so a line with no halo still
+     * fades rather than stops.
+     */
+    val sideMask: SideMask? by lazy(LazyThreadSafetyMode.NONE) {
+        val taperPx = max(haloReach(haloStrokePx, key.glowPx), key.thicknessPx * MIN_TAPER_THICKNESSES)
+        (geometry.shape as? RoundRect)
+            ?.let { SideLight.of(it, key.sides, taperPx) }
+            ?.let { SideMask(it, key.width, key.height) }
     }
 
     private val parts = HashMap<OutlinePart<*>, Any>()

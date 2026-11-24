@@ -34,6 +34,7 @@ class PremadeTest {
         val changes = listOf(
             LookPart.BASE to blade.copy(style = GlowStyle.FIREWORKS),
             LookPart.BASE to blade.copy(region = EdgeRegion.CUTOUT),
+            LookPart.BASE to blade.copy(sides = setOf(ScreenSide.TOP)),
             LookPart.COLOUR to blade.copy(colorMode = ColorMode.RAINBOW),
             LookPart.PARTICLES to blade.copy(particles = ParticlePreset.SNOW.spec),
             LookPart.TUNING to blade.copy(thicknessDp = 6f),
@@ -43,6 +44,31 @@ class PremadeTest {
         )
         for ((part, look) in changes) assertEquals(setOf(part), look.changedParts(), "$look")
         assertEquals(setOf(LookPart.BASE), blade.copy(style = GlowStyle.FIREWORKS, region = EdgeRegion.CUTOUT).changedParts())
+    }
+
+    @Test
+    fun theSidesAreTheirOwnBaseControlAndResetToAllFour() {
+        val topOnly = blade.copy(sides = setOf(ScreenSide.TOP))
+        assertEquals(setOf(LookControl.SIDES), topOnly.changedControls())
+        assertEquals(setOf(LookPart.BASE), topOnly.changedParts())
+        assertEquals(ALL_SIDES, topOnly.reset(LookPart.BASE).sides)
+        assertEquals(blade, topOnly.reset(LookPart.BASE))
+        val ringOnly = blade.copy(region = EdgeRegion.CUTOUT)
+        assertEquals(
+            setOf(LookControl.REGION),
+            ringOnly.copy(sides = setOf(ScreenSide.TOP)).changedControls(),
+            "sides a ring alone doesn't trace",
+        )
+        for (premade in Premade.entries) assertEquals(ALL_SIDES, premade.look(id = "a", name = "A").sides, "$premade")
+        assertEquals(ALL_SIDES, Look().sides)
+    }
+
+    @Test
+    fun theLastLitSideStaysLit() {
+        val top = setOf(ScreenSide.TOP)
+        assertEquals(top, top.withSide(ScreenSide.TOP, lit = false))
+        assertEquals(ALL_SIDES - ScreenSide.LEFT, ALL_SIDES.withSide(ScreenSide.LEFT, lit = false))
+        assertEquals(setOf(ScreenSide.TOP, ScreenSide.RIGHT), top.withSide(ScreenSide.RIGHT, lit = true))
     }
 
     @Test
@@ -59,7 +85,8 @@ class PremadeTest {
     fun aPartResetsToItsPremadeAlone() {
         val custom = blade.copy(
             style = GlowStyle.NONE,
-            region = EdgeRegion.CUTOUT,
+            region = EdgeRegion.CUTOUT_AND_EDGE,
+            sides = setOf(ScreenSide.LEFT, ScreenSide.RIGHT),
             colorMode = ColorMode.CUSTOM,
             customColors = red,
             particles = ParticlePreset.HEARTS.spec,
@@ -93,6 +120,7 @@ class PremadeTest {
         val everything = blade.copy(
             style = GlowStyle.WAVE,
             region = EdgeRegion.CUTOUT,
+            sides = setOf(ScreenSide.BOTTOM),
             colorMode = ColorMode.CUSTOM,
             autoColors = AutoColors(AutoColorSource.NOTIFICATION_IMAGE, count = 3),
             customColors = red,

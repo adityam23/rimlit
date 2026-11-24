@@ -12,6 +12,12 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 /**
+ * How far from its line a halo reaches, for a line [strokePx] wide blurred by [blurPx]: a blur fades out within about
+ * twice its radius (sigma ≈ 0.58 × radius; ~3 sigma reach).
+ */
+internal fun haloReach(strokePx: Float, blurPx: Float): Float = strokePx / 2f + 2f * blurPx
+
+/**
  * The soft halo around [geometry], blurred once into an alpha-only bitmap that covers only the halo, within
  * the [width]×[height] window. Drawing an alpha-only bitmap takes its color (or shader) from the paint, so
  * each frame just tints this mask instead of re-blurring the outline. [blurPx] must be positive.
@@ -30,8 +36,7 @@ internal class BloomMask(geometry: GlowGeometry, width: Float, height: Float, st
     private val sources: Array<Rect>
 
     init {
-        // A blur fades out within about twice its radius (sigma ≈ 0.58 × radius; ~3 sigma reach).
-        val reach = strokePx / 2f + 2f * blurPx
+        val reach = haloReach(strokePx, blurPx)
         val halo = RectF(geometry.bounds).apply { inset(-reach, -reach) }
         val area = Rect()
         if (halo.intersect(0f, 0f, width, height)) halo.roundOut(area)
