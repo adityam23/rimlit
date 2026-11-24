@@ -16,7 +16,6 @@ import app.rimlit.R
 import app.rimlit.model.EdgeRegion
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.GlowSettings.Ranges
-import app.rimlit.model.GlowStyle
 import app.rimlit.ui.components.SettingSlider
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.components.SubScreenScaffold
@@ -39,8 +38,10 @@ fun DeviceScreen(viewModel: MainViewModel, onBack: () -> Unit, modifier: Modifie
 /**
  * How the glow fits this device: the screen's corners and the camera cutout, each the display's own until the user
  * draws their own, edited from the [saved] settings and persisted by [save]. [screen] lays out the fit's settings, the
- * items it is given; the default look glows round the real screen edge above it all, so each change shows where it
- * matters, around the cutout too when there is one. Shared by Behavior's screen fit and the guided first launch.
+ * items it is given; the [FitGuide] runs round the real screen edge above it all, so each change shows where it
+ * matters, around the cutout too when there is one. It is a plain outline rather than a look's glow: in setup no look
+ * has been picked yet, and a thin line shows the fit more exactly than a glow's halo. Shared by Behavior's screen fit
+ * and the guided first launch.
  */
 @Composable
 internal fun DeviceFit(
@@ -54,17 +55,13 @@ internal fun DeviceFit(
     val displayCornerDp = rememberDisplayCornerDp()
     val cutoutSeed = rememberCutoutSeed()
     val region = if (cutoutSeed != null) EdgeRegion.CUTOUT_AND_EDGE else EdgeRegion.FULL_SCREEN
-    // The edge alone, always one: a particles-only default look shows its premade's, so the fit can be seen.
-    val look = draft.defaultLook
-    val edge = if (look.style == GlowStyle.NONE) look.copy(style = look.basedOn.style) else look
-    val spec = draft.previewSpec(edge).copy(region = region, particles = null)
 
     Box(modifier = modifier.fillMaxSize()) {
         screen {
             cornerRadiusItems(draft, displayCornerDp, editor)
             if (cutoutSeed != null) cutoutItems(draft, cutoutSeed, editor)
         }
-        ScreenGlow(spec, lockScreen = false)
+        FitGuide(draft, region)
     }
 }
 

@@ -84,7 +84,7 @@
     <string name="setup_battery_title">Glow on time</string>
     <string name="setup_battery_desc">Battery optimisation can hold Rimlit back, so a glow arrives late. Letting it run unrestricted keeps glows on time.</string>
     <string name="setup_fit_title">Fit your screen</string>
-    <string name="setup_fit_desc">The glow follows your screen\'s corners and its camera cutout. Check it round the edge of this screen, and adjust it if it doesn\'t sit right.</string>
+    <string name="setup_fit_desc">The glow follows your screen\'s corners and its camera cutout. The outline round this screen shows where it runs: adjust it if it doesn\'t sit right.</string>
     <string name="setup_look_title">Pick a first look</string>
     <string name="setup_look_desc">Every notification glows with your default look. Pick a style to start from; you can change it, and make more looks, at any time.</string>
     <string name="setup_look_keep">Keep \"%1$s\"</string>
