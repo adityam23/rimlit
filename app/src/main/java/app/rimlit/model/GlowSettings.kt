@@ -221,14 +221,6 @@ data class GlowSettings(
         val brightness = 0.2f..1f
         val durationMs = 300L..10_000L
 
-        private const val DURATION_FINE_STEP_MS = 100L
-        private const val DURATION_FINE_BELOW_MS = 1_000L
-
-        /** [ms] as the duration slider sets it: in 100 ms steps below one second, as it is from there up. */
-        fun snapDuration(ms: Long): Long = when {
-            ms >= DURATION_FINE_BELOW_MS -> ms
-            else -> (ms + DURATION_FINE_STEP_MS / 2) / DURATION_FINE_STEP_MS * DURATION_FINE_STEP_MS
-        }
         val minuteOfDay = 0 until MINUTES_PER_DAY
         val particleSizeDp = 8f..48f
         val particleSpeed = speed

@@ -68,20 +68,6 @@ class GlowSettingsTest {
     }
 
     @Test
-    fun theDurationSnapsToTenthsOfASecondBelowOneSecondAndIsLeftAloneFromThere() {
-        val snap = GlowSettings.Ranges::snapDuration
-        assertEquals(300L, snap(300L))
-        assertEquals(300L, snap(349L))
-        assertEquals(400L, snap(350L))
-        assertEquals(900L, snap(949L))
-        assertEquals(1_000L, snap(950L))
-        assertEquals(1_000L, snap(1_000L))
-        assertEquals(1_234L, snap(1_234L))
-        assertEquals(10_000L, snap(10_000L))
-        for (ms in GlowSettings.Ranges.durationMs) assertEquals(snap(ms), snap(snap(ms)), "snapping $ms twice")
-    }
-
-    @Test
     fun previewsShowAsManyAutoColoursAsChosen() {
         for (count in GlowSettings.Ranges.autoColorCount) {
             val settings = GlowSettings(looks = listOf(Look(autoColors = AutoColors(count = count))))
