@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Lock
@@ -76,18 +75,20 @@ fun BehaviorScreen(
     var draggingScreenOff by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        SubScreenScaffold(title = stringResource(R.string.nav_behavior_title), onBack = onBack) { innerPadding ->
-            SettingsList(innerPadding) {
-                whereSection(settings, lockScreenNeedsService = fallback != null, editor::commit)
-                glowTimingSection(settings, editor) { draggingScreenOff = it }
-                quietHoursSection(settings.quietHours) { edit ->
-                    editor.commit { it.copy(quietHours = edit(it.quietHours)) }
+        PillPosition(saved, viewModel::update) { pillItems ->
+            SubScreenScaffold(title = stringResource(R.string.nav_behavior_title), onBack = onBack) { innerPadding ->
+                SettingsList(innerPadding) {
+                    whereSection(settings, lockScreenNeedsService = fallback != null, editor::commit)
+                    glowTimingSection(settings, editor) { draggingScreenOff = it }
+                    quietHoursSection(settings.quietHours) { edit ->
+                        editor.commit { it.copy(quietHours = edit(it.quietHours)) }
+                    }
+                    gesturesSection(settings, pillItems, editor::commit)
+                    deviceAndEditorSections(uiPrefs.alwaysTinker, onOpenDevice, onOpenSetup) { on ->
+                        viewModel.updateUi { it.copy(alwaysTinker = on) }
+                    }
+                    attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
                 }
-                gesturesSection(settings, editor::commit)
-                deviceAndEditorSections(uiPrefs.alwaysTinker, onOpenDevice, onOpenSetup) { on ->
-                    viewModel.updateUi { it.copy(alwaysTinker = on) }
-                }
-                attentionItems(R.string.section_recommended_permissions, putOff) { opened = it }
             }
         }
         if (draggingScreenOff) {
@@ -212,18 +213,14 @@ private fun LazyListScope.quietHoursSection(quiet: QuietHours, update: ((QuietHo
     }
 }
 
-/** The app pill, and what touching the screen-off glow or the pill does. */
-private fun LazyListScope.gesturesSection(settings: GlowSettings, update: ((GlowSettings) -> GlowSettings) -> Unit) {
+/** The app pill ([pillItems]), and what touching the screen-off glow or the pill does. */
+private fun LazyListScope.gesturesSection(
+    settings: GlowSettings,
+    pillItems: LazyListScope.() -> Unit,
+    update: ((GlowSettings) -> GlowSettings) -> Unit,
+) {
     item { SectionTitle(stringResource(R.string.gestures_section)) }
-    item {
-        SwitchCard(
-            title = stringResource(R.string.show_pill_title),
-            checked = settings.showPill,
-            onCheckedChange = { show -> update { it.copy(showPill = show) } },
-            subtitle = stringResource(R.string.show_pill_desc),
-            leading = { SettingIcon(Icons.Filled.Apps) },
-        )
-    }
+    pillItems()
     item {
         SwitchCard(
             title = stringResource(R.string.open_on_double_tap_title),

@@ -66,6 +66,8 @@ private object Keys {
     val SHOW_WHEN_UNLOCKED = booleanPreferencesKey("show_when_unlocked")
     val OPEN_ON_DOUBLE_TAP = booleanPreferencesKey("open_on_double_tap")
     val SHOW_PILL = booleanPreferencesKey("show_pill")
+    val PILL_OFFSET_X_DP = floatPreferencesKey("pill_offset_x_dp")
+    val PILL_OFFSET_Y_DP = floatPreferencesKey("pill_offset_y_dp")
     val SWIPE_CLEARS = booleanPreferencesKey("swipe_clears")
     val QUIET_ENABLED = booleanPreferencesKey("quiet_enabled")
     val QUIET_START_MINUTE = intPreferencesKey("quiet_start_minute")
@@ -211,6 +213,8 @@ internal fun Preferences.toSettings(): GlowSettings {
         showWhenUnlocked = valueOr(Keys.SHOW_WHEN_UNLOCKED, defaults.showWhenUnlocked),
         openOnDoubleTap = valueOr(Keys.OPEN_ON_DOUBLE_TAP, defaults.openOnDoubleTap),
         showPill = valueOr(Keys.SHOW_PILL, defaults.showPill),
+        pillOffsetXDp = clamped(Keys.PILL_OFFSET_X_DP, defaults.pillOffsetXDp, Ranges.pillOffsetDp),
+        pillOffsetYDp = clamped(Keys.PILL_OFFSET_Y_DP, defaults.pillOffsetYDp, Ranges.pillOffsetDp),
         swipeClears = valueOr(Keys.SWIPE_CLEARS, defaults.swipeClears),
         quietHours = QuietHours(
             enabled = valueOr(Keys.QUIET_ENABLED, defaults.quietHours.enabled),
@@ -317,6 +321,8 @@ internal fun MutablePreferences.write(settings: GlowSettings) {
     this[Keys.SHOW_WHEN_UNLOCKED] = settings.showWhenUnlocked
     this[Keys.OPEN_ON_DOUBLE_TAP] = settings.openOnDoubleTap
     this[Keys.SHOW_PILL] = settings.showPill
+    this[Keys.PILL_OFFSET_X_DP] = settings.pillOffsetXDp
+    this[Keys.PILL_OFFSET_Y_DP] = settings.pillOffsetYDp
     this[Keys.SWIPE_CLEARS] = settings.swipeClears
     this[Keys.QUIET_ENABLED] = settings.quietHours.enabled
     this[Keys.QUIET_START_MINUTE] = settings.quietHours.startMinute

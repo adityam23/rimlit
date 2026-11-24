@@ -103,6 +103,12 @@ data class GlowSettings(
     val openOnDoubleTap: Boolean = true,
     /** On-screen glows show a pill with the notifying app's icon and name, out of the camera cutout. */
     val showPill: Boolean = true,
+    /**
+     * How far the pill is moved from where it sits by itself, right and down, in dp; 0 for both is the automatic
+     * position. Kept on screen however far it is moved.
+     */
+    val pillOffsetXDp: Float = 0f,
+    val pillOffsetYDp: Float = 0f,
     /** Swiping the pill away also dismisses its notification in the shade; off, it only ends the glow. */
     val swipeClears: Boolean = false,
     val quietHours: QuietHours = QuietHours(),
@@ -209,6 +215,7 @@ data class GlowSettings(
         val cutoutSizeDp = 4f..80f
         val cutoutRadiusDp = 0f..40f
         val cutoutOffsetDp = -40f..40f
+        val pillOffsetDp = -200f..200f
         val speed = 0.25f..3f
         val brightness = 0.2f..1f
         val durationMs = 1_000L..10_000L

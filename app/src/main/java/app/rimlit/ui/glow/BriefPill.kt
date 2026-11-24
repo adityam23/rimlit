@@ -11,8 +11,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,7 +28,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,6 +42,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -45,6 +51,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -54,6 +61,7 @@ import app.rimlit.engine.GlowState
 import app.rimlit.engine.PillApp
 import app.rimlit.engine.Surface
 import app.rimlit.engine.opensOnRequest
+import app.rimlit.model.GlowSettings
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -134,6 +142,39 @@ internal fun BriefPillHost(
 }
 
 private val OPENS = { state: GlowState?, surface: Surface -> state?.opensOnRequest(surface) != null }
+
+/**
+ * The pill as [settings] place it, with Rimlit's own icon and name, as previews show it; drawn where the real one
+ * would be, so this must fill a window that fills the screen. Takes no touches. Nothing shows until the name is in.
+ */
+@Composable
+internal fun PreviewPill(
+    settings: GlowSettings,
+    modifier: Modifier = Modifier,
+    /** Where Rimlit's name and icon load: the package manager blocks. */
+    loadDispatcher: CoroutineDispatcher = Dispatchers.IO,
+) {
+    val context = LocalContext.current
+    val view = LocalView.current
+    val pxPerDp = LocalDensity.current.density
+    val metrics = remember(pxPerDp) { PillMetrics.at(pxPerDp) }
+    val label by produceState<AppLabel?>(null, metrics) {
+        value = withContext(loadDispatcher) { AppLabel.load(context, PillApp.Rimlit, null, metrics.icon.toInt()) }
+    }
+    val shown = label ?: return
+    val placement = view.pillPlacement(settings, metrics)
+    Box(modifier.fillMaxSize()) {
+        BriefPill(
+            label = shown,
+            placement = placement,
+            metrics = metrics,
+            // From the physical left, as the window's x is, in either layout direction.
+            modifier = Modifier
+                .align(if (placement.centred) Alignment.TopCenter else AbsoluteAlignment.TopLeft)
+                .absoluteOffset { IntOffset(placement.x, placement.y) },
+        )
+    }
+}
 
 /**
  * The app's icon and name in a black pill, island style: [PillPlacement.gap] wide between them (over the camera, when

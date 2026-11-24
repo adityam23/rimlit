@@ -85,6 +85,8 @@
     <string name="setup_battery_desc">Battery optimisation can hold Rimlit back, so a glow arrives late. Letting it run unrestricted keeps glows on time.</string>
     <string name="setup_fit_title">Fit your screen</string>
     <string name="setup_fit_desc">The glow follows your screen\'s corners and its camera cutout. The outline round this screen shows where it runs: adjust it if it doesn\'t sit right.</string>
+    <string name="setup_pill_title">The app pill</string>
+    <string name="setup_pill_desc">On-screen glows show which app is notifying in a small pill at the top. Move it if it doesn\'t sit right: drag a slider to see where it goes.</string>
     <string name="setup_look_title">Pick a first look</string>
     <string name="setup_look_desc">Every notification glows with your default look. Pick a style to start from; you can change it, and make more looks, at any time.</string>
     <string name="setup_look_keep">Keep \"%1$s\"</string>
@@ -417,6 +419,8 @@
     <string name="quiet_scope_screen_off_desc">The screen stays dark; glows still show while you use the phone</string>
     <string name="gestures_section">Pill and gestures</string>
     <string name="show_pill_title">Show app pill</string>
+    <string name="pill_horizontal_label">Horizontal position</string>
+    <string name="pill_vertical_label">Vertical position</string>
     <string name="show_pill_desc">On-screen glows show the app\'s icon and name in a pill around the camera. Swipe it up or sideways to dismiss the glow.</string>
     <string name="open_on_double_tap_title">Open on double tap</string>
     <string name="open_on_double_tap_desc">Double tap the screen-off glow or the pill to open its notification, unlocking first if the phone is locked. A single tap on the screen-off glow still ends it.</string>

@@ -18,8 +18,8 @@ class SetupStepTest {
     fun theStepsRunInTheDesignedOrder() {
         assertEquals(
             listOf(
-                "WELCOME", "NOTIFICATION_ACCESS", "ON_SCREEN", "SCREEN_OFF", "BATTERY", "DEVICE_FIT", "FIRST_LOOK",
-                "TEST",
+                "WELCOME", "NOTIFICATION_ACCESS", "ON_SCREEN", "SCREEN_OFF", "BATTERY", "DEVICE_FIT", "PILL",
+                "FIRST_LOOK", "TEST",
             ),
             SetupStep.entries.map { it.name },
         )
@@ -38,6 +38,7 @@ class SetupStepTest {
         }
         assertEquals(Onward.START, SetupStep.WELCOME.onward(none))
         assertEquals(Onward.NEXT, SetupStep.DEVICE_FIT.onward(none))
+        assertEquals(Onward.NEXT, SetupStep.PILL.onward(none), "the pill asks for nothing")
         assertEquals(Onward.NEXT, SetupStep.FIRST_LOOK.onward(none))
         assertEquals(Onward.FINISH, SetupStep.TEST.onward(none))
     }

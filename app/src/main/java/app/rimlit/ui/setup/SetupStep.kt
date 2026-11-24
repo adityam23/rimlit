@@ -20,6 +20,9 @@ internal enum class SetupStep(val kinds: List<PermissionKind> = emptyList(), val
     SCREEN_OFF(listOf(PermissionKind.NOTIFICATIONS, PermissionKind.FULL_SCREEN_INTENT)),
     BATTERY(listOf(PermissionKind.BATTERY_OPTIMIZATION)),
     DEVICE_FIT,
+
+    /** The app pill: shown or not, and where it sits. */
+    PILL,
     FIRST_LOOK,
     TEST,
     ;

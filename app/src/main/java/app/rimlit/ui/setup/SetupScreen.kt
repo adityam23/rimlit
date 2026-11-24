@@ -37,6 +37,7 @@ import app.rimlit.model.Premade
 import app.rimlit.model.SetupRun
 import app.rimlit.permissions.Permissions
 import app.rimlit.ui.DeviceFit
+import app.rimlit.ui.PillPosition
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.title
 import java.util.UUID
@@ -75,9 +76,7 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
 
     val onOnward = {
         if (step == SetupStep.FIRST_LOOK && pickedLook != null) {
-            val (premade, name) = pickedLook
-            // Not picked when it no longer can be (a look added meanwhile, past the limit): the default stays.
-            viewModel.update { run.picking(it, premade, name, addedId) ?: it }
+            viewModel.pickFirstLook(run, pickedLook, addedId)
             picked = null
         }
         val next = step.next
@@ -106,6 +105,8 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
 
             SetupStep.DEVICE_FIT -> DeviceFit(settings, viewModel::update) { fitItems -> frame(fitItems) }
 
+            SetupStep.PILL -> PillPosition(settings, viewModel::update) { pillItems -> frame(pillItems) }
+
             SetupStep.FIRST_LOOK -> frame {
                 val canPick = run.canPick(settings, addedId)
                 firstLookItems(settings, canPick, picked, onPick, customise, { customise = it })
@@ -117,6 +118,15 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
         }
         WindowTestGlow(player, settings.durationMs)
     }
+}
+
+/**
+ * Makes [picked], a premade and the name its look takes, the first look as [run] picks it, a rerun's added under
+ * [addedId]. Not picked when it no longer can be (a look added meanwhile, past the limit): the default stays.
+ */
+private fun MainViewModel.pickFirstLook(run: SetupRun, picked: Pair<Premade, String>, addedId: String) {
+    val (premade, name) = picked
+    update { run.picking(it, premade, name, addedId) ?: it }
 }
 
 /** Saves a step by name; one an update renamed or dropped restores as the welcome. */

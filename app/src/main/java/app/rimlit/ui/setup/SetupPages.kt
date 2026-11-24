@@ -119,6 +119,7 @@ private fun SetupStep.title(): String = stringResource(
         SetupStep.SCREEN_OFF -> R.string.setup_screen_off_title
         SetupStep.BATTERY -> R.string.setup_battery_title
         SetupStep.DEVICE_FIT -> R.string.setup_fit_title
+        SetupStep.PILL -> R.string.setup_pill_title
         SetupStep.FIRST_LOOK -> R.string.setup_look_title
         SetupStep.TEST -> R.string.setup_test_title
     },
@@ -134,6 +135,7 @@ private fun SetupStep.description(): String = stringResource(
         SetupStep.SCREEN_OFF -> R.string.setup_screen_off_desc
         SetupStep.BATTERY -> R.string.setup_battery_desc
         SetupStep.DEVICE_FIT -> R.string.setup_fit_desc
+        SetupStep.PILL -> R.string.setup_pill_desc
         SetupStep.FIRST_LOOK -> R.string.setup_look_desc
         SetupStep.TEST -> R.string.setup_test_desc
     },
