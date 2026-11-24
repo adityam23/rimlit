@@ -14,6 +14,8 @@ data class UiPrefs(
      * shown in Behavior instead of on Home. Names, since the model knows nothing of Android's permissions.
      */
     val dismissedPermissions: Set<String> = emptySet(),
+    /** The guided first launch was finished; until then the app opens on it, upgraders included. */
+    val setupDone: Boolean = false,
 ) {
     /** The editor's [part] tab shows every control: "Always tinker", or that tab's own "Tinker". */
     fun tinkers(part: LookPart): Boolean = alwaysTinker || part in tinkering

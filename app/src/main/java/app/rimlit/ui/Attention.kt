@@ -1,12 +1,6 @@
 package app.rimlit.ui
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessibilityNew
-import androidx.compose.material.icons.filled.BatteryFull
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.SyncProblem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -82,35 +76,19 @@ internal fun attentions(statuses: List<PermissionStatus>, fallback: OverlayFallb
     return (missing + notRunning).sortedBy { it.need }
 }
 
+// A missing permission is worded as the permission itself (PermissionWording.kt).
+
 internal val Attention.icon: ImageVector
     get() = when (this) {
         Attention.ServiceNotRunning -> Icons.Filled.SyncProblem
-
-        is Attention.Missing -> when (kind) {
-            PermissionKind.NOTIFICATION_ACCESS -> Icons.Filled.Notifications
-            PermissionKind.OVERLAY -> Icons.Filled.Layers
-            PermissionKind.NOTIFICATIONS -> Icons.Filled.NotificationsActive
-            PermissionKind.FULL_SCREEN_INTENT -> Icons.Filled.Fullscreen
-            PermissionKind.ACCESSIBILITY -> Icons.Filled.AccessibilityNew
-            PermissionKind.BATTERY_OPTIMIZATION -> Icons.Filled.BatteryFull
-        }
+        is Attention.Missing -> kind.icon
     }
 
 @Composable
 @ReadOnlyComposable
 internal fun Attention.title(): String = when (this) {
     Attention.ServiceNotRunning -> stringResource(R.string.attention_not_running_title)
-
-    is Attention.Missing -> stringResource(
-        when (kind) {
-            PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_title
-            PermissionKind.OVERLAY -> R.string.perm_overlay_title
-            PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_title
-            PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_title
-            PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_title
-            PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_title
-        },
-    )
+    is Attention.Missing -> kind.title()
 }
 
 /** Why it matters, in a line: the row on Home. */
@@ -118,34 +96,15 @@ internal fun Attention.title(): String = when (this) {
 @ReadOnlyComposable
 internal fun Attention.reason(): String = when (this) {
     Attention.ServiceNotRunning -> stringResource(R.string.attention_not_running_reason)
-
-    is Attention.Missing -> stringResource(
-        when (kind) {
-            PermissionKind.NOTIFICATION_ACCESS -> R.string.perm_notification_reason
-            PermissionKind.OVERLAY -> R.string.perm_overlay_reason
-            PermissionKind.NOTIFICATIONS -> R.string.perm_post_notifications_reason
-            PermissionKind.FULL_SCREEN_INTENT -> R.string.perm_fsi_reason
-            PermissionKind.ACCESSIBILITY -> R.string.perm_accessibility_reason
-            PermissionKind.BATTERY_OPTIMIZATION -> R.string.perm_battery_reason
-        },
-    )
+    is Attention.Missing -> kind.reason()
 }
 
 /** The whole explanation: the sheet a row opens. */
 @Composable
 @ReadOnlyComposable
-internal fun Attention.explanation(): String {
-    val service = stringResource(R.string.accessibility_service_label)
-    return when (this) {
-        Attention.ServiceNotRunning -> stringResource(R.string.fallback_service_not_running, service)
+internal fun Attention.explanation(): String = when (this) {
+    Attention.ServiceNotRunning ->
+        stringResource(R.string.fallback_service_not_running, stringResource(R.string.accessibility_service_label))
 
-        is Attention.Missing -> when (kind) {
-            PermissionKind.NOTIFICATION_ACCESS -> stringResource(R.string.perm_notification_desc)
-            PermissionKind.OVERLAY -> stringResource(R.string.perm_overlay_desc)
-            PermissionKind.NOTIFICATIONS -> stringResource(R.string.perm_post_notifications_desc)
-            PermissionKind.FULL_SCREEN_INTENT -> stringResource(R.string.perm_fsi_desc)
-            PermissionKind.ACCESSIBILITY -> stringResource(R.string.perm_accessibility_desc, service)
-            PermissionKind.BATTERY_OPTIMIZATION -> stringResource(R.string.perm_battery_desc)
-        }
-    }
+    is Attention.Missing -> kind.explanation()
 }

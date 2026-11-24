@@ -30,7 +30,6 @@ import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionKind
 import app.rimlit.permissions.PermissionStatus
 import app.rimlit.permissions.Permissions
-import app.rimlit.permissions.canSendTest
 import app.rimlit.permissions.overlayFallback
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -77,9 +76,13 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     /** A look file read for import whose looks don't all fit, while the user picks which to add. */
     val pendingImport: StateFlow<LookArchive?> = _pendingImport.asStateFlow()
 
+    /** The UI's own preferences once read; `null` before, for what mustn't start from placeholders (where it opens). */
+    val storedUiPrefs: StateFlow<UiPrefs?> =
+        repository.uiPrefs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = null)
+
     /** The UI's own preferences: defaults until they are read. */
-    val uiPrefs: StateFlow<UiPrefs> =
-        repository.uiPrefs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = UiPrefs())
+    val uiPrefs: StateFlow<UiPrefs> = storedUiPrefs.map { it ?: UiPrefs() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue = UiPrefs())
 
     /** The stored settings once read; `null` before, for what mustn't start from placeholders (the look editor). */
     val storedSettings: StateFlow<GlowSettings?> = repository.settings.stateIn(
@@ -97,6 +100,11 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
 
     private val _permissions = MutableStateFlow(Permissions.statuses(application))
     val permissions: StateFlow<List<PermissionStatus>> = _permissions.asStateFlow()
+
+    private val _testPostable = MutableStateFlow(GlowNotifications.canPostTest(application))
+
+    /** Whether the test notification can be posted: notifications allowed, and its channel not turned off. */
+    val testPostable: StateFlow<Boolean> = _testPostable.asStateFlow()
 
     /** Why on-screen previews would use the app overlay now, so Android shows its notice; `null` if not. */
     val overlayFallback: StateFlow<OverlayFallback?> = combine(
@@ -117,9 +125,10 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
         .flowOn(ioDispatcher)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    /** Re-evaluate permission grants; called from [MainActivity.onResume]. */
+    /** Re-evaluate permission grants, and whether the test can be posted; called from [MainActivity.onResume]. */
     fun refreshPermissions() {
         _permissions.value = Permissions.statuses(getApplication())
+        _testPostable.value = GlowNotifications.canPostTest(getApplication())
     }
 
     /** Persists a settings change (atomic read-modify-write); the job completes once it is written. */
@@ -194,19 +203,6 @@ class MainViewModel(application: Application, ioDispatcher: CoroutineDispatcher 
     fun sendTestNotification() {
         GlowNotifications.postTest(getApplication(), settings.value.durationMs)
     }
-
-    /**
-     * A real test notification when one can glow ([canSendTest]), and otherwise the default look previewed on screen,
-     * so the user always sees something.
-     */
-    fun testOrPreview() {
-        if (permissions.value.canSendTest) {
-            sendTestNotification()
-        } else {
-            preview(PreviewTarget.ON_SCREEN, settings.value.previewSpec())
-        }
-    }
-
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {

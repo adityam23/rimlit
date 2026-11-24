@@ -19,7 +19,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,10 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.rimlit.MainViewModel
 import app.rimlit.R
+import app.rimlit.data.toEnumOrNull
 import app.rimlit.model.Premade
 import app.rimlit.model.defaultLookSwitchedTo
 import app.rimlit.permissions.Permissions
-import app.rimlit.permissions.canSendTest
 import app.rimlit.ui.DeviceFit
 import app.rimlit.ui.components.SettingsList
 import app.rimlit.ui.title
@@ -48,12 +51,16 @@ import app.rimlit.ui.title
 fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -> Unit, modifier: Modifier = Modifier) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val statuses by viewModel.permissions.collectAsStateWithLifecycle()
-    var step by rememberSaveable { mutableStateOf(SetupStep.WELCOME) }
+    val testPostable by viewModel.testPostable.collectAsStateWithLifecycle()
+    var step by rememberSaveable(stateSaver = StepSaver) { mutableStateOf(SetupStep.WELCOME) }
     // The premade picked for the first look, applied on moving on; null keeps the default look as it is.
-    var picked by rememberSaveable { mutableStateOf<Premade?>(null) }
+    var picked by rememberSaveable(stateSaver = PremadeSaver) { mutableStateOf<Premade?>(null) }
     var customise by rememberSaveable { mutableStateOf(false) }
     // Set once Finish is tapped, so a second tap before leaving doesn't finish twice.
     var finished by rememberSaveable { mutableStateOf(false) }
+    // "Try it" taps played in Rimlit's window (TestPlay.IN_WINDOW).
+    var windowPlays by remember { mutableIntStateOf(0) }
+    val play = testPlay(statuses, testPostable)
     val context = LocalContext.current
     val openGrant = rememberPermissionOpener(viewModel::openPermission, viewModel::refreshPermissions)
     // The look is named after its premade, in the user's language.
@@ -72,10 +79,12 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
             step = next
         } else if (!finished) {
             finished = true
-            viewModel.update { it.copy(setupDone = true, enabled = true) }
+            viewModel.update { it.copy(enabled = true) }
+            viewModel.updateUi { it.copy(setupDone = true) }
             onFinish(settings.defaultLookId.takeIf { customise })
         }
     }
+    val onTest = { viewModel.tryIt(play, settings) { windowPlays++ } }
     val frame = @Composable { items: LazyListScope.() -> Unit ->
         SetupFrame(step, step.onward(statuses), goBack, onOnward, items)
     }
@@ -89,12 +98,19 @@ fun SetupScreen(viewModel: MainViewModel, onFinish: (customiseLookId: String?) -
                 firstLookItems(settings, picked, { picked = it }, customise, { customise = it })
             }
 
-            SetupStep.TEST -> frame { testItems(statuses.canSendTest, viewModel::testOrPreview) }
+            SetupStep.TEST -> frame { testItems(play, onTest) }
 
             else -> frame { permissionItems(step, statuses, openGrant) { Permissions.openAppInfo(context) } }
         }
+        if (step == SetupStep.TEST) WindowTestGlow(settings, windowPlays)
     }
 }
+
+/** Saves a step by name; one an update renamed or dropped restores as the welcome. */
+private val StepSaver = Saver<SetupStep, String>(save = { it.name }, restore = { it.toEnumOrNull<SetupStep>() })
+
+/** Saves the picked premade by name, none unsaved; one an update renamed or dropped restores as none. */
+private val PremadeSaver = Saver<Premade?, String>(save = { it?.name }, restore = { it.toEnumOrNull<Premade>() })
 
 /**
  * A step's page: how far along the flow it is, its [items], then back (but on the first step) and the way on, as

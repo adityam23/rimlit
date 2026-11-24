@@ -25,7 +25,7 @@ internal fun LazyListScope.baseTab(editor: LookEditorState, hasCutout: Boolean) 
         settings = editor.settings,
         selected = look.basedOn,
         onSelect = { if (look.basedOn != it) editor.pickPremade(it) },
-        moving = false,
+        animatesSelected = false,
     )
     if (!editor.tinkering || !hasCutout) return
     item(key = "region") {

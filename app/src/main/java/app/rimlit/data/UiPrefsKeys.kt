@@ -17,6 +17,9 @@ private object UiKeys {
 
     /** The recommended permissions put off, by name. */
     val DISMISSED_PERMISSIONS = stringSetPreferencesKey("dismissed_permissions")
+
+    /** The guided first launch was finished. Absent for upgraders too, who see it once. */
+    val SETUP_DONE = booleanPreferencesKey("setup_done")
 }
 
 private val uiDefaults = UiPrefs()
@@ -27,10 +30,12 @@ internal fun Preferences.toUiPrefs(): UiPrefs = UiPrefs(
         ?: uiDefaults.tinkering,
     alwaysTinker = this[UiKeys.ALWAYS_TINKER] ?: uiDefaults.alwaysTinker,
     dismissedPermissions = this[UiKeys.DISMISSED_PERMISSIONS] ?: uiDefaults.dismissedPermissions,
+    setupDone = this[UiKeys.SETUP_DONE] ?: uiDefaults.setupDone,
 )
 
 internal fun MutablePreferences.write(prefs: UiPrefs) {
     this[UiKeys.TINKERING] = prefs.tinkering.mapTo(mutableSetOf()) { it.name }
     this[UiKeys.ALWAYS_TINKER] = prefs.alwaysTinker
     this[UiKeys.DISMISSED_PERMISSIONS] = prefs.dismissedPermissions
+    this[UiKeys.SETUP_DONE] = prefs.setupDone
 }

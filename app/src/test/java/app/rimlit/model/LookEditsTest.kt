@@ -143,6 +143,15 @@ class LookEditsTest {
     }
 
     @Test
+    fun aFreshNameIsCutAndNumberedPastEveryLookButTheOneBeingNamed() {
+        assertEquals("Night", settings.freshName("Night"))
+        assertEquals("work (2)", settings.freshName("work"), "taken, whatever its case")
+        assertEquals("work", settings.freshName("work", exceptId = "work"), "the look's own name stays free for it")
+        assertEquals("Work (2)", settings.freshName("Work", exceptId = DEFAULT_LOOK_ID), "another look's isn't")
+        assertEquals("x".repeat(30), settings.freshName("x".repeat(40)), "cut to fit")
+    }
+
+    @Test
     fun importedLooksAreAddedUnderNewIdsWithClashingNamesNumbered() {
         val ruled = settings.withAppRule(app, Rule("work"))
         val night = Look(id = "work", name = "Night", style = GlowStyle.BASIC)

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,7 +24,7 @@ import app.rimlit.ui.components.RadioCard
 import app.rimlit.ui.lookKind
 import app.rimlit.ui.premadeItems
 
-// The guided first launch's pages beyond its grants: the welcome, each step's heading, the first look and the test.
+// The guided first launch's pages beyond its grants and its test: the welcome, each step's heading and the first look.
 
 /** The welcome: the default look glowing, the name, what Rimlit does, and that nothing leaves the phone. */
 internal fun LazyListScope.welcomeItems(settings: GlowSettings) {
@@ -86,37 +85,19 @@ internal fun LazyListScope.firstLookItems(
             selected = picked == null,
             onSelect = { onPick(null) },
             subtitle = lookKind(look),
-            leading = { PhoneGlow(remember(settings) { settings.previewSpec(look) }, width = 32.dp) },
+            leading = {
+                PhoneGlow(remember(settings) { settings.previewSpec(look) }, width = 32.dp, moving = picked == null)
+            },
         )
     }
-    premadeItems(settings, selected = picked, onSelect = onPick)
+    // Only the chosen row's edge moves: a list of moving glows would be busy, and costly to draw.
+    premadeItems(settings, selected = picked, onSelect = onPick, animatesSelected = true)
     item(key = "customise") {
         CheckboxCard(
             title = stringResource(R.string.setup_look_customise),
             checked = customise,
             onCheckedChange = onCustomise,
         )
-    }
-}
-
-/**
- * The test: a real test notification ([realTest], when notifications may be posted), or else a preview of the glow;
- * [onTest] sends whichever.
- */
-internal fun LazyListScope.testItems(realTest: Boolean, onTest: () -> Unit) {
-    item(key = "test") {
-        Button(onClick = onTest, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(if (realTest) R.string.test_notification_button else R.string.setup_test_preview))
-        }
-    }
-    if (!realTest) {
-        item(key = "test_note") {
-            Text(
-                stringResource(R.string.setup_test_preview_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 

@@ -44,14 +44,11 @@ private fun GlowSettings.withLookAdded(from: Look, name: String, id: String): Gl
 
 /**
  * These settings with the default look switched to [premade] (everything it changed is lost) and renamed [name], cut
- * to fit and numbered when another look has it, "Blade (2)": the first look picked in the guided first launch.
+ * to fit and numbered when another look has it, "Blade (2)" ([freshName]): the first look picked in the guided first
+ * launch.
  */
-fun GlowSettings.defaultLookSwitchedTo(premade: Premade, name: String): GlowSettings {
-    val free = numberedNames(fitLookName(name))
-        .take(MAX_LOOKS + 1)
-        .firstOrNull { canName(it, exceptId = defaultLookId) }
-    return updateLook(defaultLookId) { it.switchedTo(premade).copy(name = free ?: it.name) }
-}
+fun GlowSettings.defaultLookSwitchedTo(premade: Premade, name: String): GlowSettings =
+    updateLook(defaultLookId) { it.switchedTo(premade).copy(name = freshName(name, exceptId = defaultLookId)) }
 
 /** These settings with the look [id] renamed [name]; unchanged when the name can't be used. */
 fun GlowSettings.renameLook(id: String, name: String): GlowSettings =

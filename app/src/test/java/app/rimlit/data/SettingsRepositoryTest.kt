@@ -77,6 +77,15 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun setupIsDoneOnlyOnceFinishedAndReadsBack() {
+        assertEquals(false, mutablePreferencesOf().toUiPrefs().setupDone, "a fresh install, or an upgrader, sees it")
+        val done = UiPrefs(setupDone = true)
+        assertEquals(done, mutablePreferencesOf().apply { write(done) }.toUiPrefs())
+        val stored = mutablePreferencesOf(booleanPreferencesKey("setup_done") to true)
+        assertEquals(done, stored.toUiPrefs(), "under the key it was written with")
+    }
+
+    @Test
     fun alwaysTinkerStoredAsASettingReadsBackAsAUiPreference() {
         val older = mutablePreferencesOf(booleanPreferencesKey("always_tinker") to true)
         assertEquals(UiPrefs(alwaysTinker = true), older.toUiPrefs())

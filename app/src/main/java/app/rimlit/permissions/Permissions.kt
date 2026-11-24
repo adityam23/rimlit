@@ -44,9 +44,12 @@ data class PermissionStatus(val kind: PermissionKind, val granted: Boolean)
 /** Whether [kind] is granted in these statuses. */
 fun List<PermissionStatus>.isGranted(kind: PermissionKind): Boolean = any { it.kind == kind && it.granted }
 
-/** Whether a real test notification can glow: Rimlit sees it with notification access, and may post it. */
-val List<PermissionStatus>.canSendTest: Boolean
-    get() = isGranted(PermissionKind.NOTIFICATION_ACCESS) && isGranted(PermissionKind.NOTIFICATIONS)
+/**
+ * Whether a real test notification can glow: Rimlit sees it with notification access, and may post it
+ * ([testPostable]: notifications allowed and the test channel not turned off, `GlowNotifications.canPostTest`).
+ */
+fun List<PermissionStatus>.canSendTest(testPostable: Boolean): Boolean =
+    isGranted(PermissionKind.NOTIFICATION_ACCESS) && testPostable
 
 /**
  * How much glows depend on [kind], given the grants in these statuses: its own [PermissionKind.need], but Display over

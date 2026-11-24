@@ -92,7 +92,8 @@
     <string name="setup_test_title">Try it</string>
     <string name="setup_test_desc">Send yourself a test notification to see the glow, then finish to turn edge lighting on.</string>
     <string name="setup_test_preview">Preview the glow</string>
-    <string name="setup_test_preview_note">Without notifications allowed, this shows a preview instead of a real test notification.</string>
+    <string name="setup_test_preview_note">Without notifications allowed, or with Rimlit\'s test notifications turned off, this shows a preview instead of a real test notification.</string>
+    <string name="setup_test_window_note">Without a way to glow over other apps, this plays the glow here in Rimlit only. Real notifications won\'t glow until you allow one.</string>
 
     <!-- Behavior: the look editor -->
     <string name="look_editor_section">Look editor</string>
