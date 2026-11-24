@@ -9,7 +9,6 @@ import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
 import org.junit.Test
-import java.util.EnumMap
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -317,29 +316,38 @@ class GlowMachineModelCheckTest {
      * the replaced glow's and goes unchecked.
      */
     private fun delayViolation(step: GlowStep): String? {
-        // Runs on every transition: allocate the map only for a step that arms something.
-        if (step.effects.none { it is GlowEffect.Arm }) return null
-        val armed = EnumMap<Timer, Long>(Timer::class.java)
-        for (effect in step.effects) {
-            when (effect) {
-                is GlowEffect.Arm -> armed[effect.timer] = effect.delayMs
-                is GlowEffect.Disarm -> armed.remove(effect.timer)
-                else -> Unit
-            }
-        }
-        if (armed.isEmpty()) return null
-        val duration = step.state.glow?.spec?.durationMs ?: return "arms ${armed.keys} without a glow"
-        for ((timer, delayMs) in armed) {
-            val expected = when (timer) {
+        // Runs on every transition: allocates nothing unless it reports a violation.
+        val effects = step.effects
+        for (i in effects.indices) {
+            val arm = effects[i] as? GlowEffect.Arm ?: continue
+            if (isTimerTouchedAfter(effects, i, arm.timer)) continue
+            val duration = step.state.glow?.spec?.durationMs ?: return "arms ${timersLeftArmed(effects)} without a glow"
+            val expected = when (arm.timer) {
                 Timer.FADE_IN -> fadesFor(duration).inMs
                 Timer.FADE_OUT -> fadesFor(duration).outMs
                 Timer.HOLD -> duration
                 else -> continue
             }
-            if (delayMs != expected) return "$timer armed for $delayMs ms, not $expected ms"
+            if (arm.delayMs != expected) return "${arm.timer} armed for ${arm.delayMs} ms, not $expected ms"
         }
         return null
     }
+
+    /** Whether an effect after [index] disarms or arms [timer] again, so the one at [index] doesn't last the step. */
+    private fun isTimerTouchedAfter(effects: List<GlowEffect>, index: Int, timer: Timer): Boolean {
+        for (i in index + 1 until effects.size) {
+            val effect = effects[i]
+            if ((effect is GlowEffect.Arm && effect.timer == timer) || (effect is GlowEffect.Disarm && effect.timer == timer)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /** The timers still armed once [effects] have run; for a violation's message only. */
+    private fun timersLeftArmed(effects: List<GlowEffect>): List<Timer> = effects.withIndex()
+        .mapNotNull { (i, effect) -> (effect as? GlowEffect.Arm)?.timer?.takeUnless { isTimerTouchedAfter(effects, i, it) } }
+        .sorted()
 
     /** The auto colours this pending post's own settings extract it with. */
     private fun Pending.autoColors() = autoColors(settings, post.packageName)
