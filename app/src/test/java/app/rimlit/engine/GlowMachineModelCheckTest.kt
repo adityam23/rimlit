@@ -9,6 +9,7 @@ import app.rimlit.model.AutoColors
 import app.rimlit.model.ColorMode
 import app.rimlit.model.GlowSettings
 import org.junit.Test
+import java.util.EnumMap
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -167,7 +168,8 @@ class GlowMachineModelCheckTest {
 
     /** Invariants relating a transition's states, event and effects. */
     private fun transitionViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? =
-        surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: pendingViolation(old, event, step)
+        surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: delayViolation(step)
+            ?: pendingViolation(old, event, step)
             ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
             ?: placementViolation(old, event, step) ?: openViolation(old, event, step)
             ?: dismissViolation(old, event, step)
@@ -306,6 +308,37 @@ class GlowMachineModelCheckTest {
         // its timer armed, timers alone always end the glow.
         val advanced = after.phase > before.phase || (after.phase == before.phase && step.state.armed.size < old.armed.size)
         return "$event didn't move the glow forward".takeUnless { advanced }
+    }
+
+    /**
+     * A glow's timeline timers are armed for its own durations: the fade-in and fade-out its [fadesFor] gives the
+     * glow's duration (short glows scale them), the hold the duration itself. The glow concerned is the one the step
+     * leaves; a timer armed and disarmed again within the step (a glow fading out as a newer one replaces it) is
+     * the replaced glow's and goes unchecked.
+     */
+    private fun delayViolation(step: GlowStep): String? {
+        // Runs on every transition: allocate the map only for a step that arms something.
+        if (step.effects.none { it is GlowEffect.Arm }) return null
+        val armed = EnumMap<Timer, Long>(Timer::class.java)
+        for (effect in step.effects) {
+            when (effect) {
+                is GlowEffect.Arm -> armed[effect.timer] = effect.delayMs
+                is GlowEffect.Disarm -> armed.remove(effect.timer)
+                else -> Unit
+            }
+        }
+        if (armed.isEmpty()) return null
+        val duration = step.state.glow?.spec?.durationMs ?: return "arms ${armed.keys} without a glow"
+        for ((timer, delayMs) in armed) {
+            val expected = when (timer) {
+                Timer.FADE_IN -> fadesFor(duration).inMs
+                Timer.FADE_OUT -> fadesFor(duration).outMs
+                Timer.HOLD -> duration
+                else -> continue
+            }
+            if (delayMs != expected) return "$timer armed for $delayMs ms, not $expected ms"
+        }
+        return null
     }
 
     /** The auto colours this pending post's own settings extract it with. */

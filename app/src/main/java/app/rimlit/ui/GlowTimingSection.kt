@@ -36,8 +36,8 @@ internal fun LazyListScope.glowTimingSection(
             value = draft.durationMs.toFloat(),
             range = Ranges.durationMs.first.toFloat()..Ranges.durationMs.last.toFloat(),
             valueText = { stringResource(R.string.value_seconds, it / 1000f) },
-            onPreview = { v -> editor.preview { it.copy(durationMs = v.toLong()) } },
-            onCommit = { v -> editor.persist { it.copy(durationMs = v.toLong()) } },
+            onPreview = { v -> editor.preview { it.copy(durationMs = Ranges.snapDuration(v.toLong())) } },
+            onCommit = { v -> editor.persist { it.copy(durationMs = Ranges.snapDuration(v.toLong())) } },
         )
     }
     screenOffBrightnessItems(draft, editor, onDraggingScreenOff)
