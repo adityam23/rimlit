@@ -219,11 +219,15 @@ class GlowCoordinatorTest {
         coordinator.settingsChanged(CUSTOM)
         posted("a")
         coordinator.surfaceOpened(Surface.APP_OVERLAY, Instance())
-        driver.advance(FADE_IN_MS + 100)
+        val fades = fadesFor(CUSTOM.durationMs)
+        driver.advance(fades.inMs + 100)
         posted("b") // re-targets: the hold's arming is replaced, though its timer still runs
-        driver.advance(CUSTOM.durationMs)
+        driver.advance(CUSTOM.durationMs) // past where the replaced timers would have ended the first glow
         assertEquals("b", glow?.source?.post?.key)
-        driver.advance(FADE_IN_MS + CUSTOM.durationMs + FADE_OUT_MS)
+        // b runs its own whole timeline from its post, so the remainder is what's left of it.
+        driver.advance(fades.inMs + fades.outMs - 1)
+        assertNotNull(glow, "the stale timers closed nothing early")
+        driver.advance(1)
         assertNull(glow)
     }
 
@@ -345,7 +349,7 @@ class GlowCoordinatorTest {
         coordinator.settingsChanged(settings)
         posted("a")
         coordinator.surfaceOpened(Surface.APP_OVERLAY, window)
-        driver.advance(FADE_IN_MS)
+        driver.advance(fadesFor(settings.durationMs).inMs)
     }
 
     @Test
@@ -358,7 +362,11 @@ class GlowCoordinatorTest {
         assertEquals(false, coordinator.state.value?.frameFor(Surface.APP_OVERLAY)?.visible, "fading out")
         assertFalse(window.closed, "the pill fades with the edge")
 
-        driver.advance(FADE_OUT_MS)
+        val fadeOut = fadesFor(CUSTOM.durationMs).outMs
+        driver.advance(fadeOut - 1)
+        assertNotNull(glow, "still fading out just before the scaled fade ends")
+        assertFalse(window.closed)
+        driver.advance(1)
         assertNull(glow)
         assertTrue(window.closed)
     }
