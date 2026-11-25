@@ -6,16 +6,18 @@ Rimlit lights up the edges of your screen when a notification arrives: the edge 
 <li>When the screen is off, it wakes into a black, always-on-display style glow.</li>
 <li>With the optional accessibility glow, it also frames the lock screen itself.</li>
 <li>Around the screen edge, around the camera cutout, or both, following your display's real corners.</li>
+<li>On any of the top, bottom, left and right sides you choose: a lit side fades out smoothly into the corner of a side that is off.</li>
 </ul>
 
 <b>How it looks</b>
 <ul>
 <li>Edge styles: a breathing edge, a soft bloom, a racing blade, a wave, glitter, echoing rings, twin blades, a boomerang and fireworks.</li>
 <li>Particles across the screen while it glows: snow, petals, rain, hearts, bubbles, confetti, stars, sparks, your own pictures, or the notifying app's icon.</li>
-<li>Colors picked from the app's icon or the notification's picture, a color of your own, a gradient, or a flowing rainbow.</li>
-<li>Thickness, glow width, speed, brightness and duration, with a live preview as you drag.</li>
+<li>Colors picked from the app's icon or the notification's picture, a color of your own (type its code, like #00BCD4, or drag the hue), a gradient, or a flowing rainbow.</li>
+<li>Thickness, glow width, speed, brightness and duration, down to a 0.3 second flash, with a live preview as you drag.</li>
 <li>Start from a premade for each style and edit it full screen, glowing round your screen's real edge over your wallpaper; your changes are marked and can be reset.</li>
-<li>Save up to twenty named looks, make one the default, give any app its own look, and export or share looks as files.</li>
+<li>Save up to twenty named looks, make one the default, and export or share looks as files.</li>
+<li>Give any app its own look: pick one for it on the Apps screen, or tick the apps a look is for in the look's Apps tab. Every other app glows with the default look, and Home shows how many apps use each look.</li>
 <li>A pill with the app's icon and name can grow out of the camera cutout.</li>
 </ul>
 
@@ -28,7 +30,7 @@ Rimlit lights up the edges of your screen when a notification arrives: the edge 
 </ul>
 
 <b>Permissions</b>
-A guided setup asks for each in turn, checks the glow fits your screen, and lets you pick a first look and try it. Only notification access is required.
+A guided setup asks for each in turn, checks the glow fits your screen, lets you place the app pill, and lets you pick a first look and try it. Anything you skip is listed on Home under "Needs attention". Only notification access is required.
 <ul>
 <li>Notification access: to notice when a notification arrives. Rimlit only looks at which app posted it and its colors; nothing is stored or sent anywhere.</li>
 <li>Display over other apps: to draw the glow while you use the phone.</li>
