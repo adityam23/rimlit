@@ -76,7 +76,7 @@ fun EdgeGlow(
                 val sideMask = if (style == GlowStyle.NONE) {
                     null
                 } else {
-                    SideMaskKey.of(outline.geometry.shape, outline.key, spec.sides)?.let(sideMasks::get)
+                    SideMaskKey.of(outline, spec.sides)?.let(sideMasks::get)
                 }
                 style.painter(OutlineBrush(spec, playback, outline, sideMask))
             }

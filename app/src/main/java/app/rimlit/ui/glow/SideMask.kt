@@ -21,31 +21,33 @@ private const val MASK_SCALE = 4f
 private const val MIN_TAPER_THICKNESSES = 8f
 
 /**
- * Everything a [SideMask] depends on. It is cached apart from the [GlowLayout], so lighting a side rebuilds only the
- * mask, not the halos. [edge] is compared by identity: the cached layout keeps its edge as long as its geometry holds.
+ * What a [SideMask] keeps to the lit [sides]: the screen-edge [outline], compared by identity. The cached layout keeps
+ * its outlines as long as their geometry holds, and the mask takes its window and taper from the outline's layout, so
+ * these two decide it. It is cached apart from the [GlowLayout], so lighting a side rebuilds only the mask, not the
+ * halos.
  */
-internal data class SideMaskKey(
-    val edge: RoundRect,
-    val width: Float,
-    val height: Float,
-    val sides: Set<ScreenSide>,
-    val taperPx: Float,
-) {
+internal data class SideMaskKey(val outline: GlowOutline, val sides: Set<ScreenSide>) {
     companion object {
+        /** What keeps the drawing of [outline], halo and all, to the lit [sides]; `null` when [masks] says none. */
+        fun of(outline: GlowOutline, sides: Set<ScreenSide>): SideMaskKey? =
+            if (masks(outline.geometry.shape, sides)) SideMaskKey(outline, sides) else null
+
         /**
-         * What keeps the drawing of the outline [shape] in [layout], halo and all, to the lit [sides]: `null` when
-         * every side is lit, and for the cutout ring, which sides don't touch. A side fades out toward an unlit one
-         * over its halo's reach, so the halo's end is as soft as its edges, and at least [MIN_TAPER_THICKNESSES]
-         * lines, so a line with no halo still fades rather than stops (a line is never thinner than
-         * [app.rimlit.model.GlowSettings.Ranges]' least, so neither is a fade).
+         * Whether an outline of [shape] lit on [sides] is masked: not when every side is lit, nor for the cutout
+         * ring, which sides don't touch.
          */
-        fun of(shape: OutlineShape, layout: GlowLayoutKey, sides: Set<ScreenSide>): SideMaskKey? {
-            if (shape !is RoundRect || sides.containsAll(ALL_SIDES)) return null
-            val taperPx = max(haloReach(layout.haloStrokePx, layout.glowPx), layout.thicknessPx * MIN_TAPER_THICKNESSES)
-            return SideMaskKey(shape, layout.width, layout.height, sides, taperPx)
-        }
+        fun masks(shape: OutlineShape, sides: Set<ScreenSide>): Boolean =
+            shape is RoundRect && !sides.containsAll(ALL_SIDES)
     }
 }
+
+/**
+ * How far a side of an outline in [layout] fades out toward an unlit one: over its halo's reach, so the halo's end is
+ * as soft as its edges, and at least [MIN_TAPER_THICKNESSES] lines, so a line with no halo still fades rather than
+ * stops (a line is never thinner than [app.rimlit.model.GlowSettings.Ranges]' least, so neither is a fade).
+ */
+internal fun sideTaper(layout: GlowLayoutKey): Float =
+    max(haloReach(layout.haloStrokePx, layout.glowPx), layout.thicknessPx * MIN_TAPER_THICKNESSES)
 
 /**
  * The mask's pixels over a [width] × [height] window: [columns] × [rows], each [scaleX] × [scaleY] window pixels, so
@@ -68,10 +70,13 @@ internal class SideMask(key: SideMaskKey) {
     val shader: Shader
 
     init {
-        val grid = MaskGrid(key.width, key.height)
+        val layout = key.outline.key
+        // Only a screen edge is masked (see SideMaskKey.masks).
+        val edge = key.outline.geometry.shape as RoundRect
+        val grid = MaskGrid(layout.width, layout.height)
         val bitmap = createBitmap(grid.columns, grid.rows, Bitmap.Config.ALPHA_8)
         // Rows may be padded: one byte per pixel, rowBytes per row.
-        val alphas = SideLight(key.edge, key.sides, key.taperPx)
+        val alphas = SideLight(edge, key.sides, sideTaper(layout))
             .render(grid.width, grid.height, grid.columns, grid.rows, bitmap.rowBytes)
         bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(alphas))
         // From mask pixels to window pixels.
