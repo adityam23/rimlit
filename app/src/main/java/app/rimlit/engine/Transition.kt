@@ -82,7 +82,7 @@ internal class Transition(private var state: GlowState) {
         }
 
         val settings = state.settings
-        if (!settings.wants(post) || !post.alerts(isUpdate)) return
+        if (!settings.wants(post) || !post.alerts(isUpdate, wasRinging)) return
         val source = GlowSource.Notification(post)
         val target = routed(state.route(source, settings, lockScreenUp)) ?: return
         when (val resolution = settings.resolve(post.packageName)) {
