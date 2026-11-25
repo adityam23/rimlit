@@ -19,7 +19,7 @@ internal object Fixtures {
     fun post(
         key: String,
         fullScreenIntent: Boolean = false,
-        onlyAlertOnce: Boolean = false,
+        updatesSilently: Boolean = false,
         importance: Int? = NotificationManager.IMPORTANCE_DEFAULT,
         ongoing: Boolean = fullScreenIntent,
         own: Boolean = false,
@@ -34,7 +34,7 @@ internal object Fixtures {
         isOngoing = ongoing,
         group = GroupRole.NONE,
         groupAlert = GroupAlert.ALL,
-        onlyAlertOnce = onlyAlertOnce,
+        updatesSilently = updatesSilently,
         importance = importance,
         passesDnd = true,
         hiddenOnLockScreen = hiddenOnLockScreen,
@@ -91,7 +91,10 @@ internal object Fixtures {
     val POSTS = listOf(
         post("a"),
         post("a", fullScreenIntent = true),
-        post("a", onlyAlertOnce = true),
+        post("a", updatesSilently = true),
+        // A VoIP app's foreground-service notification (silent updates) re-posted as the incoming call: after a
+        // silent post under "a", only its first ringing re-post glows.
+        post("a", fullScreenIntent = true, updatesSilently = true),
         post("a", importance = NotificationManager.IMPORTANCE_LOW),
         // Also an answered call: re-posted ongoing, without its full-screen intent.
         post("a", ongoing = true),
@@ -102,7 +105,7 @@ internal object Fixtures {
         post("b", fullScreenIntent = true, ongoing = false),
         // The lock-screen trampoline: Rimlit's own full-screen intent, which is not a call.
         post("b", fullScreenIntent = true, ongoing = false, own = true),
-        post("b", onlyAlertOnce = true),
+        post("b", updatesSilently = true),
         post("b", own = true, test = true),
         // One Android keeps off the lock screen: it glows there, but nothing names its app or clears it while locked.
         post("b", hiddenOnLockScreen = true),

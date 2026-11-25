@@ -171,7 +171,7 @@ class GlowMachineModelCheckTest {
             ?: pendingViolation(old, event, step)
             ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
             ?: placementViolation(old, event, step) ?: openViolation(old, event, step)
-            ?: dismissViolation(old, event, step)
+            ?: dismissViolation(old, event, step) ?: silentUpdateViolation(old, event, step)
 
     /**
      * Dismissing: the shown glow fades out (it is already up, so there is something to fade). Its notification is
@@ -443,6 +443,35 @@ class GlowMachineModelCheckTest {
 
             ringingStarted && new.pending != null && new.pending.post != event.post ->
                 "a post pending from before a call could launch over its screen"
+
+            else -> null
+        }
+    }
+
+    /**
+     * A silent update glows only when it starts ringing. Otherwise it starts no extraction, opens nothing, arms no
+     * timer and leaves the glow as it was, except that ending its own ringing ends or fades out its glow.
+     */
+    private fun silentUpdateViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? {
+        val post = (event as? GlowEvent.Posted)?.post ?: return null
+        val silent = post.updatesSilently && post.key in old.activeKeys &&
+            (!post.isRinging || post.key in old.ringingKeys)
+        if (!silent) return null
+        val before = old.glow
+        val after = step.state.glow
+        val endedRinging = !post.isRinging && post.key in old.ringingKeys && before != null &&
+            before.source.post?.key == post.key
+        val fadedOut = endedRinging && before.phase != Phase.FADING_OUT &&
+            after == before.copy(phase = Phase.FADING_OUT, instant = false)
+        return when {
+            step.effects.any { it is GlowEffect.ExtractPalette } -> "a silent update started an extraction"
+
+            step.effects.any { it is GlowEffect.Open } -> "a silent update opened a surface"
+
+            after != null && after != before && !fadedOut -> "a silent update changed the glow"
+
+            step.effects.any { it is GlowEffect.Arm && !(fadedOut && it.timer == Timer.FADE_OUT) } ->
+                "a silent update restarted or extended a timer"
 
             else -> null
         }
