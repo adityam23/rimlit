@@ -85,11 +85,18 @@ internal object ColorHex {
     fun decode(hex: String): Int? = hex.toLongOrNull(16)?.takeIf { it in 0..0xFFFFFFFFL }?.toInt()
 }
 
-internal inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E = toEnumOrNull<E>() ?: default
+// Tolerant reads of stored JSON values: a value of the wrong type reads as absent.
 
-/** The value of [E] named this; `null` when there is none, for a value with no fallback. */
-internal inline fun <reified E : Enum<E>> String?.toEnumOrNull(): E? =
-    this?.let { name -> enumValues<E>().firstOrNull { it.name == name } }
+private fun JSONObject.string(key: String): String? = opt(key) as? String
+
+private fun JSONObject.number(key: String): Number? = opt(key) as? Number
+
+/** The strings in this array, in order, skipping what isn't one. */
+private fun JSONArray.strings(): Sequence<String> = (0 until length()).asSequence().mapNotNull { opt(it) as? String }
+
+/** The finite number at [key] clamped to [range], or [default] when there is none. */
+private fun JSONObject.float(key: String, default: Float, range: ClosedFloatingPointRange<Float>): Float =
+    (number(key)?.toFloat()?.takeIf { it.isFinite() } ?: default).coerceIn(range)
 
 /** [parse]'s result, or `null` when the JSON is malformed: the caller falls back. */
 private inline fun <T> parsedOrNull(parse: () -> T): T? = try {
