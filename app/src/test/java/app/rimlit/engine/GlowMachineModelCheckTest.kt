@@ -311,7 +311,7 @@ class GlowMachineModelCheckTest {
 
     /**
      * A glow's timeline timers are armed for its own durations: the fade-in and fade-out its [fadesFor] gives the
-     * glow's duration (short glows scale them), the hold the duration itself. The glow concerned is the one the step
+     * glow's duration (short glows scale them; [fadesOfFixture] computes each once), the hold the duration itself. The glow concerned is the one the step
      * leaves; a timer armed and disarmed again within the step (a glow fading out as a newer one replaces it) is
      * the replaced glow's and goes unchecked.
      */
@@ -323,8 +323,8 @@ class GlowMachineModelCheckTest {
             if (isTimerTouchedAfter(effects, i, arm.timer)) continue
             val duration = step.state.glow?.spec?.durationMs ?: return "arms ${timersLeftArmed(effects)} without a glow"
             val expected = when (arm.timer) {
-                Timer.FADE_IN -> fadesFor(duration).inMs
-                Timer.FADE_OUT -> fadesFor(duration).outMs
+                Timer.FADE_IN -> fadesOfFixture(duration).inMs
+                Timer.FADE_OUT -> fadesOfFixture(duration).outMs
                 Timer.HOLD -> duration
                 else -> continue
             }
@@ -480,6 +480,17 @@ class GlowMachineModelCheckTest {
         const val CHUNK = 1024
 
         val TIMELINE_TIMERS = setOf(Timer.FADE_IN, Timer.HOLD, Timer.FADE_OUT)
+
+        /** Every glow duration the fixtures give a glow, each with its [fadesFor], computed once for the whole search. */
+        private val FIXTURE_DURATIONS: LongArray =
+            (SETTINGS.map { it.durationMs } + PREVIEW_SPEC.durationMs).distinct().toLongArray()
+        private val FIXTURE_FADES: Array<Fades> = Array(FIXTURE_DURATIONS.size) { fadesFor(FIXTURE_DURATIONS[it]) }
+
+        /** The fades of a fixture glow's [duration]; an array walk, since the search asks millions of times. */
+        fun fadesOfFixture(duration: Long): Fades {
+            for (i in FIXTURE_DURATIONS.indices) if (FIXTURE_DURATIONS[i] == duration) return FIXTURE_FADES[i]
+            error("no fixture glow lasts $duration ms")
+        }
 
         /** Inputs from outside the executor, possible in every state. Built once: the search visits millions. */
         val EXTERNAL_EVENTS: List<GlowEvent> = buildList {
