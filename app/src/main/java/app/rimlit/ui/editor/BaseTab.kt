@@ -63,11 +63,12 @@ private fun LazyListScope.sideChips(editor: LookEditorState) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             for (side in SIDE_CHIPS) {
                 val lit = side in look.sides
+                val next = look.sides.withSide(side, lit = !lit)
                 FilterChip(
                     selected = lit,
-                    onClick = { editor.edit(look.copy(sides = look.sides.withSide(side, lit = !lit))) },
+                    onClick = { editor.edit(look.copy(sides = next)) },
                     label = { Text(stringResource(side.labelRes)) },
-                    enabled = look.sides.withSide(side, lit = !lit) != look.sides,
+                    enabled = next != look.sides,
                 )
             }
         }
