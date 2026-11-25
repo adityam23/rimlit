@@ -1,0 +1,9 @@
+A redesigned Rimlit.
+
+- Edit looks full screen, glowing round your real edge over your wallpaper, starting from a premade; changes are marked and can be reset
+- Home shows your looks, the default first, with the apps using each
+- New Apps screen: pick a look for each app, or switch apps off
+- Guided first launch, with screen fit and the app pill's position
+- Glow on only the sides you choose
+- Type a color as a code, like #00BCD4
+- Glows as short as 0.3 s
