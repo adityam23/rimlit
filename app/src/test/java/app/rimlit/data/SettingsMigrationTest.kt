@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import app.rimlit.model.ALL_SIDES
 import app.rimlit.model.AutoColorSource
 import app.rimlit.model.AutoColors
 import app.rimlit.model.BatterySaver
@@ -68,6 +69,7 @@ class SettingsMigrationTest {
         style = GlowStyle.BLADE,
         palette = palette,
         region = EdgeRegion.CUTOUT,
+        sides = ALL_SIDES,
         cornerRadiusDp = null,
         customCutout = null,
         thicknessDp = 6f,
