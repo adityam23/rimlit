@@ -19,8 +19,8 @@ import app.rimlit.ui.premadeItems
 
 /**
  * The premade the look is based on, each playing its edge; picking another switches the whole look to it (asking
- * first when that loses changes). Tinkering, the region too, on a device with a camera cutout to ring, and the sides
- * of the screen edge it lights, while it traces the edge.
+ * first when that loses changes). Tinkering, the region too, on a device with a camera cutout to ring (or for a look
+ * that doesn't trace the edge, to set it back), and the sides of the screen edge it lights, while it traces the edge.
  */
 internal fun LazyListScope.baseTab(editor: LookEditorState, hasCutout: Boolean) {
     val look = editor.look
@@ -36,7 +36,8 @@ internal fun LazyListScope.baseTab(editor: LookEditorState, hasCutout: Boolean) 
         animatesSelected = false,
     )
     if (!editor.tinkering) return
-    if (hasCutout) {
+    // A look not tracing the edge (an imported one) offers its region even with no cutout, to set it back to the edge.
+    if (hasCutout || !look.region.tracesEdge) {
         item(key = "region") {
             SectionTitle(stringResource(R.string.region_section), changed = LookControl.REGION in changed)
         }
