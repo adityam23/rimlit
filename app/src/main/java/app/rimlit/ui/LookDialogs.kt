@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.rimlit.R
 import app.rimlit.model.GlowSettings
@@ -114,7 +115,7 @@ internal fun PremadePickerDialog(settings: GlowSettings, onPick: (Premade) -> Un
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         PremadeGlow(premade, settings)
-                        Text(premade.title(), style = MaterialTheme.typography.labelLarge)
+                        Text(premade.title(), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
                     }
                 }
             }

@@ -235,6 +235,7 @@ private fun NewLookTile(onNew: () -> Unit) {
         Text(
             text = stringResource(R.string.look_new),
             style = MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),
         )
     }
