@@ -50,7 +50,7 @@ internal class SideLight(private val edge: RoundRect, sides: Set<ScreenSide>, pr
      * This light at the centre of every pixel of a [columns] × [rows] grid over the [width] × [height] window, exactly
      * as [at] gives it, as alpha bytes in rows [rowBytes] apart (see [Raster]).
      */
-    fun render(width: Float, height: Float, columns: Int, rows: Int, rowBytes: Int): LitPixels =
+    fun render(width: Float, height: Float, columns: Int, rows: Int, rowBytes: Int): ByteArray =
         Raster(width, height, columns, rows, rowBytes).render()
 
     /** How much shows at the point [distances] place, when it lies in a corner; [NOT_IN_CORNER] when it doesn't. */
@@ -113,13 +113,7 @@ internal class SideLight(private val edge: RoundRect, sides: Set<ScreenSide>, pr
         private var fromTop = 0f
         private var fromBottom = 0f
 
-        /** The bounds of the pixels that aren't 0 so far, as [LitPixels] holds them. */
-        private var litLeft = columns
-        private var litTop = rows
-        private var litRight = 0
-        private var litBottom = 0
-
-        fun render(): LitPixels {
+        fun render(): ByteArray {
             for (row in 0 until rows) {
                 this.row = row
                 y = (row + 0.5f) * height / rows
@@ -135,11 +129,7 @@ internal class SideLight(private val edge: RoundRect, sides: Set<ScreenSide>, pr
                 }
                 fillRun(column, columns - 1)
             }
-            return if (litRight > litLeft) {
-                LitPixels(alphas, litLeft, litTop, litRight, litBottom)
-            } else {
-                LitPixels(alphas, 0, 0, 0, 0)
-            }
+            return alphas
         }
 
         /** Sets [guards] for the row at [y]: the pixels by each place along it where the light may change. */
@@ -193,10 +183,7 @@ internal class SideLight(private val edge: RoundRect, sides: Set<ScreenSide>, pr
             val last = light(to)
             if (first == last && (first == 0f || first == 1f)) {
                 // The alphas start at 0.
-                if (first == 1f) {
-                    alphas.fill(OPAQUE.toByte(), row * rowBytes + from, row * rowBytes + to + 1)
-                    grow(from, to)
-                }
+                if (first == 1f) alphas.fill(OPAQUE.toByte(), row * rowBytes + from, row * rowBytes + to + 1)
             } else {
                 put(from, first)
                 for (column in from + 1 until to) put(column, light(column))
@@ -206,23 +193,7 @@ internal class SideLight(private val edge: RoundRect, sides: Set<ScreenSide>, pr
 
         /** Sets pixel [column] of the current row to [light]. */
         private fun put(column: Int, light: Float) {
-            val alpha = (OPAQUE * light + 0.5f).toInt()
-            alphas[row * rowBytes + column] = alpha.toByte()
-            if (alpha != 0) grow(column, column)
-        }
-
-        /** Grows the lit bounds over pixels [from] to [to] (inclusive) of the current row. */
-        private fun grow(from: Int, to: Int) {
-            litLeft = minOf(litLeft, from)
-            litRight = maxOf(litRight, to + 1)
-            litTop = minOf(litTop, row)
-            litBottom = row + 1
+            alphas[row * rowBytes + column] = (OPAQUE * light + 0.5f).toInt().toByte()
         }
     }
 }
-
-/**
- * A [SideLight] rendered: [alphas], and the bounds of those that aren't 0, columns [left] to [right] and rows [top] to
- * [bottom], each end exclusive; all 0 when none is lit.
- */
-internal class LitPixels(val alphas: ByteArray, val left: Int, val top: Int, val right: Int, val bottom: Int)

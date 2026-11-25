@@ -1,31 +1,21 @@
 package app.rimlit.ui.glow
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
-import android.graphics.Rect
-import android.graphics.RectF
+import android.graphics.BitmapShader
+import android.graphics.Matrix
+import android.graphics.Shader
 import androidx.core.graphics.createBitmap
 import app.rimlit.model.ALL_SIDES
 import app.rimlit.model.ScreenSide
 import java.nio.ByteBuffer
 import kotlin.math.ceil
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Window pixels per mask pixel each way. The light fades smoothly everywhere (see [SideLight]), so a coarse mask drawn
  * filtered loses nothing, at a sixteenth of the memory and the work.
  */
 private const val MASK_SCALE = 4f
-
-/**
- * Mask pixels kept round the lit ones. Drawn filtered, a mask pixel reaches half a pixel past its square; two keep a
- * ring of 0 inside the cut's edge, so the cut is exactly what the whole mask's would be.
- */
-private const val MASK_MARGIN = 2
 
 /** A side's fade toward an unlit neighbour is at least this many line thicknesses long, however narrow its halo. */
 private const val MIN_TAPER_THICKNESSES = 8f
@@ -58,53 +48,35 @@ internal data class SideMaskKey(
 }
 
 /**
- * The [SideLight] of [key] over its window, rendered once into an alpha-only bitmap, which keeps a screen-edge
- * outline's drawing, halo and all, to its lit sides: a painter draws into the layer [begin] opens, and [end] cuts it
- * to the mask. The layer and the cut cover only the lit part of the window (everything else the mask clears anyway).
- * A frame allocates nothing.
+ * The mask's pixels over a [width] × [height] window: [columns] × [rows], each [scaleX] × [scaleY] window pixels, so
+ * the grid spans the window exactly and each mask pixel's centre lies where [SideLight.render] samples its light.
+ */
+internal class MaskGrid(val width: Float, val height: Float) {
+    val columns = ceil(width / MASK_SCALE).toInt().coerceAtLeast(1)
+    val rows = ceil(height / MASK_SCALE).toInt().coerceAtLeast(1)
+    val scaleX = width / columns
+    val scaleY = height / rows
+}
+
+/**
+ * The [SideLight] of [key] over its window, rendered once into an alpha-only bitmap and held as a [shader] in window
+ * coordinates, which an outline's brush cuts each of its paints' colors to (see
+ * [app.rimlit.ui.glow.effects.OutlineBrush]): everything a style draws, halo and all, is kept to the lit sides with no
+ * layer. Sampled filtered, as the brush's paints are.
  */
 internal class SideMask(key: SideMaskKey) {
-    private val bitmap: Bitmap
-
-    /** The bitmap's pixels round the lit ones. */
-    private val source: Rect
-
-    /** Where [source] lies in the window: the layer's bounds. */
-    private val bounds: RectF
-
-    /** Keeps what is drawn beneath only where the mask is opaque. */
-    private val cut = Paint(Paint.FILTER_BITMAP_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
+    val shader: Shader
 
     init {
-        val columns = ceil(key.width / MASK_SCALE).toInt().coerceAtLeast(1)
-        val rows = ceil(key.height / MASK_SCALE).toInt().coerceAtLeast(1)
-        bitmap = createBitmap(columns, rows, Bitmap.Config.ALPHA_8)
+        val grid = MaskGrid(key.width, key.height)
+        val bitmap = createBitmap(grid.columns, grid.rows, Bitmap.Config.ALPHA_8)
         // Rows may be padded: one byte per pixel, rowBytes per row.
-        val pixels = SideLight(key.edge, key.sides, key.taperPx)
-            .render(key.width, key.height, columns, rows, bitmap.rowBytes)
-        bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(pixels.alphas))
-        source = if (pixels.right > pixels.left) {
-            Rect(
-                max(pixels.left - MASK_MARGIN, 0),
-                max(pixels.top - MASK_MARGIN, 0),
-                min(pixels.right + MASK_MARGIN, columns),
-                min(pixels.bottom + MASK_MARGIN, rows),
-            )
-        } else {
-            Rect()
+        val alphas = SideLight(key.edge, key.sides, key.taperPx)
+            .render(grid.width, grid.height, grid.columns, grid.rows, bitmap.rowBytes)
+        bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(alphas))
+        // From mask pixels to window pixels.
+        shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+            setLocalMatrix(Matrix().apply { setScale(grid.scaleX, grid.scaleY) })
         }
-        // The same scale as the whole bitmap drawn over the whole window.
-        val scaleX = key.width / columns
-        val scaleY = key.height / rows
-        bounds = RectF(source.left * scaleX, source.top * scaleY, source.right * scaleX, source.bottom * scaleY)
-    }
-
-    /** Opens the layer a painter draws into; returns it, for [end]. */
-    fun begin(canvas: Canvas): Int = canvas.saveLayer(bounds, null)
-
-    /** Cuts what was drawn since [begin] opened [layer] to the lit sides, and closes it. */
-    fun end(canvas: Canvas, layer: Int) {
-        canvas.drawBitmap(bitmap, source, bounds, cut)
-        canvas.restoreToCount(layer)
     }
 }

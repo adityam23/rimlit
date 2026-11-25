@@ -86,13 +86,12 @@ class SideLightTest {
     private fun assertRendersExactly(light: SideLight, width: Float, height: Float, columns: Int, padding: Int) {
         val rows = (columns * height / width).toInt().coerceAtLeast(1)
         val rowBytes = columns + padding
-        val pixels = light.render(width, height, columns, rows, rowBytes)
-        assertEquals(rowBytes * rows, pixels.alphas.size)
-        var anyLit = false
+        val alphas = light.render(width, height, columns, rows, rowBytes)
+        assertEquals(rowBytes * rows, alphas.size)
         for (row in 0 until rows) {
             val y = (row + 0.5f) * height / rows
             for (column in 0 until rowBytes) {
-                val alpha = pixels.alphas[row * rowBytes + column].toInt() and 0xFF
+                val alpha = alphas[row * rowBytes + column].toInt() and 0xFF
                 val at = "at column $column, row $row of $columns × $rows"
                 if (column >= columns) {
                     assertEquals(0, alpha, "padding $at")
@@ -101,33 +100,22 @@ class SideLightTest {
                 val shown = light.at((column + 0.5f) * width / columns, y)
                 assertTrue(shown in 0f..1f, at)
                 assertEquals((255 * shown + 0.5f).toInt(), alpha, at)
-                if (alpha != 0) {
-                    anyLit = true
-                    assertTrue(column >= pixels.left && column < pixels.right, "lit bounds' columns hold $at")
-                    assertTrue(row >= pixels.top && row < pixels.bottom, "lit bounds' rows hold $at")
-                }
             }
-        }
-        if (anyLit) {
-            // The bounds are tight: each of their edges has a lit pixel.
-            val lit = { column: Int, row: Int -> pixels.alphas[row * rowBytes + column].toInt() != 0 }
-            assertTrue((pixels.top until pixels.bottom).any { lit(pixels.left, it) }, "left bound is lit")
-            assertTrue((pixels.top until pixels.bottom).any { lit(pixels.right - 1, it) }, "right bound is lit")
-            assertTrue((pixels.left until pixels.right).any { lit(it, pixels.top) }, "top bound is lit")
-            assertTrue((pixels.left until pixels.right).any { lit(it, pixels.bottom - 1) }, "bottom bound is lit")
-        } else {
-            assertEquals(listOf(0, 0, 0, 0), listOf(pixels.left, pixels.top, pixels.right, pixels.bottom))
         }
     }
 
     @Test
     fun oneSideLitLightsOnlyItsPart() {
         // The top alone, on a 4 px grid: nothing deeper than half the width (540 px) is nearest the top, and nothing
-        // within its 100 px corners, so the mask's layer skips all that.
-        val pixels = light(TOP).render(1080f, 1920f, 270, 480, 270)
-        assertEquals(0, pixels.top)
-        assertTrue(pixels.bottom <= 540 / 4 + 1, "bottom ${pixels.bottom}")
-        assertTrue(pixels.left >= 100 / 4 && pixels.right <= 270 - 100 / 4, "columns ${pixels.left}–${pixels.right}")
+        // within its 100 px corners, so all that stays dark, while the top's middle shows fully.
+        val alphas = light(TOP).render(1080f, 1920f, 270, 480, 270)
+        for (row in 0 until 480) {
+            for (column in 0 until 270) {
+                val inTopsPart = row <= 540 / 4 && column >= 100 / 4 && column < 270 - 100 / 4
+                if (!inTopsPart) assertEquals(0, alphas[row * 270 + column].toInt(), "at column $column, row $row")
+            }
+        }
+        assertEquals(255, alphas[270 / 2].toInt() and 0xFF, "the top's middle")
     }
 
     @Test

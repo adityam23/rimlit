@@ -72,13 +72,13 @@ fun EdgeGlow(
             val outlines = layout.outlines
             val edges = Array(outlines.size) {
                 val outline = outlines[it]
-                // No edge draws nothing to mask, so it builds none.
+                // No edge draws nothing to mask, so it builds none. The brush cuts its paints to the mask.
                 val sideMask = if (style == GlowStyle.NONE) {
                     null
                 } else {
                     SideMaskKey.of(outline.geometry.shape, outline.key, spec.sides)?.let(sideMasks::get)
                 }
-                style.painter(OutlineBrush(spec, playback, outline), sideMask)
+                style.painter(OutlineBrush(spec, playback, outline, sideMask))
             }
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
