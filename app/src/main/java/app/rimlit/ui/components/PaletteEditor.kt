@@ -35,7 +35,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
@@ -126,7 +126,11 @@ fun PaletteEditor(
 private fun ColorCode(argb: Int, onChange: (Int) -> Unit) {
     var editing by rememberSaveable { mutableStateOf(false) }
     val editCode = stringResource(R.string.palette_hex_edit)
-    TextButton(onClick = { editing = true }, modifier = Modifier.semantics { contentDescription = editCode }) {
+    // The label names the action, not the node, so a screen reader reads the visible code first, then the action.
+    TextButton(
+        onClick = { editing = true },
+        modifier = Modifier.semantics { onClick(label = editCode, action = null) },
+    ) {
         Text(RgbHex.format(argb))
     }
     if (editing) {
