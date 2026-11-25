@@ -12,6 +12,7 @@ import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
 import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticleSpec
+import app.rimlit.model.ScreenSide
 import app.rimlit.model.addImportedLooks
 import app.rimlit.model.newParticleImageId
 import app.rimlit.model.particleImageIds
@@ -111,6 +112,12 @@ class LookArchiveTest {
         assertSame(archive, read(written(archive)))
         val plain = LookArchive(listOf(snow), emptyMap())
         assertSame(plain, read(written(plain)))
+    }
+
+    @Test
+    fun aLooksSidesReadBackAsWritten() {
+        val sides = LookArchive(listOf(snow.copy(sides = setOf(ScreenSide.TOP, ScreenSide.LEFT))), emptyMap())
+        assertSame(sides, read(written(sides)))
     }
 
     @Test

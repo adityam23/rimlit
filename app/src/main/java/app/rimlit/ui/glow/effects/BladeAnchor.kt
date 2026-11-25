@@ -1,6 +1,6 @@
 package app.rimlit.ui.glow.effects
 
-import app.rimlit.ui.glow.CutoutSide
+import app.rimlit.model.ScreenSide
 import app.rimlit.ui.glow.GlowOutline
 import app.rimlit.ui.glow.OutlinePart
 import app.rimlit.ui.glow.turn
@@ -22,7 +22,7 @@ internal class BladeAnchor(outline: GlowOutline) {
  * The side of the screen an outline's [BladeAnchor.across] faces: the top for the screen edge (which [opensInward]),
  * the cutout's own [cutoutSide] for the cutout ring.
  */
-internal fun nearSide(opensInward: Boolean, cutoutSide: CutoutSide?): CutoutSide =
-    if (opensInward) CutoutSide.TOP else checkNotNull(cutoutSide) { "A cutout ring needs its cutout" }
+internal fun nearSide(opensInward: Boolean, cutoutSide: ScreenSide?): ScreenSide =
+    if (opensInward) ScreenSide.TOP else checkNotNull(cutoutSide) { "A cutout ring needs its cutout" }
 
 internal val BladeAnchors = OutlinePart(::BladeAnchor)

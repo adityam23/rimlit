@@ -13,6 +13,7 @@ import app.rimlit.model.ParticlePicture
 import app.rimlit.model.ParticleSpec
 import app.rimlit.model.Premade
 import app.rimlit.model.Rule
+import app.rimlit.model.ScreenSide
 import app.rimlit.model.isValidLookName
 import app.rimlit.model.isValidParticleImageId
 import app.rimlit.model.lookNameKey
@@ -84,11 +85,18 @@ internal object ColorHex {
     fun decode(hex: String): Int? = hex.toLongOrNull(16)?.takeIf { it in 0..0xFFFFFFFFL }?.toInt()
 }
 
-internal inline fun <reified E : Enum<E>> String?.toEnumOr(default: E): E = toEnumOrNull<E>() ?: default
+// Tolerant reads of stored JSON values: a value of the wrong type reads as absent.
 
-/** The value of [E] named this; `null` when there is none, for a value with no fallback. */
-internal inline fun <reified E : Enum<E>> String?.toEnumOrNull(): E? =
-    this?.let { name -> enumValues<E>().firstOrNull { it.name == name } }
+private fun JSONObject.string(key: String): String? = opt(key) as? String
+
+private fun JSONObject.number(key: String): Number? = opt(key) as? Number
+
+/** The strings in this array, in order, skipping what isn't one. */
+private fun JSONArray.strings(): Sequence<String> = (0 until length()).asSequence().mapNotNull { opt(it) as? String }
+
+/** The finite number at [key] clamped to [range], or [default] when there is none. */
+private fun JSONObject.float(key: String, default: Float, range: ClosedFloatingPointRange<Float>): Float =
+    (number(key)?.toFloat()?.takeIf { it.isFinite() } ?: default).coerceIn(range)
 
 /** [parse]'s result, or `null` when the JSON is malformed: the caller falls back. */
 private inline fun <T> parsedOrNull(parse: () -> T): T? = try {
@@ -96,14 +104,6 @@ private inline fun <T> parsedOrNull(parse: () -> T): T? = try {
 } catch (_: JSONException) {
     null
 }
-
-private fun JSONObject.string(key: String): String? = opt(key) as? String
-
-private fun JSONObject.number(key: String): Number? = opt(key) as? Number
-
-/** The finite number at [key] clamped to [range], or [default] when there is none. */
-private fun JSONObject.float(key: String, default: Float, range: ClosedFloatingPointRange<Float>): Float =
-    (number(key)?.toFloat()?.takeIf { it.isFinite() } ?: default).coerceIn(range)
 
 private object LookJson {
     private const val ID = "id"
@@ -117,6 +117,9 @@ private object LookJson {
     private const val AUTO_COLOR_COUNT = "autoColorCount"
     private const val CUSTOM_COLORS = "customColors"
     private const val REGION = "region"
+
+    /** An array of side names; absent before sides, and then every side, as are an empty array and unknown names. */
+    private const val SIDES = "sides"
     private const val THICKNESS_DP = "thicknessDp"
     private const val GLOW_WIDTH_DP = "glowWidthDp"
     private const val SPEED = "speed"
@@ -137,6 +140,7 @@ private object LookJson {
         .put(AUTO_COLOR_COUNT, look.autoColors.count)
         .put(CUSTOM_COLORS, PaletteJson.encode(look.customColors))
         .put(REGION, look.region.name)
+        .put(SIDES, JSONArray(look.sides.sorted().map { it.name }))
         .put(THICKNESS_DP, look.thicknessDp.toDouble())
         .put(GLOW_WIDTH_DP, look.glowWidthDp.toDouble())
         .put(SPEED, look.speed.toDouble())
@@ -161,6 +165,8 @@ private object LookJson {
             ),
             customColors = obj.optJSONArray(CUSTOM_COLORS)?.let(PaletteJson::decode) ?: defaults.customColors,
             region = obj.string(REGION).toEnumOr(defaults.region),
+            sides = obj.optJSONArray(SIDES)?.strings()?.mapNotNull { it.toEnumOrNull<ScreenSide>() }?.toSet()
+                ?.ifEmpty { null } ?: defaults.sides,
             thicknessDp = obj.float(THICKNESS_DP, defaults.thicknessDp, Ranges.thicknessDp),
             glowWidthDp = obj.float(GLOW_WIDTH_DP, defaults.glowWidthDp, Ranges.glowWidthDp),
             speed = obj.float(SPEED, defaults.speed, Ranges.speed),
@@ -222,8 +228,7 @@ private object ParticleJson {
         obj.opt(APP_ICON) == true -> ParticlePicture.AppIcon
 
         obj.has(IMAGES) -> obj.optJSONArray(IMAGES)?.let { array ->
-            (0 until array.length()).asSequence()
-                .mapNotNull { array.opt(it) as? String }
+            array.strings()
                 .filter(::isValidParticleImageId)
                 .distinct()
                 .take(MAX_PARTICLE_IMAGES)
@@ -255,6 +260,5 @@ private object RuleJson {
 private object PaletteJson {
     fun encode(palette: GlowPalette.Colors) = JSONArray().apply { palette.argb.forEach { put(ColorHex.encode(it)) } }
 
-    fun decode(array: JSONArray): GlowPalette.Colors? =
-        decodePalette((0 until array.length()).asSequence().mapNotNull { array.opt(it) as? String })
+    fun decode(array: JSONArray): GlowPalette.Colors? = decodePalette(array.strings())
 }

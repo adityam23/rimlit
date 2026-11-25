@@ -32,6 +32,7 @@ enum class Premade(val style: GlowStyle) {
         autoColors = AutoColors(source = AutoColorSource.APP_ICON, count = 1),
         customColors = GlowPalette.Colors(listOf(DEFAULT_GLOW_ARGB)),
         region = EdgeRegion.FULL_SCREEN,
+        sides = ALL_SIDES,
         thicknessDp = 4f,
         glowWidthDp = 24f,
         speed = 1f,
@@ -50,7 +51,7 @@ enum class Premade(val style: GlowStyle) {
 
 /** The parts of a look the editor shows apart, each compared with and reset to the look's premade on its own. */
 enum class LookPart {
-    /** The edge style and the region it is drawn in. */
+    /** The edge style, the region it is drawn in and the sides of the screen edge it lights. */
     BASE,
     COLOUR,
     PARTICLES,
@@ -64,6 +65,7 @@ enum class LookPart {
 enum class LookControl(val part: LookPart, private val field: LookField<*>) {
     STYLE(LookPart.BASE, LookField(Look::style) { copy(style = it) }),
     REGION(LookPart.BASE, LookField(Look::region) { copy(region = it) }),
+    SIDES(LookPart.BASE, LookField(Look::sides, shows = { it.region.tracesEdge }) { copy(sides = it) }),
     COLOR_MODE(LookPart.COLOUR, LookField(Look::colorMode) { copy(colorMode = it) }),
     AUTO_SOURCE(
         LookPart.COLOUR,

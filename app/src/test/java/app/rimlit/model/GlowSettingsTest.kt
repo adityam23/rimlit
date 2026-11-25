@@ -114,6 +114,15 @@ class GlowSettingsTest {
     }
 
     @Test
+    fun theSpecLightsTheLooksSidesOnlyWhereItTracesTheEdge() {
+        val top = setOf(ScreenSide.TOP)
+        assertEquals(ALL_SIDES, settings.ready().sides)
+        assertEquals(top, settings.previewSpec(work.copy(sides = top)).sides)
+        assertEquals(top, settings.previewSpec(work.copy(sides = top, region = EdgeRegion.CUTOUT_AND_EDGE)).sides)
+        assertEquals(ALL_SIDES, settings.previewSpec(work.copy(sides = top, region = EdgeRegion.CUTOUT)).sides)
+    }
+
+    @Test
     fun theSpecMatchesTheDisplayCornersUntilTheUserSetsARadius() {
         assertNull(GlowSettings().previewSpec().cornerRadiusDp)
         assertEquals(40f, GlowSettings(cornerRadiusDp = 40f).previewSpec().cornerRadiusDp)

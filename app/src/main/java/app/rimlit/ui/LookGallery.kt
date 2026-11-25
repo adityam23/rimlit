@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -139,6 +140,7 @@ internal fun LookCard(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
         )
         below()
     }
@@ -233,6 +235,7 @@ private fun NewLookTile(onNew: () -> Unit) {
         Text(
             text = stringResource(R.string.look_new),
             style = MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp),
         )
     }

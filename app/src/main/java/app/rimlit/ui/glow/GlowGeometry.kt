@@ -8,6 +8,7 @@ import android.os.Build
 import android.view.RoundedCorner
 import android.view.View
 import app.rimlit.model.CustomCutout
+import app.rimlit.model.ScreenSide
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.min
@@ -44,7 +45,7 @@ internal class GlowGeometry(val shape: OutlineShape, val path: Path = Path().als
     }
 
     /**
-     * Arc distance, in [0, [length]), of the outline point at angle [turn] around [center] (see [CutoutSide.turn]): the
+     * Arc distance, in [0, [length]), of the outline point at angle [turn] around [center] (see [ScreenSide.turn]): the
      * inverse of [angleAt]. Angles grow along the outline, wrapping once, so this finds the two samples [turn] lies
      * between, then bisects. For building painters, not for every frame.
      */
@@ -79,12 +80,12 @@ internal class GlowGeometry(val shape: OutlineShape, val path: Path = Path().als
 }
 
 /** Direction toward this side of the screen, as the turn [GlowGeometry.angleAt] measures: clockwise from the right. */
-internal val CutoutSide.turn: Float
+internal val ScreenSide.turn: Float
     get() = when (this) {
-        CutoutSide.RIGHT -> 0f
-        CutoutSide.BOTTOM -> 0.25f
-        CutoutSide.LEFT -> 0.5f
-        CutoutSide.TOP -> 0.75f
+        ScreenSide.RIGHT -> 0f
+        ScreenSide.BOTTOM -> 0.25f
+        ScreenSide.LEFT -> 0.5f
+        ScreenSide.TOP -> 0.75f
     }
 
 /** Corner radius assumed where the system doesn't report the display's own (before API 31). */
@@ -125,7 +126,7 @@ internal data class DisplayShape(
             val cx = width / 2f
             val cy = hole * 2.2f
             val camera = pill(RectF(cx - hole, cy - hole, cx + hole, cy + hole))
-            return DisplayShape(FloatArray(4) { corner }, Cutout(CutoutSide.TOP, camera.polygon()))
+            return DisplayShape(FloatArray(4) { corner }, Cutout(ScreenSide.TOP, camera.polygon()))
         }
     }
 

@@ -284,7 +284,7 @@ internal class Transition(private var state: GlowState) {
 
     /** (Re)starts the fade-in; a glow that starts on screen is recent for the screen-off hand-off. */
     private fun fadeIn(glow: Glow) {
-        arm(Timer.FADE_IN, FADE_IN_MS)
+        arm(Timer.FADE_IN, fadesFor(glow.spec.durationMs).inMs)
         if (glow.surface != Surface.LOCK_SCREEN) {
             arm(Timer.HAND_OFF_WINDOW, (glow.spec.durationMs * HAND_OFF_SHARE).toLong())
         }
@@ -294,7 +294,7 @@ internal class Transition(private var state: GlowState) {
         val current = glow ?: return
         setGlow(current.copy(phase = Phase.FADING_OUT, instant = false))
         disarm(Timer.FADE_IN, Timer.HOLD, Timer.HAND_OFF_WINDOW)
-        arm(Timer.FADE_OUT, FADE_OUT_MS)
+        arm(Timer.FADE_OUT, fadesFor(current.spec.durationMs).outMs)
     }
 
     private fun open(surface: Surface) {

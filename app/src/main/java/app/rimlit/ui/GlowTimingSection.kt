@@ -20,6 +20,15 @@ import app.rimlit.ui.components.SwitchCard
 import app.rimlit.ui.glow.BATTERY_SAVER_FPS
 import kotlin.math.roundToInt
 
+private const val DURATION_FINE_STEP_MS = 100L
+private const val DURATION_FINE_BELOW_MS = 1_000L
+
+/** [ms] as the duration slider sets it: in 100 ms steps below one second, as it is from there up. */
+internal fun snapDurationMs(ms: Long): Long = when {
+    ms >= DURATION_FINE_BELOW_MS -> ms
+    else -> (ms + DURATION_FINE_STEP_MS / 2) / DURATION_FINE_STEP_MS * DURATION_FINE_STEP_MS
+}
+
 /**
  * Behavior's settings every glow shares, whatever its look: how long it holds, its screen-off brightness, battery.
  * [onDraggingScreenOff] says when the screen-off brightness slider starts and stops being dragged, to preview it.
@@ -38,6 +47,7 @@ internal fun LazyListScope.glowTimingSection(
             valueText = { stringResource(R.string.value_seconds, it / 1000f) },
             onPreview = { v -> editor.preview { it.copy(durationMs = v.toLong()) } },
             onCommit = { v -> editor.persist { it.copy(durationMs = v.toLong()) } },
+            snap = { snapDurationMs(it.toLong()).toFloat() },
         )
     }
     screenOffBrightnessItems(draft, editor, onDraggingScreenOff)

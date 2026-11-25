@@ -13,11 +13,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.rimlit.engine.FADE_IN_MS
-import app.rimlit.engine.FADE_OUT_MS
 import app.rimlit.engine.GlowFrame
 import app.rimlit.engine.GlowState
 import app.rimlit.engine.Surface
+import app.rimlit.engine.fadesFor
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -59,10 +58,11 @@ internal val FRAME = { state: GlowState?, surface: Surface -> state?.frameFor(su
 internal fun rememberFrameAlpha(frame: GlowFrame): State<Float> {
     val alpha = remember { Animatable(0f) }
     LaunchedEffect(frame.visible, frame.instant) {
+        val fades = fadesFor(frame.spec.durationMs)
         when {
             frame.instant -> alpha.snapTo(if (frame.visible) 1f else 0f)
-            frame.visible -> alpha.animateTo(1f, tween(FADE_IN_MS.toInt(), easing = LinearOutSlowInEasing))
-            else -> alpha.animateTo(0f, tween(FADE_OUT_MS.toInt(), easing = FastOutSlowInEasing))
+            frame.visible -> alpha.animateTo(1f, tween(fades.inMs.toInt(), easing = LinearOutSlowInEasing))
+            else -> alpha.animateTo(0f, tween(fades.outMs.toInt(), easing = FastOutSlowInEasing))
         }
     }
     return alpha.asState()

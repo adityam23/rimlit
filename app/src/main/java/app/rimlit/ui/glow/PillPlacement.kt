@@ -3,6 +3,7 @@ package app.rimlit.ui.glow
 import android.view.View
 import androidx.compose.ui.geometry.Rect
 import app.rimlit.model.GlowSettings
+import app.rimlit.model.ScreenSide
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -88,7 +89,7 @@ internal fun View.pillPlacement(settings: GlowSettings?, metrics: PillMetrics): 
     val custom = settings?.customCutout
     val detected = displayCutout()
     val cutout = (custom?.let { detected?.redrawn(it, density, width.toFloat(), height.toFloat()) } ?: detected)
-        ?.takeIf { it.side == CutoutSide.TOP }?.bounds
+        ?.takeIf { it.side == ScreenSide.TOP }?.bounds
         ?.let { Rect(it.left, it.top, it.right, it.bottom) }
     return pillPlacement(
         windowWidth = width,

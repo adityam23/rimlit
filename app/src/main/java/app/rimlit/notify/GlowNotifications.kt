@@ -23,6 +23,12 @@ object GlowNotifications {
     /** The longest a post can take to start holding: its image loads, its surface opens, it fades in. */
     private const val GLOW_RUN_UP_MS = NotificationColorExtractor.IMAGE_LOAD_TIMEOUT_MS + OPEN_TIMEOUT_MS + FADE_IN_MS
 
+    /**
+     * When one of Rimlit's own notifications times out: after the glow's hold plus its longest run-up, so a short glow
+     * isn't withdrawn before the system delivers it (the trampoline's full-screen intent) or before the glow holds.
+     */
+    internal fun timeoutAfterMs(durationMs: Long): Long = durationMs + GLOW_RUN_UP_MS
+
     /** Creates (or refreshes the names of) both channels; safe to call repeatedly. */
     fun createChannels(context: Context) {
         context.getSystemService(NotificationManager::class.java).createNotificationChannels(
@@ -84,12 +90,15 @@ object GlowNotifications {
             .setContentTitle(context.getString(R.string.test_notification_title))
             .setContentText(context.getString(R.string.test_notification_desc))
             .setAutoCancel(true)
-            .setTimeoutAfter(durationMs + GLOW_RUN_UP_MS)
+            .setTimeoutAfter(timeoutAfterMs(durationMs))
             .build()
         context.getSystemService(NotificationManager::class.java).notify(TEST_NOTIFICATION_ID, notification)
     }
 
-    /** Wakes the screen into [activity] through a full-screen intent; the trampoline times out after [durationMs]. */
+    /**
+     * Wakes the screen into [activity] through a full-screen intent; the trampoline times out after [timeoutAfterMs],
+     * or is cancelled sooner when the glow ends.
+     */
     fun postLockScreenWake(context: Context, activity: Intent, durationMs: Long) {
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -104,7 +113,7 @@ object GlowNotifications {
             // Only a trampoline to wake the screen: never bridge it to a watch, where it would mask the real one.
             .setLocalOnly(true)
             .setAutoCancel(true)
-            .setTimeoutAfter(durationMs)
+            .setTimeoutAfter(timeoutAfterMs(durationMs))
             .build()
         // Updating a live notification doesn't re-alert, so its full-screen intent wouldn't fire again.
         cancelLockScreenWake(context)

@@ -50,9 +50,24 @@ import app.rimlit.model.GlowSpec
  * requests an open or a dismissal only from the instance it confirmed.
  */
 
-/** How long a glow fades in, then out, around its hold. `GlowHost` animates with the same durations. */
+/** How long a glow of full length fades in, then out, around its hold. */
 const val FADE_IN_MS = 180L
 const val FADE_OUT_MS = 450L
+
+/** A glow's fade-in and fade-out times, in milliseconds. */
+data class Fades(val inMs: Long, val outMs: Long)
+
+/**
+ * The one definition of a glow's fades, which the machine's timers, `GlowHost` and the particles all follow: the full
+ * [FADE_IN_MS] and [FADE_OUT_MS] from a hold of [FADE_IN_MS] + [FADE_OUT_MS] up, below it both scaled by the hold's
+ * share of that, so they always add up to the hold.
+ */
+fun fadesFor(durationMs: Long): Fades {
+    val full = FADE_IN_MS + FADE_OUT_MS
+    if (durationMs >= full) return Fades(FADE_IN_MS, FADE_OUT_MS)
+    val fadeIn = FADE_IN_MS * durationMs / full
+    return Fades(fadeIn, durationMs - fadeIn)
+}
 
 /** A surface that hasn't confirmed opening by now (e.g. a full-screen intent never delivered) is given up. */
 const val OPEN_TIMEOUT_MS = 5_000L

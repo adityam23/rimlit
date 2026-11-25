@@ -167,7 +167,8 @@ class GlowMachineModelCheckTest {
 
     /** Invariants relating a transition's states, event and effects. */
     private fun transitionViolation(old: GlowState, event: GlowEvent, step: GlowStep): String? =
-        surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: pendingViolation(old, event, step)
+        surfaceViolation(old, event, step) ?: timerViolation(old, event, step) ?: delayViolation(step)
+            ?: pendingViolation(old, event, step)
             ?: sourceViolation(old, event, step.state) ?: reportViolation(old, event, step)
             ?: placementViolation(old, event, step) ?: openViolation(old, event, step)
             ?: dismissViolation(old, event, step) ?: silentUpdateViolation(old, event, step)
@@ -307,6 +308,46 @@ class GlowMachineModelCheckTest {
         val advanced = after.phase > before.phase || (after.phase == before.phase && step.state.armed.size < old.armed.size)
         return "$event didn't move the glow forward".takeUnless { advanced }
     }
+
+    /**
+     * A glow's timeline timers are armed for its own durations: the fade-in and fade-out its [fadesFor] gives the
+     * glow's duration (short glows scale them; [fadesOfFixture] computes each once), the hold the duration itself. The glow concerned is the one the step
+     * leaves; a timer armed and disarmed again within the step (a glow fading out as a newer one replaces it) is
+     * the replaced glow's and goes unchecked.
+     */
+    private fun delayViolation(step: GlowStep): String? {
+        // Runs on every transition: allocates nothing unless it reports a violation.
+        val effects = step.effects
+        for (i in effects.indices) {
+            val arm = effects[i] as? GlowEffect.Arm ?: continue
+            if (isTimerTouchedAfter(effects, i, arm.timer)) continue
+            val duration = step.state.glow?.spec?.durationMs ?: return "arms ${timersLeftArmed(effects)} without a glow"
+            val expected = when (arm.timer) {
+                Timer.FADE_IN -> fadesOfFixture(duration).inMs
+                Timer.FADE_OUT -> fadesOfFixture(duration).outMs
+                Timer.HOLD -> duration
+                else -> continue
+            }
+            if (arm.delayMs != expected) return "${arm.timer} armed for ${arm.delayMs} ms, not $expected ms"
+        }
+        return null
+    }
+
+    /** Whether an effect after [index] disarms or arms [timer] again, so the one at [index] doesn't last the step. */
+    private fun isTimerTouchedAfter(effects: List<GlowEffect>, index: Int, timer: Timer): Boolean {
+        for (i in index + 1 until effects.size) {
+            val effect = effects[i]
+            if ((effect is GlowEffect.Arm && effect.timer == timer) || (effect is GlowEffect.Disarm && effect.timer == timer)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /** The timers still armed once [effects] have run; for a violation's message only. */
+    private fun timersLeftArmed(effects: List<GlowEffect>): List<Timer> = effects.withIndex()
+        .mapNotNull { (i, effect) -> (effect as? GlowEffect.Arm)?.timer?.takeUnless { isTimerTouchedAfter(effects, i, it) } }
+        .sorted()
 
     /** The auto colours this pending post's own settings extract it with. */
     private fun Pending.autoColors() = autoColors(settings, post.packageName)
@@ -468,6 +509,17 @@ class GlowMachineModelCheckTest {
         const val CHUNK = 1024
 
         val TIMELINE_TIMERS = setOf(Timer.FADE_IN, Timer.HOLD, Timer.FADE_OUT)
+
+        /** Every glow duration the fixtures give a glow, each with its [fadesFor], computed once for the whole search. */
+        private val FIXTURE_DURATIONS: LongArray =
+            (SETTINGS.map { it.durationMs } + PREVIEW_SPEC.durationMs).distinct().toLongArray()
+        private val FIXTURE_FADES: Array<Fades> = Array(FIXTURE_DURATIONS.size) { fadesFor(FIXTURE_DURATIONS[it]) }
+
+        /** The fades of a fixture glow's [duration]; an array walk, since the search asks millions of times. */
+        fun fadesOfFixture(duration: Long): Fades {
+            for (i in FIXTURE_DURATIONS.indices) if (FIXTURE_DURATIONS[i] == duration) return FIXTURE_FADES[i]
+            error("no fixture glow lasts $duration ms")
+        }
 
         /** Inputs from outside the executor, possible in every state. Built once: the search visits millions. */
         val EXTERNAL_EVENTS: List<GlowEvent> = buildList {

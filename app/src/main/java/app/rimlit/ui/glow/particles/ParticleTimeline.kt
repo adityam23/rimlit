@@ -1,7 +1,6 @@
 package app.rimlit.ui.glow.particles
 
-import app.rimlit.engine.FADE_IN_MS
-import app.rimlit.engine.FADE_OUT_MS
+import app.rimlit.engine.fadesFor
 import kotlin.math.floor
 import kotlin.math.min
 
@@ -24,11 +23,15 @@ internal class ParticleTimeline(
     private val preview: Boolean,
 ) {
 
+    private val fades = fadesFor(holdMs)
+    private val fadeInSeconds = fades.inMs / MILLIS_PER_SECOND
+    private val fadeOutSeconds = fades.outMs / MILLIS_PER_SECOND
+
     /** The last moment a particle may spawn: the end of the hold. */
-    val spawnEnd: Float = (FADE_IN_MS + holdMs) / MILLIS_PER_SECOND
+    val spawnEnd: Float = fadeInSeconds + holdMs / MILLIS_PER_SECOND
 
     /** The glow's whole length: fade in, hold, fade out. */
-    val cycle: Float = spawnEnd + FADE_OUT_SECONDS
+    val cycle: Float = spawnEnd + fadeOutSeconds
 
     /** [t] (seconds since the first frame, at least 0) within the current repetition. */
     fun local(t: Float): Float = t - cycle * floor(t / cycle)
@@ -47,14 +50,12 @@ internal class ParticleTimeline(
      * none pops out at its end.
      */
     private fun envelope(local: Float): Float {
-        val fadingIn = local / FADE_IN_SECONDS
-        val fadingOut = (cycle - local) / FADE_OUT_SECONDS
+        val fadingIn = local / fadeInSeconds
+        val fadingOut = (cycle - local) / fadeOutSeconds
         return min(fadingIn, fadingOut).coerceIn(0f, 1f)
     }
 
     private companion object {
         const val MILLIS_PER_SECOND = 1_000f
-        const val FADE_IN_SECONDS = FADE_IN_MS / MILLIS_PER_SECOND
-        const val FADE_OUT_SECONDS = FADE_OUT_MS / MILLIS_PER_SECOND
     }
 }

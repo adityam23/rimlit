@@ -1,10 +1,15 @@
 package app.rimlit.ui.glow
 
 import app.rimlit.model.EdgeRegion
+import app.rimlit.model.GlowSpec
+
+/** The gap between the cutout and the ring round it. */
+private const val CUTOUT_GAP_DP = 4f
 
 /**
- * Everything the outlines and their halos depend on. Colors, style, speed, brightness and duration don't change them,
- * so editing those (e.g. dragging a preview slider) reuses the built [GlowLayout].
+ * Everything the outlines and their halos depend on. Colors, style, speed, brightness, duration and the lit sides
+ * (masked apart, see [SideMaskKey]) don't change them, so editing those (e.g. dragging a preview slider) reuses the
+ * built [GlowLayout].
  */
 internal data class GlowLayoutKey(
     val width: Float,
@@ -16,7 +21,23 @@ internal data class GlowLayoutKey(
     val cutoutGapPx: Float,
     /** Glow width: the halo's blur radius. */
     val glowPx: Float,
-)
+) {
+    /** The halo's line: twice the glow's thickness, so the halo rises from beneath the whole stroke. */
+    val haloStrokePx: Float get() = thicknessPx * 2f
+
+    companion object {
+        /** The layout [spec] draws in a [width] × [height] window of [shape], at [density] pixels per dp. */
+        fun of(spec: GlowSpec, width: Float, height: Float, shape: DisplayShape, density: Float) = GlowLayoutKey(
+            width = width,
+            height = height,
+            shape = shape,
+            region = spec.region,
+            thicknessPx = spec.thicknessDp * density,
+            cutoutGapPx = CUTOUT_GAP_DP * density,
+            glowPx = spec.glowWidthDp * density,
+        )
+    }
+}
 
 /**
  * Data an effect derives from one outline and its layout (e.g. wave samples), built on first use and kept as long as
@@ -40,7 +61,7 @@ internal class GlowOutline(val geometry: GlowGeometry, val key: GlowLayoutKey) {
     val bloom: BloomMask? by lazy(LazyThreadSafetyMode.NONE) {
         // A zero-radius blur is invalid.
         if (key.glowPx > 0f) {
-            BloomMask(geometry, key.width, key.height, strokePx = key.thicknessPx * 2f, blurPx = key.glowPx)
+            BloomMask(geometry, key.width, key.height, strokePx = key.haloStrokePx, blurPx = key.glowPx)
         } else {
             null
         }

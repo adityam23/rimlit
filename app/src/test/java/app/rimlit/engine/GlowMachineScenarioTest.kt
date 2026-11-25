@@ -6,6 +6,7 @@ import app.rimlit.engine.Fixtures.CUSTOM
 import app.rimlit.engine.Fixtures.EXTRACTED
 import app.rimlit.engine.Fixtures.LOCK_SCREEN
 import app.rimlit.engine.Fixtures.NIGHT
+import app.rimlit.engine.Fixtures.NORMAL
 import app.rimlit.engine.Fixtures.OTHER_APP
 import app.rimlit.engine.Fixtures.PREVIEW_SPEC
 import app.rimlit.engine.Fixtures.RULED
@@ -85,6 +86,52 @@ class GlowMachineScenarioTest {
         run.fire(Timer.FADE_OUT)
         assertNull(run.state.glow)
         assertEquals(listOf(GlowEffect.Close(Surface.APP_OVERLAY)), run.effects.surfaceEffects())
+    }
+
+    @Test
+    fun aGlowOfNormalLengthFadesForTheFullTimes() {
+        val run = run(NORMAL).send(posted("a"), opened(Surface.APP_OVERLAY))
+        assertTrue(GlowEffect.Arm(Timer.FADE_IN, FADE_IN_MS) in run.effects, "fades in for the full time")
+
+        run.fire(Timer.FADE_IN, Timer.HOLD)
+        assertTrue(GlowEffect.Arm(Timer.FADE_OUT, FADE_OUT_MS) in run.effects, "fades out for the full time")
+    }
+
+    @Test
+    fun aShortGlowFadesInAndOutForScaledTimesAroundItsFullHold() {
+        val short = CUSTOM.durationMs
+        val run = run(CUSTOM).send(posted("a"), opened(Surface.APP_OVERLAY))
+        assertTrue(GlowEffect.Arm(Timer.FADE_IN, fadesFor(short).inMs) in run.effects, "fades in for ${fadesFor(short)}")
+        assertTrue(fadesFor(short).inMs < FADE_IN_MS)
+
+        run.fire(Timer.FADE_IN)
+        assertTrue(GlowEffect.Arm(Timer.HOLD, short) in run.effects, "still holds for the whole duration")
+
+        run.fire(Timer.HOLD)
+        assertTrue(GlowEffect.Arm(Timer.FADE_OUT, fadesFor(short).outMs) in run.effects, "fades out for the scaled time")
+    }
+
+    @Test
+    fun aShortGlowCutShortFadesOutForItsOwnScaledTime() {
+        val scaled = fadesFor(CUSTOM.durationMs).outMs
+
+        val dismissed = run(CUSTOM).send(posted("a"), opened(Surface.APP_OVERLAY))
+        dismissed.send(GlowEvent.DismissRequested(Surface.APP_OVERLAY))
+        assertTrue(GlowEffect.Arm(Timer.FADE_OUT, scaled) in dismissed.effects, "dismissed while fading in")
+
+        val removed = run(CUSTOM).send(posted("a"), opened(Surface.APP_OVERLAY)).fire(Timer.FADE_IN).send(GlowEvent.Removed("a"))
+        assertTrue(GlowEffect.Arm(Timer.FADE_OUT, scaled) in removed.effects, "removed while holding")
+    }
+
+    @Test
+    fun aGlowReplacedBySettingsOfAnotherLengthFadesOutForTheLengthItWasShownWith() {
+        val run = run(CUSTOM).send(posted("a"), opened(Surface.APP_OVERLAY)).fire(Timer.FADE_IN)
+        run.send(GlowEvent.SettingsChanged(NORMAL.copy(enabled = false)))
+        assertTrue(GlowEffect.Arm(Timer.FADE_OUT, fadesFor(CUSTOM.durationMs).outMs) in run.effects)
+
+        val normal = run(NORMAL).send(posted("a"), opened(Surface.APP_OVERLAY)).fire(Timer.FADE_IN)
+        normal.send(GlowEvent.SettingsChanged(CUSTOM.copy(enabled = false)))
+        assertTrue(GlowEffect.Arm(Timer.FADE_OUT, FADE_OUT_MS) in normal.effects, "a settings change doesn't rescale it")
     }
 
     @Test

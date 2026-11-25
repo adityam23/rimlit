@@ -41,6 +41,8 @@ fun EdgeGlow(
     // A still glow needs no clock at all: it draws once.
     val seconds = rememberFrameSeconds(running = !playback.still, maxFps = playback.maxFps)
     val layouts = remember { BuildCache(::GlowLayout) }
+    // Only the screen edge is masked, so one mask, cached apart from the layout: lighting a side re-blurs no halo.
+    val sideMasks = remember { BuildCache(::SideMask) }
     val particles = rememberParticleLayer()
     // A preview's particles start over with each new duration: it sets their cycle, so on the running clock every
     // particle would jump (each tick of the duration slider). On a surface the duration never changes mid-glow.
@@ -61,24 +63,23 @@ fun EdgeGlow(
             val shape = display
                 .let { d -> spec.cornerRadiusDp?.let { d.withCornerRadius(it * pxPerDp) } ?: d }
                 .let { d -> spec.customCutout?.let { d.withCustomCutout(it, pxPerDp, size.width, size.height) } ?: d }
-            val layout = layouts.get(
-                GlowLayoutKey(
-                    width = size.width,
-                    height = size.height,
-                    shape = shape,
-                    region = spec.region,
-                    thicknessPx = spec.thicknessDp.dp.toPx(),
-                    cutoutGapPx = 4.dp.toPx(),
-                    glowPx = spec.glowWidthDp.dp.toPx(),
-                ),
-            )
+            val layout = layouts.get(GlowLayoutKey.of(spec, size.width, size.height, shape, density))
             val particlePainter = particles.painter(spec, playback, size, pxPerDp, preview)
             // No edge draws the plain outline when no particles draw (none in the spec, none under Remove
             // animations, or none of their images stored any more): a glow showing nothing would hide the notification.
             val style = if (spec.style == GlowStyle.NONE && particlePainter == null) GlowStyle.BASIC else spec.style
             // One painter per outline, each in that style; an array, so a frame walks it without an iterator.
             val outlines = layout.outlines
-            val edges = Array(outlines.size) { style.painter(OutlineBrush(spec, playback, outlines[it])) }
+            val edges = Array(outlines.size) {
+                val outline = outlines[it]
+                // No edge draws nothing to mask, so it builds none. The brush cuts its paints to the mask.
+                val sideMask = if (style == GlowStyle.NONE) {
+                    null
+                } else {
+                    SideMaskKey.of(outline, spec.sides)?.let(sideMasks::get)
+                }
+                style.painter(OutlineBrush(spec, playback, outline, sideMask))
+            }
             onDrawBehind {
                 // Reading the clock here (draw phase) redraws every frame without recomposing.
                 val t = seconds.value

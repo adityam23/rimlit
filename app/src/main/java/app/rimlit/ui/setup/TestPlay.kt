@@ -22,9 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.rimlit.MainViewModel
 import app.rimlit.R
-import app.rimlit.engine.FADE_IN_MS
-import app.rimlit.engine.FADE_OUT_MS
 import app.rimlit.engine.PreviewTarget
+import app.rimlit.engine.fadesFor
 import app.rimlit.model.GlowSpec
 import app.rimlit.permissions.OverlayFallback
 import app.rimlit.permissions.PermissionStatus
@@ -136,11 +135,12 @@ internal fun WindowTestGlow(player: GlowPlayer, durationMs: Long, modifier: Modi
             glowing = false
         }
     }
+    val fades = fadesFor(durationMs)
     AnimatedVisibility(
         visible = glowing,
         modifier = modifier,
-        enter = fadeIn(tween(FADE_IN_MS.toInt())),
-        exit = fadeOut(tween(FADE_OUT_MS.toInt())),
+        enter = fadeIn(tween(fades.inMs.toInt())),
+        exit = fadeOut(tween(fades.outMs.toInt())),
     ) {
         if (shown != null) key(shown.count) { ScreenGlow(shown.spec, lockScreen = false) }
     }

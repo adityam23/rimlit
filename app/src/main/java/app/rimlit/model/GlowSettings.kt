@@ -193,6 +193,7 @@ data class GlowSettings(
         style = look.style,
         palette = palette,
         region = look.region,
+        sides = if (look.region.tracesEdge) look.sides else ALL_SIDES,
         cornerRadiusDp = cornerRadiusDp,
         customCutout = customCutout,
         thicknessDp = look.thicknessDp,
@@ -218,7 +219,8 @@ data class GlowSettings(
         val pillOffsetDp = -200f..200f
         val speed = 0.25f..3f
         val brightness = 0.2f..1f
-        val durationMs = 1_000L..10_000L
+        val durationMs = 300L..10_000L
+
         val minuteOfDay = 0 until MINUTES_PER_DAY
         val particleSizeDp = 8f..48f
         val particleSpeed = speed

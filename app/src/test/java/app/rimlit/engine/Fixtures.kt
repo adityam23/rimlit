@@ -52,7 +52,11 @@ internal object Fixtures {
     /** These settings with custom colours, so posts show at once. */
     fun GlowSettings.custom() = withDefaultLook { it.copy(colorMode = ColorMode.CUSTOM) }
 
-    val CUSTOM = AUTO.custom()
+    /** Custom colours at the shortest duration: the shortest glow, whose fades scale down (AUTO and the rest keep the normal length). */
+    val CUSTOM = AUTO.custom().copy(durationMs = GlowSettings.Ranges.durationMs.first)
+
+    /** [CUSTOM] at the normal length, whose fades are the full ones. */
+    val NORMAL = CUSTOM.copy(durationMs = GlowSettings().durationMs)
 
     /** A second auto look, with other auto colours than the default one, so extracting with the wrong look is caught. */
     val CHAT_LOOK = Look(id = "chat", name = "Chat", autoColors = AutoColors(AutoColorSource.APP_ICON, count = 3))

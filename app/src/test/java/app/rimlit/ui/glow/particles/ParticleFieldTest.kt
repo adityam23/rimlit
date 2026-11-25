@@ -1,7 +1,7 @@
 package app.rimlit.ui.glow.particles
 
 import app.rimlit.engine.FADE_IN_MS
-import app.rimlit.engine.FADE_OUT_MS
+import app.rimlit.engine.fadesFor
 import app.rimlit.model.GlowSettings
 import app.rimlit.model.ParticleImage
 import app.rimlit.model.ParticleMotion
@@ -150,8 +150,9 @@ class ParticleFieldTest {
         everyField { case ->
             val field = case.field
             val timeline = field.timeline
-            assertEquals((FADE_IN_MS + case.holdMs) / 1000f, timeline.spawnEnd, 1e-4f, "$case")
-            assertEquals((FADE_IN_MS + case.holdMs + FADE_OUT_MS) / 1000f, timeline.cycle, 1e-4f, "$case")
+            val fades = fadesFor(case.holdMs)
+            assertEquals((fades.inMs + case.holdMs) / 1000f, timeline.spawnEnd, 1e-4f, "$case")
+            assertEquals((fades.inMs + case.holdMs + fades.outMs) / 1000f, timeline.cycle, 1e-4f, "$case")
 
             // Once spawning has ended, particles only ever leave: no slot gets a new one, frame by frame. The first
             // frame past the end may still show one spawned within the frame before it.
@@ -168,6 +169,17 @@ class ParticleFieldTest {
                 }
             }
         }
+    }
+
+    /** A hold shorter than the full fades' length scales the particles' timeline with the glow's own fades. */
+    @Test
+    fun aShortHoldsTimelineFollowsItsScaledFades() {
+        val hold = 300L
+        val timeline = ParticleTimeline(hold, preview = true)
+        assertEquals(0.385f, timeline.spawnEnd, 1e-4f, "85 ms in, then the 300 ms hold")
+        assertEquals(0.6f, timeline.cycle, 1e-4f, "then 215 ms out")
+        // Faded in by the end of its own, shorter fade-in, rather than the full one.
+        assertEquals(1f, timeline.opacity(fadesFor(hold).inMs / 1000f), 1e-4f)
     }
 
     /** A preview fades its particles out by itself as each glow's timeline ends. */
